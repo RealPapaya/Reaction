@@ -33,17 +33,13 @@ class ArrowRushGame {
         this.score = 0;
         this.combo = 0;
         this.timeLeft = 30;
-        this.blocks = [];
+        this.currentArrow = null; // 當前箭頭
         this.totalHits = 0;
         this.totalAttempts = 0;
 
         // Game config
-        this.BLOCK_SIZE = 80;
-        this.BLOCK_SPACING = 120;
-        this.FALL_SPEED = 2.5;
-        this.VISIBLE_BLOCKS = 5;
-        this.TARGET_Y = this.canvas.height - 120; // Judgment line position
-        this.FREEZE_DURATION = 500; // 0.5 seconds
+        this.BLOCK_SIZE = 120; // 放大箭頭
+        this.FREEZE_DURATION = 500; // 僵直 0.5 秒
 
         // Direction config
         this.DIRECTIONS = ['up', 'down', 'left', 'right'];
@@ -54,10 +50,10 @@ class ArrowRushGame {
             right: '→'
         };
         this.DIRECTION_COLORS = {
-            up: '#4F46E5',    // Indigo
-            down: '#F97316',  // Orange
-            left: '#22C55E',  // Green
-            right: '#E11D48'  // Red
+            up: '#0EA5E9',    // Vivid Sky Blue
+            down: '#F97316',  // Vivid Orange
+            left: '#22C55E',  // Vivid Green
+            right: '#EF4444'  // Vivid Red
         };
         this.KEY_MAP = {
             'ArrowUp': 'up',
@@ -67,7 +63,6 @@ class ArrowRushGame {
         };
 
         // Animation
-        this.animationId = null;
         this.timerInterval = null;
 
         // Stats from localStorage
@@ -97,9 +92,6 @@ class ArrowRushGame {
     drawInitialScreen() {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
-        // Draw judgment line
-        this.drawJudgmentLine();
-
         // Draw text
         this.ctx.fillStyle = '#1E1B4B';
         this.ctx.font = 'bold 24px Fredoka, sans-serif';
@@ -120,52 +112,28 @@ class ArrowRushGame {
         this.score = 0;
         this.combo = 0;
         this.timeLeft = 30;
-        this.blocks = [];
         this.totalHits = 0;
         this.totalAttempts = 0;
 
         // Update UI
         this.updateUI();
 
-        // Generate initial blocks
-        this.generateInitialBlocks();
+        // Generate first arrow
+        this.nextArrow();
 
         // Start timer
         this.startTimer();
 
-        // Start game loop
-        this.gameLoop();
+        // Initial render
+        this.render();
     }
 
-    generateInitialBlocks() {
-        // Generate 5 initial blocks
-        for (let i = 0; i < this.VISIBLE_BLOCKS; i++) {
-            const block = {
-                direction: this.getRandomDirection(),
-                y: -this.BLOCK_SPACING * (this.VISIBLE_BLOCKS - i - 1) - this.BLOCK_SIZE,
-                isTarget: i === this.VISIBLE_BLOCKS - 1
-            };
-            this.blocks.push(block);
-        }
+    nextArrow() {
+        this.currentArrow = this.getRandomDirection();
     }
 
     getRandomDirection() {
         return this.DIRECTIONS[Math.floor(Math.random() * this.DIRECTIONS.length)];
-    }
-
-    addNewBlock() {
-        // Add new block at the top
-        const topY = this.blocks.length > 0
-            ? this.blocks[0].y - this.BLOCK_SPACING
-            : -this.BLOCK_SIZE;
-
-        const block = {
-            direction: this.getRandomDirection(),
-            y: topY,
-            isTarget: false
-        };
-
-        this.blocks.unshift(block);
     }
 
     handleKeyDown(e) {
@@ -180,7 +148,12 @@ class ArrowRushGame {
         this.highlightKey(e.key);
 
         // Check hit
-        this.checkHit(direction);
+        this.totalAttempts++;
+        if (direction === this.currentArrow) {
+            this.handleHit();
+        } else {
+            this.handleMiss();
+        }
     }
 
     highlightKey(key) {
@@ -201,32 +174,6 @@ class ArrowRushGame {
         }
     }
 
-    checkHit(direction) {
-        // Find the target block (should be the last one visible)
-        const targetBlock = this.blocks.find(b => b.isTarget);
-
-        if (!targetBlock) return;
-
-        // Check if block is in judgment range
-        const distance = Math.abs(targetBlock.y - this.TARGET_Y);
-
-        if (distance > 60) {
-            // Too early or too late - treat as miss
-            this.handleMiss();
-            return;
-        }
-
-        this.totalAttempts++;
-
-        if (targetBlock.direction === direction) {
-            // Correct hit!
-            this.handleHit();
-        } else {
-            // Wrong direction
-            this.handleMiss();
-        }
-    }
-
     handleHit() {
         // Increment score and combo
         let points = 10;
@@ -244,22 +191,12 @@ class ArrowRushGame {
         this.score += points;
         this.totalHits++;
 
-        // Remove the target block
-        const targetIndex = this.blocks.findIndex(b => b.isTarget);
-        if (targetIndex !== -1) {
-            this.blocks.splice(targetIndex, 1);
-        }
+        // Next arrow
+        this.nextArrow();
 
-        // Set new target
-        if (this.blocks.length > 0) {
-            this.blocks[this.blocks.length - 1].isTarget = true;
-        }
-
-        // Add new block at top
-        this.addNewBlock();
-
-        // Update UI
+        // Update UI logic
         this.updateUI();
+        this.render();
     }
 
     handleMiss() {
@@ -267,12 +204,15 @@ class ArrowRushGame {
         this.score = Math.max(0, this.score - 5);
         this.combo = 0;
 
-        // Freeze for 0.5 seconds
+        // Freeze
         this.freeze();
 
         // Update UI
         this.updateUI();
+        this.render();
     }
+
+
 
     freeze() {
         this.isFrozen = true;
@@ -281,92 +221,27 @@ class ArrowRushGame {
         setTimeout(() => {
             this.isFrozen = false;
             this.canvas.classList.remove('frozen');
+            this.render(); // Re-render to clear frozen state
         }, this.FREEZE_DURATION);
-    }
-
-    updateBlocks() {
-        if (this.isFrozen) return;
-
-        // Move all blocks down
-        this.blocks.forEach(block => {
-            block.y += this.FALL_SPEED;
-        });
-
-        // Remove blocks that are too far down
-        this.blocks = this.blocks.filter(block => block.y < this.canvas.height + this.BLOCK_SIZE);
-
-        // Ensure we always have 5 blocks
-        while (this.blocks.length < this.VISIBLE_BLOCKS) {
-            this.addNewBlock();
-        }
-
-        // Update target
-        if (this.blocks.length > 0) {
-            this.blocks.forEach(b => b.isTarget = false);
-            // Find the block closest to target line
-            let closestIndex = 0;
-            let closestDistance = Math.abs(this.blocks[0].y - this.TARGET_Y);
-
-            for (let i = 1; i < this.blocks.length; i++) {
-                const distance = Math.abs(this.blocks[i].y - this.TARGET_Y);
-                if (distance < closestDistance && this.blocks[i].y <= this.TARGET_Y + 60) {
-                    closestDistance = distance;
-                    closestIndex = i;
-                }
-            }
-
-            this.blocks[closestIndex].isTarget = true;
-        }
-    }
-
-    gameLoop() {
-        if (!this.isPlaying) return;
-
-        // Update
-        this.updateBlocks();
-
-        // Render
-        this.render();
-
-        // Continue loop
-        this.animationId = requestAnimationFrame(() => this.gameLoop());
     }
 
     render() {
         // Clear canvas
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
-        // Draw judgment line
-        this.drawJudgmentLine();
+        if (!this.isPlaying || !this.currentArrow) return;
 
-        // Draw blocks
-        this.blocks.forEach(block => {
-            this.drawBlock(block);
-        });
-    }
-
-    drawJudgmentLine() {
-        this.ctx.strokeStyle = '#000000';
-        this.ctx.lineWidth = 5;
-        this.ctx.setLineDash([10, 5]);
-        this.ctx.beginPath();
-        this.ctx.moveTo(50, this.TARGET_Y);
-        this.ctx.lineTo(this.canvas.width - 50, this.TARGET_Y);
-        this.ctx.stroke();
-        this.ctx.setLineDash([]);
-    }
-
-    drawBlock(block) {
+        // Draw current arrow centered
         const x = this.canvas.width / 2 - this.BLOCK_SIZE / 2;
-        const y = block.y;
+        const y = this.canvas.height / 2 - this.BLOCK_SIZE / 2;
+        const direction = this.currentArrow;
 
-        // Block background
-        if (block.isTarget) {
-            this.ctx.fillStyle = this.DIRECTION_COLORS[block.direction];
-        } else {
-            this.ctx.fillStyle = '#FFFFFF';
-        }
+        // Background
+        this.ctx.fillStyle = this.isFrozen ? '#9CA3AF' : this.DIRECTION_COLORS[direction];
 
+        // If frozen, shake effect or gray out - for now just gray out handled by color above
+
+        // Draw Box
         this.ctx.fillRect(x, y, this.BLOCK_SIZE, this.BLOCK_SIZE);
 
         // Border
@@ -374,23 +249,30 @@ class ArrowRushGame {
         this.ctx.lineWidth = 4;
         this.ctx.strokeRect(x, y, this.BLOCK_SIZE, this.BLOCK_SIZE);
 
-        // Shadow
+        // Shadow effect
         this.ctx.fillStyle = '#000000';
-        this.ctx.fillRect(x + 6, y + 6, this.BLOCK_SIZE, this.BLOCK_SIZE);
-        this.ctx.fillStyle = block.isTarget ? this.DIRECTION_COLORS[block.direction] : '#FFFFFF';
+        this.ctx.fillRect(x + 8, y + 8, this.BLOCK_SIZE, this.BLOCK_SIZE);
+        this.ctx.fillStyle = this.isFrozen ? '#9CA3AF' : this.DIRECTION_COLORS[direction];
         this.ctx.fillRect(x, y, this.BLOCK_SIZE, this.BLOCK_SIZE);
         this.ctx.strokeRect(x, y, this.BLOCK_SIZE, this.BLOCK_SIZE);
 
-        // Direction symbol
-        this.ctx.fillStyle = block.isTarget ? '#FFFFFF' : this.DIRECTION_COLORS[block.direction];
-        this.ctx.font = 'bold 48px Fredoka, sans-serif';
+        // Arrow Symbol
+        this.ctx.fillStyle = '#FFFFFF';
+        this.ctx.font = 'bold 64px Fredoka, sans-serif';
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'middle';
         this.ctx.fillText(
-            this.DIRECTION_SYMBOLS[block.direction],
+            this.DIRECTION_SYMBOLS[direction],
             x + this.BLOCK_SIZE / 2,
-            y + this.BLOCK_SIZE / 2
+            y + this.BLOCK_SIZE / 2 + 5 // slightly adjusted for vertical center
         );
+
+        // Frozen "X" overlay
+        if (this.isFrozen) {
+            this.ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';
+            this.ctx.font = 'bold 80px sans-serif';
+            this.ctx.fillText('X', x + this.BLOCK_SIZE / 2, y + this.BLOCK_SIZE / 2 + 5);
+        }
     }
 
     startTimer() {
@@ -407,7 +289,7 @@ class ArrowRushGame {
     endGame() {
         this.isPlaying = false;
         clearInterval(this.timerInterval);
-        cancelAnimationFrame(this.animationId);
+        // cancelAnimationFrame(this.animationId); // No longer used
 
         // Update stats
         this.stats.totalPlays++;

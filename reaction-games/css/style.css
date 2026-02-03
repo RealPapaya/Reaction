@@ -11,17 +11,17 @@
    ==================================== */
 
 :root {
-  /* Colors */
-  --primary: #4F46E5;
-  --secondary: #818CF8;
-  --accent: #F97316;
-  --background: #EEF2FF;
-  --text: #1E1B4B;
+  /* Colors - Vivid Orange Theme */
+  --primary: #F97316;   /* Orange-500 */
+  --secondary: #FB923C; /* Orange-400 */
+  --accent: #8B5CF6;    /* Violet-500 (Contrast) */
+  --background: #FFF7ED; /* Orange-50 (Warm Background) */
+  --text: #18181B;      /* Zinc-950 (Sharp Black) */
   --border-color: #000000;
   --shadow-color: #000000;
   --surface: #FFFFFF;
-  --success: #22C55E;
-  --error: #EF4444;
+  --success: #22C55E;   /* Green-500 */
+  --error: #EF4444;     /* Red-500 */
   
   /* Typography */
   --font-display: 'Fredoka', sans-serif;
