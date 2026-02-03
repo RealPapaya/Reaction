@@ -28,12 +28,14 @@ class ArrowRushGame {
         this.isPlaying = false;
         this.isPaused = false;
         this.isFrozen = false;
+        this.isCountingDown = false;
         this.score = 0;
         this.combo = 0;
         this.timeLeft = 30;
         this.arrowQueue = []; // Queue of arrows
         this.totalHits = 0;
         this.totalAttempts = 0;
+        this.floatingTexts = []; // Floating score texts
 
         // Game config
         this.BLOCK_SIZE = 120; // 放大箭頭
@@ -62,6 +64,7 @@ class ArrowRushGame {
 
         // Animation
         this.timerInterval = null;
+        this.animationId = null;
 
         // Stats from localStorage
         this.stats = this.loadStats();
@@ -71,12 +74,29 @@ class ArrowRushGame {
     }
 
     init() {
-        // Event listeners
-        this.canvas.addEventListener('click', () => {
+        // Event listeners - removed click, using mouseup instead for better button feel
+
+        // Add button-like feedback for canvas
+        this.canvas.addEventListener('mousedown', () => {
             if (!this.isPlaying) {
+                this.canvas.classList.add('active');
+            }
+        });
+
+        this.canvas.addEventListener('mouseup', () => {
+            const wasActive = this.canvas.classList.contains('active');
+            this.canvas.classList.remove('active');
+
+            // Start game on mouseup if button was pressed (and not already counting down)
+            if (wasActive && !this.isPlaying && !this.isCountingDown) {
                 this.startGame();
             }
         });
+
+        this.canvas.addEventListener('mouseleave', () => {
+            this.canvas.classList.remove('active');
+        });
+
         this.restartBtn.addEventListener('click', () => this.resetGame());
 
 
@@ -139,21 +159,32 @@ class ArrowRushGame {
     showCountdown() {
         let countdown = 3;
         this.isPlaying = false; // Prevent input during countdown
+        this.isCountingDown = true; // Prevent re-triggering countdown
+
+        // Draw first number immediately (no delay)
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.fillStyle = '#F97316';
+        this.ctx.font = 'bold 120px Fredoka, sans-serif';
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+        this.ctx.fillText(countdown, this.canvas.width / 2, this.canvas.height / 2);
+
+        countdown--;
 
         const countdownInterval = setInterval(() => {
             this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
-            // Draw countdown number
-            this.ctx.fillStyle = '#F97316';
-            this.ctx.font = 'bold 120px Fredoka, sans-serif';
-            this.ctx.textAlign = 'center';
-            this.ctx.textBaseline = 'middle';
-            this.ctx.fillText(countdown, this.canvas.width / 2, this.canvas.height / 2);
-
-            countdown--;
-
-            if (countdown < 0) {
+            if (countdown > 0) {
+                // Draw countdown number
+                this.ctx.fillStyle = '#F97316';
+                this.ctx.font = 'bold 120px Fredoka, sans-serif';
+                this.ctx.textAlign = 'center';
+                this.ctx.textBaseline = 'middle';
+                this.ctx.fillText(countdown, this.canvas.width / 2, this.canvas.height / 2);
+                countdown--;
+            } else {
                 clearInterval(countdownInterval);
+                this.isCountingDown = false;
                 this.startGamePlay();
             }
         }, 1000);
@@ -178,12 +209,16 @@ class ArrowRushGame {
 
         // Generate initial arrows
         this.arrowQueue = [];
+        this.floatingTexts = []; // Clear floating texts
         for (let i = 0; i < 6; i++) {
             this.arrowQueue.push(this.getRandomDirection());
         }
 
         // Start timer
         this.startTimer();
+
+        // Start animation loop
+        this.startAnimationLoop();
 
         // Initial render
         this.render();
@@ -247,10 +282,25 @@ class ArrowRushGame {
         const multiplier = 1 + Math.max(0, Math.floor((this.combo - 1) / 5)) * 0.1;
 
         // Points calculation
-        const points = Math.floor(10 * multiplier);
+        const points = Math.floor(87 * multiplier);
 
         this.score += points;
         this.totalHits++;
+
+        // Visual feedback - hit success animation
+        this.canvas.classList.add('hit-success');
+        setTimeout(() => {
+            this.canvas.classList.remove('hit-success');
+        }, 200);
+
+        // Add floating score text
+        const targetY = this.canvas.height - 150;
+        this.floatingTexts.push({
+            text: `+${points}`,
+            x: this.canvas.width / 2 + 100, // Right side of arrow
+            y: targetY,
+            createdAt: Date.now()
+        });
 
         // Visual feedback for multiplier update
         // Show update animation every 5 hits (when modulo 5 == 1, e.g., 1, 6, 11)
@@ -362,6 +412,44 @@ class ArrowRushGame {
                 this.ctx.fillText('X', x + size / 2, y + size / 2 + 5);
             }
         }
+
+        // Draw and update floating texts
+        const now = Date.now();
+        this.floatingTexts = this.floatingTexts.filter(ft => {
+            const elapsed = (now - ft.createdAt) / 1000; // seconds
+
+            // Remove after 1 second
+            if (elapsed > 1.0) return false;
+
+            // Update position
+            ft.y -= 0.8; // Float upward slowly
+
+            // Draw text (always full opacity)
+            this.ctx.save();
+            this.ctx.fillStyle = '#22C55E'; // Success green
+            this.ctx.font = 'bold 32px Fredoka, sans-serif';
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'middle';
+
+            // Add stroke for better visibility
+            this.ctx.strokeStyle = '#000000';
+            this.ctx.lineWidth = 3;
+            this.ctx.strokeText(ft.text, ft.x, ft.y);
+            this.ctx.fillText(ft.text, ft.x, ft.y);
+            this.ctx.restore();
+
+            return true;
+        });
+    }
+
+    startAnimationLoop() {
+        const animate = () => {
+            if (this.isPlaying) {
+                this.render();
+                this.animationId = requestAnimationFrame(animate);
+            }
+        };
+        animate();
     }
 
     startTimer() {
@@ -378,7 +466,9 @@ class ArrowRushGame {
     endGame() {
         this.isPlaying = false;
         clearInterval(this.timerInterval);
-        // cancelAnimationFrame(this.animationId); // No longer used
+        if (this.animationId) {
+            cancelAnimationFrame(this.animationId);
+        }
 
         // Update stats
         this.stats.totalPlays++;
@@ -401,39 +491,8 @@ class ArrowRushGame {
     }
 
     showResult() {
-        this.result.classList.remove('hidden');
-        this.resultTitle.textContent = '⏱️ 時間到！';
-
-        const accuracy = this.totalAttempts > 0
-            ? Math.round((this.totalHits / this.totalAttempts) * 100)
-            : 0;
-
-        let rating = '';
-        if (this.score >= 1000) {
-            rating = '大師級！🏆';
-        } else if (this.score >= 750) {
-            rating = '優秀！⭐';
-        } else if (this.score >= 500) {
-            rating = '不錯！👍';
-        } else {
-            rating = '繼續加油！💪';
-        }
-
-        this.resultMessage.innerHTML = `
-      <p class="success">最終分數: ${this.score}</p>
-      <p>最高連擊: <span class="highlight">${this.combo}</span></p>
-      <p>命中率: <span class="highlight">${accuracy}%</span></p>
-      <p>${rating}</p>
-      <button id="show-leaderboard-btn-arrow" class="btn btn-primary" style="margin-top: 1rem;">🏆 提交到排行榜</button>
-    `;
-
-        // Bind modal open event
-        setTimeout(() => {
-            const showBtn = document.getElementById('show-leaderboard-btn-arrow');
-            if (showBtn) {
-                showBtn.onclick = () => this.showLeaderboardModal(this.score);
-            }
-        }, 0);
+        // Directly show leaderboard modal
+        this.showLeaderboardModal(this.score);
     }
 
     showLeaderboardModal(score) {
@@ -446,7 +505,7 @@ class ArrowRushGame {
             modal.innerHTML = `
         <div class="modal-content card">
           <div class="modal-header">
-            <h2>🏆 提交成績</h2>
+            <h2>🏆 遊戲結束</h2>
             <button class="close-modal">&times;</button>
           </div>
           <div class="modal-body">
@@ -461,6 +520,10 @@ class ArrowRushGame {
             <div id="submit-status-modal-arrow" style="text-align: center; margin-bottom: 1rem;"></div>
             <h3 style="margin-top: 2rem; margin-bottom: 1rem;">當前排行榜</h3>
             <div id="leaderboard-display-modal-arrow" style="max-height: 300px; overflow-y: auto;"></div>
+            <div style="display: flex; gap: 10px; justify-content: center; margin-top: 2rem; padding-top: 1rem; border-top: 3px solid var(--border-color);">
+              <a href="../../index.html" class="btn btn-secondary">← 返回首頁</a>
+              <button id="play-again-btn-arrow" class="btn btn-primary">再玩一次 🎮</button>
+            </div>
           </div>
         </div>
       `;
@@ -540,6 +603,15 @@ class ArrowRushGame {
                 btn.textContent = '重試';
             }
         };
+
+        // Bind play again button
+        const playAgainBtn = document.getElementById('play-again-btn-arrow');
+        if (playAgainBtn) {
+            playAgainBtn.onclick = () => {
+                modal.classList.remove('show');
+                this.resetGame();
+            };
+        }
     }
 
     resetGame() {

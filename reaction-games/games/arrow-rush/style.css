@@ -121,6 +121,17 @@ body {
     max-width: 100%;
     height: auto;
     cursor: pointer;
+    transition: transform 150ms ease, box-shadow 150ms ease;
+}
+
+#game-canvas:hover:not(.playing) {
+    transform: translate(5px, 5px);
+    box-shadow: 5px 5px 0 var(--shadow-color);
+}
+
+#game-canvas.active:not(.playing) {
+    transform: translate(10px, 10px);
+    box-shadow: 0 0 0 var(--shadow-color);
 }
 
 #game-canvas.playing {
@@ -141,6 +152,22 @@ body {
     50% {
         filter: brightness(1.5) saturate(2) hue-rotate(-10deg);
         box-shadow: 0 0 20px var(--error), 10px 10px 0 var(--shadow-color);
+    }
+}
+
+#game-canvas.hit-success {
+    animation: hit-bounce 0.2s ease-out;
+}
+
+@keyframes hit-bounce {
+
+    0%,
+    100% {
+        box-shadow: 10px 10px 0 var(--shadow-color);
+    }
+
+    50% {
+        box-shadow: 0 0 0 8px var(--success), 10px 10px 0 var(--shadow-color);
     }
 }
 

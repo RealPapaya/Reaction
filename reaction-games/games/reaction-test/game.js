@@ -226,119 +226,196 @@ class ReactionGame {
   drawChart() {
     if (!this.chartCtx || this.roundTimes.length === 0) return;
 
+    // Use requestAnimationFrame to ensure we don't start multiple animations overlapping badly
+    // or simply cancel previous one if we tracked it. 
+    // For simplicity, we just start a new one, as the logic allows overwriting.
+
     const canvas = this.chartCanvas;
     const ctx = this.chartCtx;
     const width = canvas.width;
     const height = canvas.height;
-    const padding = 40;
-    const chartWidth = width - padding * 2;
-    const chartHeight = height - padding * 2;
 
-    // Clear canvas
-    ctx.clearRect(0, 0, width, height);
+    // Config
+    const padding = { top: 40, right: 40, bottom: 60, left: 50 }; // Increased bottom/left padding
+    const chartWidth = width - padding.left - padding.right;
+    const chartHeight = height - padding.top - padding.bottom;
 
-    // Background
-    ctx.fillStyle = '#FFF7ED';
-    ctx.fillRect(0, 0, width, height);
-
-    // Calculate scale
+    // Data ranges
     const maxTime = Math.max(...this.roundTimes, 500);
     const minTime = 0;
     const timeRange = maxTime - minTime;
-    const xStep = chartWidth / (this.TOTAL_ROUNDS - 1);
+    const xStep = chartWidth / (this.TOTAL_ROUNDS - 1); // 0 to 4
 
-    // Draw axes
-    ctx.strokeStyle = '#000';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(padding, padding);
-    ctx.lineTo(padding, height - padding);
-    ctx.lineTo(width - padding, height - padding);
-    ctx.stroke();
-
-    // Draw Y-axis labels
-    ctx.fillStyle = '#18181B';
-    ctx.font = 'bold 10px Fredoka, sans-serif';
-    ctx.textAlign = 'right';
-    const ySteps = 4;
-    for (let i = 0; i <= ySteps; i++) {
-      const value = Math.round(maxTime - (maxTime / ySteps) * i);
-      const y = padding + (chartHeight / ySteps) * i;
-      ctx.fillText(`${value}`, padding - 5, y + 3);
-    }
-
-    // Draw X-axis labels
-    ctx.textAlign = 'center';
-    for (let i = 0; i < this.TOTAL_ROUNDS; i++) {
-      const x = padding + xStep * i;
-      ctx.fillText(`R${i + 1}`, x, height - padding + 15);
-    }
-
-    // Animate drawing
-    this.animateChart(ctx, padding, height, chartWidth, chartHeight, xStep, minTime, timeRange);
+    // Start Animation
+    this.animateChart(ctx, width, height, padding, chartWidth, chartHeight, xStep, minTime, timeRange, maxTime);
   }
 
-  animateChart(ctx, padding, height, chartWidth, chartHeight, xStep, minTime, timeRange) {
-    const duration = 1000; // 1 second animation
+  animateChart(ctx, width, height, padding, chartWidth, chartHeight, xStep, minTime, timeRange, maxTime) {
+    const duration = 1500; // 1.5s for smoother feel
     const startTime = performance.now();
+
+    // Easing function: easeOutQuart
+    const easeOutQuart = (x) => 1 - Math.pow(1 - x, 4);
 
     const animate = (currentTime) => {
       const elapsed = currentTime - startTime;
-      const progress = Math.min(elapsed / duration, 1);
+      const rawProgress = Math.min(elapsed / duration, 1);
+      const progress = easeOutQuart(rawProgress);
 
-      // Clear previous frame (only the data area)
-      ctx.clearRect(padding, padding - 10, chartWidth + 20, chartHeight + 20);
+      // 1. Clear everything
+      ctx.clearRect(0, 0, width, height);
 
-      // Redraw background for cleared area
+      // 2. Background
       ctx.fillStyle = '#FFF7ED';
-      ctx.fillRect(padding, padding - 10, chartWidth + 20, chartHeight + 20);
+      ctx.fillRect(0, 0, width, height);
 
-      // Draw line progressively
+      // 3. Draw Grid/Axes (Static)
+      ctx.strokeStyle = '#E5E7EB'; // Lighter grid lines
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      // Horizontal grid lines
+      const ySteps = 4;
+      for (let i = 0; i <= ySteps; i++) {
+        const y = padding.top + (chartHeight / ySteps) * i;
+        ctx.moveTo(padding.left, y);
+        ctx.lineTo(width - padding.right, y);
+      }
+      ctx.stroke();
+
+      // Main Axes
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(padding.left, padding.top);
+      ctx.lineTo(padding.left, height - padding.bottom);
+      ctx.lineTo(width - padding.right, height - padding.bottom);
+      ctx.stroke();
+
+      // 4. Draw Labels (Static)
+      ctx.fillStyle = '#18181B';
+      ctx.font = 'bold 12px Fredoka, sans-serif'; // Slightly larger font
+
+      // Y-axis labels
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'middle';
+      for (let i = 0; i <= ySteps; i++) {
+        const value = Math.round(maxTime - (maxTime / ySteps) * i);
+        const y = padding.top + (chartHeight / ySteps) * i;
+        ctx.fillText(`${value}`, padding.left - 10, y);
+      }
+
+      // X-axis labels
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      for (let i = 0; i < this.TOTAL_ROUNDS; i++) {
+        const x = padding.left + xStep * i;
+        ctx.fillText(`R${i + 1}`, x, height - padding.bottom + 15);
+      }
+
+      // 5. Draw Data Line (Animated)
       if (this.roundTimes.length > 0) {
+        // Calculate total points to draw based on array length? 
+        // Or animate the drawing of the full availalbe line?
+        // "顺顺的绘制" usually means the line unrolls from left to right.
+
+        ctx.save();
+        ctx.beginPath();
+        // Clip region to reveal the line from left to right
+        ctx.rect(padding.left, padding.top, chartWidth * progress, chartHeight + padding.bottom);
+        // Note: Clipping might cut off the line cap/join, so give some buffer or just draw partial line.
+        // Drawing partial line is cleaner.
+        ctx.restore(); // actually let's calculate partial path
+
+        const totalDistance = (this.roundTimes.length - 1) * xStep;
+        const currentDistance = totalDistance * progress; // This logic animates the "length" of the line
+
+        // However, if we want to show all points adjusting, that's different. 
+        // Assuming "trend chart appearing", we want the line to draw from R1 to R_current.
+
         ctx.strokeStyle = '#F97316';
-        ctx.fillStyle = '#F97316';
         ctx.lineWidth = 4;
         ctx.lineJoin = 'round';
         ctx.lineCap = 'round';
-
-        const pointsToDraw = Math.ceil(this.roundTimes.length * progress);
-
-        // Draw line segments
         ctx.beginPath();
-        for (let i = 0; i < pointsToDraw; i++) {
-          const time = this.roundTimes[i];
-          const x = padding + xStep * i;
-          const y = height - padding - ((time - minTime) / timeRange) * chartHeight;
 
-          if (i === 0) {
-            ctx.moveTo(x, y);
-          } else {
-            ctx.lineTo(x, y);
+        // Draw segments
+        // We need to find which segment we are in
+        // Total segments = this.roundTimes.length - 1
+        // But wait, if we have 5 rounds, we have 4 segments.
+        // If we have 1 data point, no line.
+
+        if (this.roundTimes.length === 1) {
+          const time = this.roundTimes[0];
+          const x = padding.left;
+          const y = height - padding.bottom - ((time - minTime) / timeRange) * chartHeight;
+          // Just draw point if progress > 0
+          if (progress > 0) {
+            ctx.fillStyle = '#F97316';
+            ctx.beginPath();
+            ctx.arc(x, y, 6 * progress, 0, Math.PI * 2); // Animate pop in
+            ctx.fill();
           }
-        }
-        ctx.stroke();
+        } else {
+          // Draw line up to progress
+          // We map progress (0-1) to the x-axis range covered by data
+          const maxDragX = padding.left + (this.roundTimes.length - 1) * xStep;
+          const currentXLimit = padding.left + ((this.roundTimes.length - 1) * xStep) * progress;
 
-        // Draw points up to current progress
-        for (let i = 0; i < pointsToDraw; i++) {
-          const time = this.roundTimes[i];
-          const x = padding + xStep * i;
-          const y = height - padding - ((time - minTime) / timeRange) * chartHeight;
+          let firstPoint = true;
+          for (let i = 0; i < this.roundTimes.length; i++) {
+            const time = this.roundTimes[i];
+            const x = padding.left + xStep * i;
+            const y = height - padding.bottom - ((time - minTime) / timeRange) * chartHeight;
 
-          // Outer black circle
-          ctx.fillStyle = '#000';
-          ctx.beginPath();
-          ctx.arc(x, y, 6, 0, Math.PI * 2);
-          ctx.fill();
+            if (x > currentXLimit + xStep) break; // Optimization
 
-          // Inner orange circle
-          ctx.fillStyle = '#F97316';
-          ctx.beginPath();
-          ctx.arc(x, y, 4, 0, Math.PI * 2);
-          ctx.fill();
+            if (i === 0) {
+              ctx.moveTo(x, y);
+            } else {
+              const prevX = padding.left + xStep * (i - 1);
+              const prevY = height - padding.bottom - ((this.roundTimes[i - 1] - minTime) / timeRange) * chartHeight;
+
+              if (x <= currentXLimit) {
+                ctx.lineTo(x, y);
+              } else {
+                // Interpolate partial segment
+                const segmentProgress = (currentXLimit - prevX) / xStep;
+                // Avoid tiny artifacts
+                if (segmentProgress > 0) {
+                  const interX = prevX + (x - prevX) * segmentProgress;
+                  const interY = prevY + (y - prevY) * segmentProgress;
+                  ctx.lineTo(interX, interY);
+                }
+              }
+            }
+          }
+          ctx.stroke();
+
+          // Draw points (appearing as line passes them)
+          for (let i = 0; i < this.roundTimes.length; i++) {
+            const time = this.roundTimes[i];
+            const x = padding.left + xStep * i;
+            const y = height - padding.bottom - ((time - minTime) / timeRange) * chartHeight;
+
+            if (x <= currentXLimit) {
+              // Outer 
+              ctx.fillStyle = '#000';
+              ctx.beginPath();
+              ctx.arc(x, y, 6, 0, Math.PI * 2);
+              ctx.fill();
+
+              // Inner 
+              ctx.fillStyle = '#F97316';
+              ctx.beginPath();
+              ctx.arc(x, y, 4, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          }
+
         }
       }
 
-      if (progress < 1) {
+      if (rawProgress < 1) {
         requestAnimationFrame(animate);
       }
     };
@@ -347,46 +424,14 @@ class ReactionGame {
   }
 
   showResult(success, data) {
-    this.result.classList.remove('hidden');
-
     if (success) {
       const time = data;
-      this.resultTitle.textContent = '✅ 成功！';
-
-      let rating = '';
-      if (time < 200) {
-        rating = '閃電般快速！⚡';
-      } else if (time < 300) {
-        rating = '非常優秀！🏆';
-      } else if (time < 400) {
-        rating = '表現不錯！👍';
-      } else {
-        rating = '還可以更快！💪';
-      }
-
-      this.resultMessage.innerHTML = `
-        <div class="result-score">
-            <span class="success">平均: ${time}ms</span><br>
-            <span>${rating}</span>
-        </div>
-        <button id="show-leaderboard-btn" class="btn btn-primary" style="margin-top: 1rem;">🏆 提交到排行榜</button>
-      `;
-
-      // Bind modal open event
-      setTimeout(() => {
-        const showBtn = document.getElementById('show-leaderboard-btn');
-        if (showBtn) {
-          showBtn.onclick = () => this.showLeaderboardModal(time);
-        }
-      }, 0);
-
+      // Directly show leaderboard modal
+      this.showLeaderboardModal(time);
     } else {
-      this.resultTitle.textContent = '❌ 失敗';
-      this.resultMessage.innerHTML = `<span class="error">${data}</span>`;
+      // Show failure modal
+      this.showFailureModal(data);
     }
-
-    // Show reset button
-    this.resetBtn.classList.remove('hidden');
   }
 
   showLeaderboardModal(time) {
@@ -399,7 +444,7 @@ class ReactionGame {
       modal.innerHTML = `
         <div class="modal-content card" style="max-width: 600px;">
           <div class="modal-header">
-            <h2>🏆 提交成績</h2>
+            <h2>🏆 遊戲結束</h2>
             <button class="close-modal">&times;</button>
           </div>
           <div class="modal-body">
@@ -414,6 +459,10 @@ class ReactionGame {
             <div id="submit-status-modal" style="text-align: center; margin-bottom: 1rem;"></div>
             <h3 style="margin-top: 2rem; margin-bottom: 1rem;">當前排行榜</h3>
             <div id="leaderboard-display-modal" style="max-height: 300px; overflow-y: auto;"></div>
+            <div style="display: flex; gap: 10px; justify-content: center; margin-top: 2rem; padding-top: 1rem; border-top: 3px solid var(--border-color);">
+              <a href="../../index.html" class="btn btn-secondary">← 返回首頁</a>
+              <button id="play-again-btn-reaction" class="btn btn-primary">再玩一次 🎮</button>
+            </div>
           </div>
         </div>
       `;
@@ -493,6 +542,66 @@ class ReactionGame {
         btn.textContent = '重試';
       }
     };
+
+    // Bind play again button
+    const playAgainBtn = document.getElementById('play-again-btn-reaction');
+    if (playAgainBtn) {
+      playAgainBtn.onclick = () => {
+        modal.classList.remove('show');
+        this.resetGame();
+      };
+    }
+  }
+
+  showFailureModal(message) {
+    // Create modal if not exists
+    let modal = document.getElementById('failure-modal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'failure-modal';
+      modal.className = 'modal';
+      modal.innerHTML = `
+        <div class="modal-content card" style="max-width: 500px;">
+          <div class="modal-header">
+            <h2>❌ 遊戲失敗</h2>
+            <button class="close-modal">&times;</button>
+          </div>
+          <div class="modal-body">
+            <p style="font-size: 1.2rem; text-align: center; margin-bottom: 2rem; color: var(--error);">
+              ${message}
+            </p>
+            <div style="display: flex; gap: 10px; justify-content: center;">
+              <a href="../../index.html" class="btn btn-secondary">← 返回首頁</a>
+              <button id="play-again-btn-failure" class="btn btn-primary">再玩一次 🎮</button>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+
+      // Close modal handlers
+      const closeBtn = modal.querySelector('.close-modal');
+      closeBtn.onclick = () => modal.classList.remove('show');
+      modal.onclick = (e) => {
+        if (e.target === modal) modal.classList.remove('show');
+      };
+    }
+
+    // Update message
+    const messageEl = modal.querySelector('.modal-body p');
+    if (messageEl) messageEl.innerHTML = message;
+
+    // Show modal
+    modal.classList.add('show');
+
+    // Bind play again button
+    const playAgainBtn = document.getElementById('play-again-btn-failure');
+    if (playAgainBtn) {
+      playAgainBtn.onclick = () => {
+        modal.classList.remove('show');
+        this.resetGame();
+      };
+    }
   }
 
   resetGame() {
