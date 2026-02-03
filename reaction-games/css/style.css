@@ -12,21 +12,30 @@
 
 :root {
   /* Colors - Vivid Orange Theme */
-  --primary: #F97316;   /* Orange-500 */
-  --secondary: #FB923C; /* Orange-400 */
-  --accent: #8B5CF6;    /* Violet-500 (Contrast) */
-  --background: #FFF7ED; /* Orange-50 (Warm Background) */
-  --text: #18181B;      /* Zinc-950 (Sharp Black) */
+  --primary: #F97316;
+  /* Orange-500 */
+  --secondary: #FB923C;
+  /* Orange-400 */
+  --accent: #8B5CF6;
+  /* Violet-500 (Contrast) */
+  --background: #FFF7ED;
+  /* Orange-50 (Warm Background) */
+  --text: #18181B;
+  /* Zinc-950 (Sharp Black) */
   --border-color: #000000;
   --shadow-color: #000000;
   --surface: #FFFFFF;
-  --success: #22C55E;   /* Green-500 */
-  --error: #EF4444;     /* Red-500 */
-  
+  --success: #22C55E;
+  /* Green-500 */
+  --error: #EF4444;
+  /* Red-500 */
+  --gold: #FFD700;
+  /* Comic Burst Gold */
+
   /* Typography */
   --font-display: 'Fredoka', sans-serif;
   --font-body: 'Nunito', sans-serif;
-  
+
   /* Font Sizes */
   --text-sm: 0.875rem;
   --text-base: 1rem;
@@ -35,12 +44,12 @@
   --text-2xl: 1.5rem;
   --text-3xl: 1.875rem;
   --text-4xl: 2.25rem;
-  
+
   /* Font Weights */
   --font-normal: 400;
   --font-semibold: 600;
   --font-bold: 700;
-  
+
   /* Spacing */
   --space-2: 0.5rem;
   --space-4: 1rem;
@@ -86,17 +95,33 @@ body {
    Typography
    ==================================== */
 
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   font-family: var(--font-display);
   font-weight: var(--font-bold);
   line-height: 1.2;
   margin-bottom: var(--space-4);
 }
 
-h1 { font-size: var(--text-4xl); }
-h2 { font-size: var(--text-3xl); }
-h3 { font-size: var(--text-2xl); }
-h4 { font-size: var(--text-xl); }
+h1 {
+  font-size: var(--text-4xl);
+}
+
+h2 {
+  font-size: var(--text-3xl);
+}
+
+h3 {
+  font-size: var(--text-2xl);
+}
+
+h4 {
+  font-size: var(--text-xl);
+}
 
 p {
   margin-bottom: var(--space-4);
@@ -245,7 +270,7 @@ a:hover {
   .grid-2 {
     grid-template-columns: repeat(2, 1fr);
   }
-  
+
   .grid-3 {
     grid-template-columns: repeat(3, 1fr);
   }
@@ -259,10 +284,21 @@ a:hover {
   text-align: center;
 }
 
-.mt-4 { margin-top: var(--space-4); }
-.mt-8 { margin-top: var(--space-8); }
-.mb-4 { margin-bottom: var(--space-4); }
-.mb-8 { margin-bottom: var(--space-8); }
+.mt-4 {
+  margin-top: var(--space-4);
+}
+
+.mt-8 {
+  margin-top: var(--space-8);
+}
+
+.mb-4 {
+  margin-bottom: var(--space-4);
+}
+
+.mb-8 {
+  margin-bottom: var(--space-8);
+}
 
 .cursor-pointer {
   cursor: pointer;

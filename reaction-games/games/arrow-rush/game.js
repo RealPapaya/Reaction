@@ -13,6 +13,7 @@ class ArrowRushGame {
         this.scoreEl = document.getElementById('score');
         this.timeEl = document.getElementById('time');
         this.comboEl = document.getElementById('combo');
+        this.comboMultiplierEl = document.getElementById('combo-multiplier');
         this.startBtn = document.getElementById('start-btn');
         this.restartBtn = document.getElementById('restart-btn');
         this.result = document.getElementById('result');
@@ -211,20 +212,29 @@ class ArrowRushGame {
 
     handleHit() {
         // Increment score and combo
-        let points = 10;
         this.combo++;
 
-        // Combo bonus
-        if (this.combo >= 15) {
-            points = Math.floor(points * 2);
-        } else if (this.combo >= 10) {
-            points = Math.floor(points * 1.75);
-        } else if (this.combo >= 5) {
-            points = Math.floor(points * 1.5);
-        }
+        // Calculate Multiplier
+        // 0-5: x1.0
+        // 6-10: x1.1
+        // 11-15: x1.2
+        // Formula: 1 + max(0, floor((combo - 1) / 5)) * 0.1
+        const multiplier = 1 + Math.max(0, Math.floor((this.combo - 1) / 5)) * 0.1;
+
+        // Points calculation
+        const points = Math.floor(10 * multiplier);
 
         this.score += points;
         this.totalHits++;
+
+        // Visual feedback for multiplier update
+        // Show update animation every 5 hits (when modulo 5 == 1, e.g., 1, 6, 11)
+        // Or just whenever multiplier changes? Multiplier changes at 6, 11, 16.
+        if ((this.combo - 1) % 5 === 0 && this.combo > 1) {
+            this.comboMultiplierEl.classList.remove('shake');
+            void this.comboMultiplierEl.offsetWidth; // trigger reflow
+            this.comboMultiplierEl.classList.add('shake');
+        }
 
         // Update Queue
         this.arrowQueue.shift();
@@ -398,6 +408,12 @@ class ArrowRushGame {
         this.result.classList.add('hidden');
         this.startBtn.classList.remove('hidden');
 
+        // Reset UI values
+        this.scoreEl.textContent = '0';
+        this.comboEl.textContent = '0';
+        this.timeEl.textContent = '30s';
+        this.comboMultiplierEl.classList.add('hidden');
+
         // Clear canvas
         this.drawInitialScreen();
     }
@@ -406,6 +422,16 @@ class ArrowRushGame {
         this.scoreEl.textContent = this.score;
         this.timeEl.textContent = `${this.timeLeft}s`;
         this.comboEl.textContent = this.combo;
+
+        // Multiplier UI
+        // Show only if multiplier > 1.0 (starts at combo 6)
+        if (this.combo > 5) {
+            this.comboMultiplierEl.classList.remove('hidden');
+            const multiplier = (1 + Math.max(0, Math.floor((this.combo - 1) / 5)) * 0.1).toFixed(1);
+            this.comboMultiplierEl.textContent = `x${multiplier}`;
+        } else {
+            this.comboMultiplierEl.classList.add('hidden');
+        }
     }
 
     // Stats management

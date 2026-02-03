@@ -47,7 +47,10 @@ class ReactionGame {
     // Event listeners
     this.startBtn.addEventListener('click', () => this.startGame());
     this.resetBtn.addEventListener('click', () => this.resetGame());
-    this.gameButton.addEventListener('click', () => this.handleClick());
+    this.gameButton.addEventListener('pointerdown', (e) => {
+      e.preventDefault(); // Prevent duplicated mouse/touch events
+      this.handleInput();
+    });
     this.clearStatsBtn.addEventListener('click', () => this.clearStats());
 
     // Modal listeners
@@ -124,7 +127,7 @@ class ReactionGame {
     this.gameText.textContent = '點擊！';
   }
 
-  handleClick() {
+  handleInput() {
     if (!this.isWaiting && !this.isGreen) {
       // Game hasn't started yet
       return;
