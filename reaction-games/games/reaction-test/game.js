@@ -26,6 +26,7 @@ class ReactionGame {
     // Game state
     this.isWaiting = false;
     this.isGreen = false;
+    this.gameStarted = false;
     this.startTime = null;
     this.timeout = null;
     this.currentRound = 0;
@@ -43,10 +44,10 @@ class ReactionGame {
     // Event listeners
     this.gameButton.addEventListener('pointerdown', (e) => {
       e.preventDefault();
-      if (!this.isWaiting && !this.isGreen) {
+      if (!this.gameStarted) {
         // Game not started, start it
         this.startGame();
-      } else {
+      } else if (this.isWaiting || this.isGreen) {
         // Game in progress, handle input
         this.handleInput();
       }
@@ -91,6 +92,7 @@ class ReactionGame {
     this.resetBtn.classList.add('hidden');
 
     // Reset state
+    this.gameStarted = true;
     this.isWaiting = true;
     this.isGreen = false;
     this.currentRound = 1;
@@ -149,6 +151,7 @@ class ReactionGame {
     // Update state
     this.isWaiting = false;
     this.isGreen = false;
+    this.gameStarted = false; // End game
 
     // Visual feedback
     this.gameButton.className = 'game-button early-click';
@@ -183,7 +186,7 @@ class ReactionGame {
       this.currentRound++;
       // Delay before next round
       setTimeout(() => {
-        if (this.startBtn.classList.contains('hidden')) { // Check if game allowed to continue
+        if (this.gameStarted) { // Check if game still in progress
           this.startRound();
         }
       }, 1500);
@@ -199,8 +202,11 @@ class ReactionGame {
       this.saveStats();
 
       // Show result modal
+      // Show final result
       setTimeout(() => {
         this.showResult(true, average);
+        // End game
+        this.gameStarted = false;
       }, 1000);
     }
   }
@@ -363,73 +369,14 @@ class ReactionGame {
             <span class="success">平均: ${time}ms</span><br>
             <span>${rating}</span>
         </div>
-        <div class="leaderboard-section" style="margin-top: 2rem; border-top: 3px solid #000; padding-top: 1rem;">
-            <h3>🏆 排行榜提交</h3>
-            <div style="display: flex; gap: 10px; justify-content: center; margin-bottom: 1rem;">
-                <input type="text" id="player-name" placeholder="輸入名字" maxlength="15" 
-                    style="border: 3px solid #000; padding: 5px; font-family: inherit; font-weight: bold;">
-                <button id="submit-score-btn" class="btn-primary" style="padding: 5px 15px; font-size: 0.9rem;">提交</button>
-            </div>
-            <div id="submit-status"></div>
-            <div id="leaderboard-display" style="text-align: left; max-height: 200px; overflow-y: auto;"></div>
-        </div>
+        <button id="show-leaderboard-btn" class="btn btn-primary" style="margin-top: 1rem;">🏆 提交到排行榜</button>
       `;
 
-      // Helper to load and display leaderboard
-      const loadLeaderboard = async () => {
-        const display = document.getElementById('leaderboard-display');
-        display.innerHTML = '載入中...';
-        const scores = await leaderboard.getScores('reaction-test');
-        if (scores && scores.length > 0) {
-          let html = '<table style="width:100%; border-collapse: collapse;">';
-          html += '<tr><th style="text-align:left">排名</th><th style="text-align:left">名字</th><th style="text-align:right">時間</th></tr>';
-          scores.forEach((s, i) => {
-            html += `<tr>
-                      <td>${i + 1}</td>
-                      <td>${s.name}</td>
-                      <td style="text-align:right">${s.score}ms</td>
-                  </tr>`;
-          });
-          html += '</table>';
-          display.innerHTML = html;
-        } else {
-          display.innerHTML = '尚無紀錄或無法連接';
-        }
-      };
-
-      // Bind events
+      // Bind modal open event
       setTimeout(() => {
-        const btn = document.getElementById('submit-score-btn');
-        const input = document.getElementById('player-name');
-        const status = document.getElementById('submit-status');
-
-        // Auto-load current leaderboard
-        loadLeaderboard();
-
-        if (btn) {
-          btn.onclick = async () => {
-            const name = input.value.trim();
-            if (!name) {
-              alert('請輸入名字');
-              return;
-            }
-            btn.disabled = true;
-            btn.textContent = '...';
-
-            const res = await leaderboard.submitScore('reaction-test', name, time);
-            if (res.success) {
-              status.innerHTML = '<span style="color:green; font-weight:bold;">✅ 已提交！</span>';
-              // Reload leaderboard
-              loadLeaderboard();
-              // Disable input
-              input.disabled = true;
-              btn.style.display = 'none';
-            } else {
-              status.innerHTML = '<span style="color:red; font-weight:bold;">提交失敗</span><br><small>' + (res.error || '') + '</small>';
-              btn.disabled = false;
-              btn.textContent = '重試';
-            }
-          };
+        const showBtn = document.getElementById('show-leaderboard-btn');
+        if (showBtn) {
+          showBtn.onclick = () => this.showLeaderboardModal(time);
         }
       }, 0);
 
@@ -442,6 +389,112 @@ class ReactionGame {
     this.resetBtn.classList.remove('hidden');
   }
 
+  showLeaderboardModal(time) {
+    // Create modal if not exists
+    let modal = document.getElementById('leaderboard-submit-modal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'leaderboard-submit-modal';
+      modal.className = 'modal';
+      modal.innerHTML = `
+        <div class="modal-content card" style="max-width: 600px;">
+          <div class="modal-header">
+            <h2>🏆 提交成績</h2>
+            <button class="close-modal">&times;</button>
+          </div>
+          <div class="modal-body">
+            <p style="font-size: 1.2rem; text-align: center; margin-bottom: 1rem;">
+              你的平均時間: <strong style="color: var(--primary);">${time}ms</strong>
+            </p>
+            <div style="display: flex; gap: 10px; justify-content: center; margin-bottom: 1rem;">
+              <input type="text" id="player-name-modal" placeholder="輸入名字" maxlength="15" 
+                style="border: 3px solid #000; padding: 8px; font-family: inherit; font-weight: bold; flex: 1; max-width: 200px;">
+              <button id="submit-score-btn-modal" class="btn btn-primary">提交</button>
+            </div>
+            <div id="submit-status-modal" style="text-align: center; margin-bottom: 1rem;"></div>
+            <h3 style="margin-top: 2rem; margin-bottom: 1rem;">當前排行榜</h3>
+            <div id="leaderboard-display-modal" style="max-height: 300px; overflow-y: auto;"></div>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+
+      // Close modal handlers
+      const closeBtn = modal.querySelector('.close-modal');
+      closeBtn.onclick = () => modal.classList.remove('show');
+      modal.onclick = (e) => {
+        if (e.target === modal) modal.classList.remove('show');
+      };
+    }
+
+    // Update time in modal
+    const timeDisplay = modal.querySelector('.modal-body p strong');
+    if (timeDisplay) timeDisplay.textContent = `${time}ms`;
+
+    // Show modal
+    modal.classList.add('show');
+
+    // Load leaderboard
+    const loadLeaderboard = async () => {
+      const display = document.getElementById('leaderboard-display-modal');
+      display.innerHTML = '<p style="text-align: center;">載入中...</p>';
+      const scores = await leaderboard.getScores('reaction-test');
+      if (scores && scores.length > 0) {
+        let html = '<table style="width:100%; border-collapse: collapse;">';
+        html += '<thead><tr style="border-bottom: 3px solid #000;"><th style="padding: 8px; text-align:left">排名</th><th style="padding: 8px; text-align:left">名字</th><th style="padding: 8px; text-align:right">時間</th></tr></thead><tbody>';
+        scores.forEach((s, i) => {
+          const rank = i + 1;
+          const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : '';
+          html += `<tr style="border-bottom: 1px solid #ddd;">
+                    <td style="padding: 8px;"><strong>${medal} ${rank}</strong></td>
+                    <td style="padding: 8px;">${s.name}</td>
+                    <td style="padding: 8px; text-align:right; font-weight: bold; color: var(--primary);">${s.score}ms</td>
+                </tr>`;
+        });
+        html += '</tbody></table>';
+        display.innerHTML = html;
+      } else {
+        display.innerHTML = '<p style="text-align: center; color: #666;">尚無紀錄或無法連接</p>';
+      }
+    };
+
+    loadLeaderboard();
+
+    // Bind submit button
+    const btn = document.getElementById('submit-score-btn-modal');
+    const input = document.getElementById('player-name-modal');
+    const status = document.getElementById('submit-status-modal');
+
+    // Reset input
+    input.value = '';
+    input.disabled = false;
+    btn.disabled = false;
+    btn.textContent = '提交';
+    status.innerHTML = '';
+
+    btn.onclick = async () => {
+      const name = input.value.trim();
+      if (!name) {
+        alert('請輸入名字');
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = '提交中...';
+
+      const res = await leaderboard.submitScore('reaction-test', name, time);
+      if (res.success) {
+        status.innerHTML = '<span style="color:green; font-weight:bold;">✅ 已提交！</span>';
+        loadLeaderboard();
+        input.disabled = true;
+        btn.style.display = 'none';
+      } else {
+        status.innerHTML = '<span style="color:red; font-weight:bold;">❌ 提交失敗</span><br><small>' + (res.error || '') + '</small>';
+        btn.disabled = false;
+        btn.textContent = '重試';
+      }
+    };
+  }
+
   resetGame() {
     // Reset UI
     this.gameButton.className = 'game-button waiting';
@@ -449,14 +502,17 @@ class ReactionGame {
     this.result.classList.add('hidden');
     this.resetBtn.classList.add('hidden');
 
+    // Reset game state
+    this.gameStarted = false;
+    this.isWaiting = false;
+    this.isGreen = false;
+    this.currentRound = 1;
+    this.roundTimes = [];
+    this.startTime = 0;
+
     // Clear timeout just in case
     clearTimeout(this.timeout);
 
-    // Reset state
-    this.isWaiting = false;
-    this.isGreen = false;
-    this.startTime = null;
-    this.roundTimes = [];
     this.updateHistoryUI();
   }
 

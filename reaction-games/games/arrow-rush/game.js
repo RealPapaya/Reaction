@@ -424,7 +424,122 @@ class ArrowRushGame {
       <p>最高連擊: <span class="highlight">${this.combo}</span></p>
       <p>命中率: <span class="highlight">${accuracy}%</span></p>
       <p>${rating}</p>
+      <button id="show-leaderboard-btn-arrow" class="btn btn-primary" style="margin-top: 1rem;">🏆 提交到排行榜</button>
     `;
+
+        // Bind modal open event
+        setTimeout(() => {
+            const showBtn = document.getElementById('show-leaderboard-btn-arrow');
+            if (showBtn) {
+                showBtn.onclick = () => this.showLeaderboardModal(this.score);
+            }
+        }, 0);
+    }
+
+    showLeaderboardModal(score) {
+        // Create modal if not exists
+        let modal = document.getElementById('leaderboard-submit-modal-arrow');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'leaderboard-submit-modal-arrow';
+            modal.className = 'modal';
+            modal.innerHTML = `
+        <div class="modal-content card">
+          <div class="modal-header">
+            <h2>🏆 提交成績</h2>
+            <button class="close-modal">&times;</button>
+          </div>
+          <div class="modal-body">
+            <p style="font-size: 1.2rem; text-align: center; margin-bottom: 1rem;">
+              你的分數: <strong style="color: var(--primary);">${score}</strong>
+            </p>
+            <div style="display: flex; gap: 10px; justify-content: center; margin-bottom: 1rem;">
+              <input type="text" id="player-name-modal-arrow" placeholder="輸入名字" maxlength="15" 
+                style="border: 3px solid #000; padding: 8px; font-family: inherit; font-weight: bold; flex: 1; max-width: 200px;">
+              <button id="submit-score-btn-modal-arrow" class="btn btn-primary">提交</button>
+            </div>
+            <div id="submit-status-modal-arrow" style="text-align: center; margin-bottom: 1rem;"></div>
+            <h3 style="margin-top: 2rem; margin-bottom: 1rem;">當前排行榜</h3>
+            <div id="leaderboard-display-modal-arrow" style="max-height: 300px; overflow-y: auto;"></div>
+          </div>
+        </div>
+      `;
+            document.body.appendChild(modal);
+
+            // Close modal handlers
+            const closeBtn = modal.querySelector('.close-modal');
+            closeBtn.onclick = () => modal.classList.remove('show');
+            modal.onclick = (e) => {
+                if (e.target === modal) modal.classList.remove('show');
+            };
+        }
+
+        // Update score in modal
+        const scoreDisplay = modal.querySelector('.modal-body p strong');
+        if (scoreDisplay) scoreDisplay.textContent = score;
+
+        // Show modal
+        modal.classList.add('show');
+
+        // Load leaderboard
+        const loadLeaderboard = async () => {
+            const display = document.getElementById('leaderboard-display-modal-arrow');
+            display.innerHTML = '<p style="text-align: center;">載入中...</p>';
+            const scores = await leaderboard.getScores('arrow-rush');
+            if (scores && scores.length > 0) {
+                let html = '<table style="width:100%; border-collapse: collapse;">';
+                html += '<thead><tr style="border-bottom: 3px solid #000;"><th style="padding: 8px; text-align:left">排名</th><th style="padding: 8px; text-align:left">名字</th><th style="padding: 8px; text-align:right">分數</th></tr></thead><tbody>';
+                scores.forEach((s, i) => {
+                    const rank = i + 1;
+                    const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : '';
+                    html += `<tr style="border-bottom: 1px solid #ddd;">
+                    <td style="padding: 8px;"><strong>${medal} ${rank}</strong></td>
+                    <td style="padding: 8px;">${s.name}</td>
+                    <td style="padding: 8px; text-align:right; font-weight: bold; color: var(--primary);">${s.score}</td>
+                </tr>`;
+                });
+                html += '</tbody></table>';
+                display.innerHTML = html;
+            } else {
+                display.innerHTML = '<p style="text-align: center; color: #666;">尚無紀錄或無法連接</p>';
+            }
+        };
+
+        loadLeaderboard();
+
+        // Bind submit button
+        const btn = document.getElementById('submit-score-btn-modal-arrow');
+        const input = document.getElementById('player-name-modal-arrow');
+        const status = document.getElementById('submit-status-modal-arrow');
+
+        // Reset input
+        input.value = '';
+        input.disabled = false;
+        btn.disabled = false;
+        btn.textContent = '提交';
+        status.innerHTML = '';
+
+        btn.onclick = async () => {
+            const name = input.value.trim();
+            if (!name) {
+                alert('請輸入名字');
+                return;
+            }
+            btn.disabled = true;
+            btn.textContent = '提交中...';
+
+            const res = await leaderboard.submitScore('arrow-rush', name, score);
+            if (res.success) {
+                status.innerHTML = '<span style="color:green; font-weight:bold;">✅ 已提交！</span>';
+                loadLeaderboard();
+                input.disabled = true;
+                btn.style.display = 'none';
+            } else {
+                status.innerHTML = '<span style="color:red; font-weight:bold;">❌ 提交失敗</span><br><small>' + (res.error || '') + '</small>';
+                btn.disabled = false;
+                btn.textContent = '重試';
+            }
+        };
     }
 
     resetGame() {
