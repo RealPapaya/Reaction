@@ -1,0 +1,279 @@
+/* ====================================
+   Reaction Test Game - Specific Styles
+   ==================================== */
+
+/* Game Header */
+.game-header {
+    text-align: center;
+    margin-bottom: var(--space-8);
+    position: relative;
+}
+
+.btn-back {
+    position: absolute;
+    left: 0;
+    top: 0;
+    padding: var(--space-2) var(--space-4);
+    background: var(--surface);
+    border: 3px solid var(--border-color);
+    box-shadow: 4px 4px 0 var(--shadow-color);
+    font-family: var(--font-display);
+    font-weight: var(--font-bold);
+    color: var(--text);
+    display: inline-block;
+    transition: transform 150ms ease, box-shadow 150ms ease;
+}
+
+.btn-back:hover {
+    transform: translate(2px, 2px);
+    box-shadow: 2px 2px 0 var(--shadow-color);
+    color: var(--primary);
+}
+
+.game-header h1 {
+    margin-top: var(--space-8);
+    color: var(--primary);
+}
+
+/* Instructions */
+.instructions {
+    margin-bottom: var(--space-8);
+}
+
+.instructions ol {
+    margin-left: var(--space-8);
+    line-height: 1.8;
+}
+
+.instructions li {
+    margin-bottom: var(--space-2);
+}
+
+/* Game Area */
+.game-area {
+    text-align: center;
+    margin-bottom: var(--space-8);
+}
+
+.game-button {
+    width: 100%;
+    max-width: 500px;
+    height: 300px;
+    margin: 0 auto var(--space-8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 5px solid var(--border-color);
+    box-shadow: 12px 12px 0 var(--shadow-color);
+    font-family: var(--font-display);
+    font-weight: var(--font-bold);
+    font-size: var(--text-3xl);
+    cursor: pointer;
+    transition: transform 200ms ease, box-shadow 200ms ease, background-color 300ms ease;
+    user-select: none;
+}
+
+/* Game Button States */
+.game-button.waiting {
+    background: var(--surface);
+    color: var(--text);
+    cursor: default;
+}
+
+.game-button.red {
+    background: var(--error);
+    color: white;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+.game-button.green {
+    background: var(--success);
+    color: white;
+    animation: greenPulse 0.5s ease-in-out;
+}
+
+.game-button.early-click {
+    background: var(--error);
+    color: white;
+    animation: shake 0.5s ease-in-out;
+}
+
+.game-button.success-click {
+    background: var(--success);
+    color: white;
+}
+
+.game-button.clickable {
+    cursor: pointer;
+}
+
+.game-button.clickable:hover {
+    transform: translate(6px, 6px);
+    box-shadow: 6px 6px 0 var(--shadow-color);
+}
+
+.game-button.clickable:active {
+    transform: translate(12px, 12px);
+    box-shadow: 0 0 0 var(--shadow-color);
+}
+
+/* Animations */
+@keyframes pulse {
+
+    0%,
+    100% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.02);
+    }
+}
+
+@keyframes greenPulse {
+    0% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.05);
+    }
+
+    100% {
+        transform: scale(1);
+    }
+}
+
+@keyframes shake {
+
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+
+    25% {
+        transform: translateX(-10px);
+    }
+
+    75% {
+        transform: translateX(10px);
+    }
+}
+
+/* Result Display */
+.result {
+    background: var(--surface);
+    border: 3px solid var(--border-color);
+    box-shadow: 6px 6px 0 var(--shadow-color);
+    padding: var(--space-6);
+    margin-bottom: var(--space-8);
+    max-width: 500px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.result.hidden {
+    display: none;
+}
+
+.result h3 {
+    color: var(--primary);
+    margin-bottom: var(--space-4);
+}
+
+.result p {
+    font-size: var(--text-xl);
+    margin: 0;
+}
+
+.result .success {
+    color: var(--success);
+    font-size: var(--text-2xl);
+    font-weight: var(--font-bold);
+}
+
+.result .error {
+    color: var(--error);
+    font-size: var(--text-xl);
+    font-weight: var(--font-bold);
+}
+
+/* Controls */
+.controls {
+    display: flex;
+    gap: var(--space-4);
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.controls .hidden {
+    display: none;
+}
+
+/* Statistics */
+.stats {
+    margin-top: var(--space-12);
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-6);
+    margin-top: var(--space-6);
+}
+
+@media (min-width: 768px) {
+    .stats-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+.stat-item {
+    text-align: center;
+    padding: var(--space-6);
+    background: var(--background);
+    border: 3px solid var(--border-color);
+    box-shadow: 4px 4px 0 var(--shadow-color);
+}
+
+.stat-label {
+    display: block;
+    font-family: var(--font-display);
+    font-weight: var(--font-bold);
+    color: var(--text);
+    margin-bottom: var(--space-2);
+    font-size: var(--text-sm);
+}
+
+.stat-value {
+    display: block;
+    font-family: var(--font-display);
+    font-weight: var(--font-bold);
+    color: var(--primary);
+    font-size: var(--text-3xl);
+}
+
+/* Responsive adjustments */
+@media (max-width: 767px) {
+    .btn-back {
+        position: static;
+        display: inline-block;
+        margin-bottom: var(--space-4);
+    }
+
+    .game-header h1 {
+        margin-top: var(--space-4);
+    }
+
+    .game-button {
+        height: 250px;
+        font-size: var(--text-2xl);
+    }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+    .game-button {
+        animation: none !important;
+    }
+}

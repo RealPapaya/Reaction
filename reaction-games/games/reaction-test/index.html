@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="紅綠燈反應測試 - 測試你的反應速度">
+    <title>紅綠燈反應測試 | Reaction Games</title>
+    <link rel="stylesheet" href="../../css/style.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="container">
+        <!-- Header with back button -->
+        <header class="game-header">
+            <a href="../../index.html" class="btn-back">← 返回首頁</a>
+            <h1>🚦 紅綠燈反應測試</h1>
+            <p>等待紅燈轉綠，測試你的反應速度！</p>
+        </header>
+
+        <!-- Instructions -->
+        <section class="instructions card">
+            <h2>遊戲規則</h2>
+            <ol>
+                <li>點擊「開始遊戲」按鈕</li>
+                <li>螢幕會顯示<strong>紅色</strong>按鈕，請耐心等待</li>
+                <li>2-5秒後，按鈕會轉為<strong>綠色</strong></li>
+                <li>綠燈亮起後，<strong>立即點擊</strong>按鈕</li>
+                <li>系統會顯示你的反應時間（毫秒）</li>
+                <li>⚠️ 如果太早點擊（紅燈時），則失敗！</li>
+            </ol>
+        </section>
+
+        <!-- Game Area -->
+        <section class="game-area">
+            <div id="game-button" class="game-button waiting">
+                <span id="game-text">點擊「開始遊戲」</span>
+            </div>
+
+            <div id="result" class="result hidden">
+                <h3 id="result-title">結果</h3>
+                <p id="result-message"></p>
+            </div>
+
+            <div class="controls">
+                <button id="start-btn" class="btn btn-primary">開始遊戲</button>
+                <button id="reset-btn" class="btn btn-secondary hidden">再玩一次</button>
+            </div>
+        </section>
+
+        <!-- Statistics -->
+        <section class="stats card">
+            <h2>📊 統計數據</h2>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <span class="stat-label">遊玩次數</span>
+                    <span class="stat-value" id="total-plays">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">平均反應時間</span>
+                    <span class="stat-value" id="avg-time">-</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">最佳成績</span>
+                    <span class="stat-value" id="best-time">-</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">成功率</span>
+                    <span class="stat-value" id="success-rate">-</span>
+                </div>
+            </div>
+            <button id="clear-stats" class="btn btn-secondary mt-4">清除統計</button>
+        </section>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+
+</html>

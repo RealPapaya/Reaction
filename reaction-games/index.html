@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="小遊戲集成網站 - 美式漫畫風格的趣味反應遊戲">
+    <title>Reaction Games Hub - 反應遊戲中心</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .hero {
+            text-align: center;
+            padding: var(--space-12) 0;
+        }
+
+        .hero h1 {
+            font-size: clamp(2rem, 5vw, 4rem);
+            color: var(--primary);
+            margin-bottom: var(--space-4);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .hero p {
+            font-size: var(--text-xl);
+            color: var(--text);
+            max-width: 600px;
+            margin: 0 auto var(--space-8);
+        }
+
+        .games-grid {
+            display: grid;
+            gap: var(--space-8);
+            margin-top: var(--space-12);
+        }
+
+        @media (min-width: 768px) {
+            .games-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .games-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        .game-card {
+            background: var(--surface);
+            border: 3px solid var(--border-color);
+            box-shadow: 8px 8px 0 var(--shadow-color);
+            padding: var(--space-8);
+            cursor: pointer;
+            transition: transform 200ms ease, box-shadow 200ms ease;
+            text-decoration: none;
+            display: block;
+        }
+
+        .game-card:hover {
+            transform: translate(4px, 4px);
+            box-shadow: 4px 4px 0 var(--shadow-color);
+        }
+
+        .game-card:active {
+            transform: translate(8px, 8px);
+            box-shadow: 0 0 0 var(--shadow-color);
+        }
+
+        .game-card h3 {
+            color: var(--primary);
+            margin-bottom: var(--space-4);
+            font-size: var(--text-2xl);
+        }
+
+        .game-card p {
+            color: var(--text);
+            margin-bottom: var(--space-6);
+        }
+
+        .game-tag {
+            display: inline-block;
+            background: var(--accent);
+            color: white;
+            padding: var(--space-2) var(--space-4);
+            border: 2px solid var(--border-color);
+            font-family: var(--font-display);
+            font-weight: var(--font-bold);
+            font-size: var(--text-sm);
+            margin-right: var(--space-2);
+        }
+
+        .game-tag.new {
+            background: var(--success);
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: var(--space-12);
+            padding: var(--space-8) 0;
+            border-top: 3px solid var(--border-color);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header class="hero">
+            <h1>🎮 Reaction Games Hub</h1>
+            <p>測試你的反應速度！挑戰極限，打破紀錄！</p>
+        </header>
+
+        <main>
+            <section class="games-grid">
+                <!-- Reaction Test Game -->
+                <a href="games/reaction-test/index.html" class="game-card">
+                    <span class="game-tag new">NEW</span>
+                    <h3>紅綠燈反應測試</h3>
+                    <p>經典的反應時間測試！等待紅燈轉綠，測試你的反應有多快。</p>
+                    <p><strong>目標：</strong> 在綠燈亮起後盡快點擊</p>
+                </a>
+
+                <!-- Arrow Rush Game -->
+                <a href="games/arrow-rush/index.html" class="game-card">
+                    <span class="game-tag new">NEW</span>
+                    <h3>箭頭衝刺</h3>
+                    <p>30秒內按下正確的方向鍵！節奏感與反應的雙重考驗。</p>
+                    <p><strong>目標：</strong> 獲得最高分數與連擊</p>
+                </a>
+
+                <div class="game-card" style="opacity: 0.5; cursor: not-allowed; pointer-events: none;">
+                    <span class="game-tag">COMING SOON</span>
+                    <h3>記憶配對</h3>
+                    <p>翻牌配對遊戲，訓練你的記憶力！</p>
+                    <p><strong>目標：</strong> 用最少步數配對所有卡片</p>
+                </div>
+            </section>
+        </main>
+
+        <footer class="footer">
+            <p>&copy; 2026 Reaction Games Hub | Made with ❤️ in Neubrutalism Style</p>
+        </footer>
+    </div>
+</body>
+
+</html>
