@@ -2,6 +2,23 @@
    Reaction Test Game - Specific Styles
    ==================================== */
 
+html,
+body {
+    height: 100vh;
+    overflow: hidden;
+    /* Lock scroll */
+    margin: 0;
+    padding: 0;
+}
+
+.container {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    padding-bottom: var(--space-4);
+    /* Add some padding at bottom */
+}
+
 /* Game Header */
 .game-header {
     text-align: center;
@@ -52,7 +69,10 @@
 /* Game Area */
 .game-area {
     text-align: center;
-    margin-bottom: var(--space-8);
+    margin-bottom: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
 }
 
 /* Game Area Layout */
@@ -60,24 +80,25 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-6);
-    align-items: center;
-    justify-content: center;
-    margin-bottom: var(--space-8);
+    margin-bottom: var(--space-4);
+    flex: 1;
+    /* Allow it to grow and fill space */
 }
 
 @media (min-width: 768px) {
     .game-container {
-        flex-direction: row;
-        align-items: flex-start;
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        grid-template-rows: auto auto;
+        gap: var(--space-6);
     }
 }
 
 .game-button {
-    flex: 2;
     width: 100%;
-    /* max-width removed to fit flex, or adjusted */
     max-width: 100%;
-    height: 300px;
+    height: auto;
+    min-height: 350px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -85,25 +106,80 @@
     box-shadow: 12px 12px 0 var(--shadow-color);
     font-family: var(--font-display);
     font-weight: var(--font-bold);
-    font-size: var(--text-3xl);
+    font-size: var(--text-4xl);
     cursor: pointer;
     transition: transform 200ms ease, box-shadow 200ms ease, background-color 300ms ease;
     user-select: none;
     margin: 0;
-    /* Clear margin as gap handles it */
+}
+
+@media (min-width: 768px) {
+    .game-button {
+        grid-column: 1;
+        grid-row: 1 / 3;
+        min-height: 500px;
+    }
 }
 
 .round-history {
-    flex: 1;
     width: 100%;
     min-width: 250px;
     background: var(--surface);
     border: 3px solid var(--border-color);
     box-shadow: 8px 8px 0 var(--shadow-color);
     padding: var(--space-6);
-    height: 300px;
-    /* Match button height */
+    height: auto;
+    min-height: 150px;
     overflow-y: auto;
+}
+
+@media (min-width: 768px) {
+    .round-history {
+        grid-column: 2;
+        grid-row: 1;
+        max-height: 240px;
+    }
+}
+
+/* Chart Container */
+.chart-container {
+    width: 100%;
+    min-width: 250px;
+    background: var(--surface);
+    border: 3px solid var(--border-color);
+    box-shadow: 8px 8px 0 var(--shadow-color);
+    padding: var(--space-4);
+    height: auto;
+}
+
+@media (min-width: 768px) {
+    .chart-container {
+        grid-column: 2;
+        grid-row: 2;
+    }
+}
+
+.chart-container h3 {
+    margin-top: 0;
+    margin-bottom: var(--space-4);
+    font-size: var(--text-lg);
+    text-align: center;
+}
+
+#chart-canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    border: 3px solid var(--border-color);
+}
+
+/* Canvas clickable state */
+#game-canvas {
+    cursor: default;
+}
+
+#game-canvas.clickable {
+    cursor: pointer;
 }
 
 .round-history h3 {
@@ -137,7 +213,17 @@
 .game-button.waiting {
     background: var(--surface);
     color: var(--text);
-    cursor: default;
+    cursor: pointer;
+    /* Clickable to start */
+}
+
+.game-button.waiting:hover {
+    background: var(--background);
+}
+
+.game-button.waiting:active {
+    transform: translate(6px, 6px);
+    box-shadow: 6px 6px 0 var(--shadow-color);
 }
 
 .game-button.red {

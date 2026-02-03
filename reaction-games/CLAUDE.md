@@ -69,7 +69,35 @@ Key characteristics:
 - Focus states visible
 - Respect `prefers-reduced-motion`
 
-### 5. Responsive Design
+### 5. Fixed-Size RWD (固定大小響應式設計)
+
+**Critical Rule**: All game pages use fixed-size design to prevent scaling issues.
+
+- Use fixed pixel units (px) for all dimensions
+- Lock viewport: `html, body { height: 100vh; overflow: hidden; }`
+- Do NOT use relative units (vw, vh, %) for scaling
+- Ensure content fits viewport without scrollbars
+- Objects maintain fixed size regardless of window resize
+- Small screens may require layout adjustments, but object sizes remain constant
+
+**Implementation Pattern**:
+```css
+/* In each game's style.css */
+html, body {
+    height: 100vh;
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
+}
+
+.container {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+```
+
+### 6. Responsive Design
 
 Test at breakpoints:
 - Mobile: 375px

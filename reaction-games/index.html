@@ -108,6 +108,7 @@
         <header class="hero">
             <h1>🎮 Reaction Games Hub</h1>
             <p>測試你的反應速度！挑戰極限，打破紀錄！</p>
+            <button id="leaderboard-btn" class="btn btn-primary" style="margin-top: var(--space-4);">🏆 排行榜</button>
         </header>
 
         <main>
@@ -141,6 +142,130 @@
             <p>&copy; 2026 Reaction Games Hub | Made with ❤️ in Neubrutalism Style</p>
         </footer>
     </div>
+
+    <!-- Leaderboard Modal -->
+    <div id="leaderboard-modal" class="modal">
+        <div class="modal-content card" style="max-width: 800px;">
+            <div class="modal-header">
+                <h2>🏆 排行榜</h2>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div style="margin-bottom: var(--space-6);">
+                    <label for="game-select" style="font-weight: bold; margin-right: var(--space-2);">選擇遊戲：</label>
+                    <select id="game-select"
+                        style="padding: var(--space-2); border: 3px solid #000; font-family: inherit; font-weight: bold;">
+                        <option value="reaction-test">紅綠燈反應測試</option>
+                        <option value="arrow-rush">箭頭衝刺</option>
+                    </select>
+                </div>
+                <div id="leaderboard-content">
+                    <p style="text-align: center;">載入中...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/leaderboard-service.js"></script>
+    <script>
+        // Modal functionality
+        const modal = document.getElementById('leaderboard-modal');
+        const btn = document.getElementById('leaderboard-btn');
+        const closeBtn = document.querySelector('.close-modal');
+        const gameSelect = document.getElementById('game-select');
+        const leaderboardContent = document.getElementById('leaderboard-content');
+
+        btn.addEventListener('click', () => {
+            modal.classList.add('show');
+            loadLeaderboard();
+        });
+
+        closeBtn.addEventListener('click', () => {
+            modal.classList.remove('show');
+        });
+
+        window.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.classList.remove('show');
+            }
+        });
+
+        gameSelect.addEventListener('change', loadLeaderboard);
+
+        async function loadLeaderboard() {
+            const gameId = gameSelect.value;
+            leaderboardContent.innerHTML = '<p style="text-align: center;">載入中...</p>';
+
+            const scores = await leaderboard.getScores(gameId);
+
+            if (scores && scores.length > 0) {
+                let html = '<table style="width:100%; border-collapse: collapse; text-align: left;">';
+                html += '<thead><tr style="border-bottom: 3px solid #000;">';
+                html += '<th style="padding: var(--space-2);">排名</th>';
+                html += '<th style="padding: var(--space-2);">名字</th>';
+                html += '<th style="padding: var(--space-2); text-align: right;">' + (gameId === 'reaction-test' ? '時間 (ms)' : '分數') + '</th>';
+                html += '<th style="padding: var(--space-2); text-align: right;">日期</th>';
+                html += '</tr></thead><tbody>';
+
+                scores.forEach((s, i) => {
+                    const rank = i + 1;
+                    const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : '';
+                    const date = new Date(s.date).toLocaleDateString('zh-TW');
+                    html += `<tr style="border-bottom: 1px solid #ddd;">
+                        <td style="padding: var(--space-2);"><strong>${medal} ${rank}</strong></td>
+                        <td style="padding: var(--space-2);">${s.name}</td>
+                        <td style="padding: var(--space-2); text-align: right; font-weight: bold; color: var(--primary);">${s.score}${gameId === 'reaction-test' ? 'ms' : ''}</td>
+                        <td style="padding: var(--space-2); text-align: right; font-size: 0.9em; color: #666;">${date}</td>
+                    </tr>`;
+                });
+                html += '</tbody></table>';
+                leaderboardContent.innerHTML = html;
+            } else {
+                leaderboardContent.innerHTML = '<p style="text-align: center; color: #666;">尚無紀錄</p>';
+            }
+        }
+
+        // Modal styles
+        const style = document.createElement('style');
+        style.textContent = `
+            .modal {
+                display: none;
+                position: fixed;
+                z-index: 100;
+                left: 0;
+                top: 0;
+                width: 100%;
+                height: 100%;
+                overflow: auto;
+                background-color: rgba(0, 0, 0, 0.4);
+                backdrop-filter: blur(4px);
+                align-items: center;
+                justify-content: center;
+            }
+            .modal.show {
+                display: flex;
+            }
+            .modal-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: var(--space-6);
+            }
+            .close-modal {
+                background: none;
+                border: none;
+                font-size: 2rem;
+                font-weight: bold;
+                cursor: pointer;
+                color: var(--text);
+                padding: 0 var(--space-2);
+            }
+            .close-modal:hover {
+                color: var(--error);
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
 </body>
 
 </html>

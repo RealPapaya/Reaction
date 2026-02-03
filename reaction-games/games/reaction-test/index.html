@@ -35,6 +35,12 @@
                         <!-- Round items will be added here -->
                     </ul>
                 </div>
+
+                <!-- Chart Container -->
+                <div class="chart-container card">
+                    <h3>成績趨勢</h3>
+                    <canvas id="chart-canvas" width="280" height="180"></canvas>
+                </div>
             </div>
 
             <div id="result" class="result hidden">
@@ -43,33 +49,8 @@
             </div>
 
             <div class="controls">
-                <button id="start-btn" class="btn btn-primary">開始遊戲</button>
                 <button id="reset-btn" class="btn btn-secondary hidden">再玩一次</button>
             </div>
-        </section>
-
-        <!-- Statistics -->
-        <section class="stats card">
-            <h2>📊 統計數據</h2>
-            <div class="stats-grid">
-                <div class="stat-item">
-                    <span class="stat-label">遊玩次數</span>
-                    <span class="stat-value" id="total-plays">0</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-label">平均反應時間</span>
-                    <span class="stat-value" id="avg-time">-</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-label">最佳成績</span>
-                    <span class="stat-value" id="best-time">-</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-label">成功率</span>
-                    <span class="stat-value" id="success-rate">-</span>
-                </div>
-            </div>
-            <button id="clear-stats" class="btn btn-secondary mt-4">清除統計</button>
         </section>
     </div>
 
@@ -96,6 +77,7 @@
         </div>
     </div>
 
+    <script src="../../js/leaderboard-service.js"></script>
     <script src="game.js"></script>
 </body>
 

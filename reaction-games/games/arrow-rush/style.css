@@ -2,6 +2,22 @@
    Arrow Rush Game - Specific Styles
    ==================================== */
 
+html,
+body {
+    height: 100vh;
+    overflow: hidden;
+    /* Lock scroll */
+    margin: 0;
+    padding: 0;
+}
+
+.container {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    padding-bottom: var(--space-4);
+}
+
 /* Game Header */
 .game-header {
     text-align: center;
@@ -102,6 +118,11 @@
     background: var(--background);
     max-width: 100%;
     height: auto;
+    cursor: pointer;
+}
+
+#game-canvas.playing {
+    cursor: default;
 }
 
 #game-canvas.frozen {

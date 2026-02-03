@@ -8,19 +8,15 @@ class ReactionGame {
     // DOM Elements
     this.gameButton = document.getElementById('game-button');
     this.gameText = document.getElementById('game-text');
-    this.startBtn = document.getElementById('start-btn');
     this.resetBtn = document.getElementById('reset-btn');
     this.result = document.getElementById('result');
     this.resultTitle = document.getElementById('result-title');
     this.resultMessage = document.getElementById('result-message');
     this.historyList = document.getElementById('history-list');
 
-    // Stats elements
-    this.totalPlaysEl = document.getElementById('total-plays');
-    this.avgTimeEl = document.getElementById('avg-time');
-    this.bestTimeEl = document.getElementById('best-time');
-    this.successRateEl = document.getElementById('success-rate');
-    this.clearStatsBtn = document.getElementById('clear-stats');
+    // Chart elements
+    this.chartCanvas = document.getElementById('chart-canvas');
+    this.chartCtx = this.chartCanvas ? this.chartCanvas.getContext('2d') : null;
 
     // Modal elements
     this.rulesModal = document.getElementById('rules-modal');
@@ -45,13 +41,18 @@ class ReactionGame {
 
   init() {
     // Event listeners
-    this.startBtn.addEventListener('click', () => this.startGame());
-    this.resetBtn.addEventListener('click', () => this.resetGame());
     this.gameButton.addEventListener('pointerdown', (e) => {
-      e.preventDefault(); // Prevent duplicated mouse/touch events
-      this.handleInput();
+      e.preventDefault();
+      if (!this.isWaiting && !this.isGreen) {
+        // Game not started, start it
+        this.startGame();
+      } else {
+        // Game in progress, handle input
+        this.handleInput();
+      }
     });
-    this.clearStatsBtn.addEventListener('click', () => this.clearStats());
+    this.resetBtn.addEventListener('click', () => this.resetGame());
+
 
     // Modal listeners
     this.btnRules.addEventListener('click', () => this.openRules());
@@ -64,8 +65,7 @@ class ReactionGame {
       }
     });
 
-    // Display stats
-    this.displayStats();
+
 
     // Show rules on load
     this.openRules();
@@ -87,7 +87,6 @@ class ReactionGame {
 
   startGame() {
     // Hide buttons
-    this.startBtn.classList.add('hidden');
     this.result.classList.add('hidden');
     this.resetBtn.classList.add('hidden');
 
@@ -128,8 +127,9 @@ class ReactionGame {
   }
 
   handleInput() {
+    // Only process if game is in progress (waiting for green or green is showing)
     if (!this.isWaiting && !this.isGreen) {
-      // Game hasn't started yet
+      // Game hasn't started yet - this shouldn't happen with new logic
       return;
     }
 
@@ -161,7 +161,6 @@ class ReactionGame {
     this.stats.totalPlays++;
     this.stats.failures++;
     this.saveStats();
-    this.displayStats();
   }
 
   handleSuccessClick() {
@@ -198,7 +197,6 @@ class ReactionGame {
       this.stats.reactionTimes.push(average); // Store average as the play record? Or separate? 
       // User probably cares about the average as the "score" for this session.
       this.saveStats();
-      this.displayStats();
 
       // Show result modal
       setTimeout(() => {
@@ -214,6 +212,132 @@ class ReactionGame {
       li.innerHTML = `<span>Round ${index + 1}</span> <span class="time">${time}ms</span>`;
       this.historyList.appendChild(li);
     });
+
+    // Update chart
+    this.drawChart();
+  }
+
+  drawChart() {
+    if (!this.chartCtx || this.roundTimes.length === 0) return;
+
+    const canvas = this.chartCanvas;
+    const ctx = this.chartCtx;
+    const width = canvas.width;
+    const height = canvas.height;
+    const padding = 40;
+    const chartWidth = width - padding * 2;
+    const chartHeight = height - padding * 2;
+
+    // Clear canvas
+    ctx.clearRect(0, 0, width, height);
+
+    // Background
+    ctx.fillStyle = '#FFF7ED';
+    ctx.fillRect(0, 0, width, height);
+
+    // Calculate scale
+    const maxTime = Math.max(...this.roundTimes, 500);
+    const minTime = 0;
+    const timeRange = maxTime - minTime;
+    const xStep = chartWidth / (this.TOTAL_ROUNDS - 1);
+
+    // Draw axes
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(padding, padding);
+    ctx.lineTo(padding, height - padding);
+    ctx.lineTo(width - padding, height - padding);
+    ctx.stroke();
+
+    // Draw Y-axis labels
+    ctx.fillStyle = '#18181B';
+    ctx.font = 'bold 10px Fredoka, sans-serif';
+    ctx.textAlign = 'right';
+    const ySteps = 4;
+    for (let i = 0; i <= ySteps; i++) {
+      const value = Math.round(maxTime - (maxTime / ySteps) * i);
+      const y = padding + (chartHeight / ySteps) * i;
+      ctx.fillText(`${value}`, padding - 5, y + 3);
+    }
+
+    // Draw X-axis labels
+    ctx.textAlign = 'center';
+    for (let i = 0; i < this.TOTAL_ROUNDS; i++) {
+      const x = padding + xStep * i;
+      ctx.fillText(`R${i + 1}`, x, height - padding + 15);
+    }
+
+    // Animate drawing
+    this.animateChart(ctx, padding, height, chartWidth, chartHeight, xStep, minTime, timeRange);
+  }
+
+  animateChart(ctx, padding, height, chartWidth, chartHeight, xStep, minTime, timeRange) {
+    const duration = 1000; // 1 second animation
+    const startTime = performance.now();
+
+    const animate = (currentTime) => {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+
+      // Clear previous frame (only the data area)
+      ctx.clearRect(padding, padding - 10, chartWidth + 20, chartHeight + 20);
+
+      // Redraw background for cleared area
+      ctx.fillStyle = '#FFF7ED';
+      ctx.fillRect(padding, padding - 10, chartWidth + 20, chartHeight + 20);
+
+      // Draw line progressively
+      if (this.roundTimes.length > 0) {
+        ctx.strokeStyle = '#F97316';
+        ctx.fillStyle = '#F97316';
+        ctx.lineWidth = 4;
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+
+        const pointsToDraw = Math.ceil(this.roundTimes.length * progress);
+
+        // Draw line segments
+        ctx.beginPath();
+        for (let i = 0; i < pointsToDraw; i++) {
+          const time = this.roundTimes[i];
+          const x = padding + xStep * i;
+          const y = height - padding - ((time - minTime) / timeRange) * chartHeight;
+
+          if (i === 0) {
+            ctx.moveTo(x, y);
+          } else {
+            ctx.lineTo(x, y);
+          }
+        }
+        ctx.stroke();
+
+        // Draw points up to current progress
+        for (let i = 0; i < pointsToDraw; i++) {
+          const time = this.roundTimes[i];
+          const x = padding + xStep * i;
+          const y = height - padding - ((time - minTime) / timeRange) * chartHeight;
+
+          // Outer black circle
+          ctx.fillStyle = '#000';
+          ctx.beginPath();
+          ctx.arc(x, y, 6, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Inner orange circle
+          ctx.fillStyle = '#F97316';
+          ctx.beginPath();
+          ctx.arc(x, y, 4, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      }
+    };
+
+    requestAnimationFrame(animate);
   }
 
   showResult(success, data) {
@@ -235,9 +359,80 @@ class ReactionGame {
       }
 
       this.resultMessage.innerHTML = `
-        <span class="success">平均: ${time}ms</span><br>
-        <span>${rating}</span>
+        <div class="result-score">
+            <span class="success">平均: ${time}ms</span><br>
+            <span>${rating}</span>
+        </div>
+        <div class="leaderboard-section" style="margin-top: 2rem; border-top: 3px solid #000; padding-top: 1rem;">
+            <h3>🏆 排行榜提交</h3>
+            <div style="display: flex; gap: 10px; justify-content: center; margin-bottom: 1rem;">
+                <input type="text" id="player-name" placeholder="輸入名字" maxlength="15" 
+                    style="border: 3px solid #000; padding: 5px; font-family: inherit; font-weight: bold;">
+                <button id="submit-score-btn" class="btn-primary" style="padding: 5px 15px; font-size: 0.9rem;">提交</button>
+            </div>
+            <div id="submit-status"></div>
+            <div id="leaderboard-display" style="text-align: left; max-height: 200px; overflow-y: auto;"></div>
+        </div>
       `;
+
+      // Helper to load and display leaderboard
+      const loadLeaderboard = async () => {
+        const display = document.getElementById('leaderboard-display');
+        display.innerHTML = '載入中...';
+        const scores = await leaderboard.getScores('reaction-test');
+        if (scores && scores.length > 0) {
+          let html = '<table style="width:100%; border-collapse: collapse;">';
+          html += '<tr><th style="text-align:left">排名</th><th style="text-align:left">名字</th><th style="text-align:right">時間</th></tr>';
+          scores.forEach((s, i) => {
+            html += `<tr>
+                      <td>${i + 1}</td>
+                      <td>${s.name}</td>
+                      <td style="text-align:right">${s.score}ms</td>
+                  </tr>`;
+          });
+          html += '</table>';
+          display.innerHTML = html;
+        } else {
+          display.innerHTML = '尚無紀錄或無法連接';
+        }
+      };
+
+      // Bind events
+      setTimeout(() => {
+        const btn = document.getElementById('submit-score-btn');
+        const input = document.getElementById('player-name');
+        const status = document.getElementById('submit-status');
+
+        // Auto-load current leaderboard
+        loadLeaderboard();
+
+        if (btn) {
+          btn.onclick = async () => {
+            const name = input.value.trim();
+            if (!name) {
+              alert('請輸入名字');
+              return;
+            }
+            btn.disabled = true;
+            btn.textContent = '...';
+
+            const res = await leaderboard.submitScore('reaction-test', name, time);
+            if (res.success) {
+              status.innerHTML = '<span style="color:green; font-weight:bold;">✅ 已提交！</span>';
+              // Reload leaderboard
+              loadLeaderboard();
+              // Disable input
+              input.disabled = true;
+              btn.style.display = 'none';
+            } else {
+              status.innerHTML = '<span style="color:red; font-weight:bold;">提交失敗</span><br><small>' + (res.error || '') + '</small>';
+              btn.disabled = false;
+              btn.textContent = '重試';
+            }
+          };
+        }
+      }, 0);
+
     } else {
       this.resultTitle.textContent = '❌ 失敗';
       this.resultMessage.innerHTML = `<span class="error">${data}</span>`;
@@ -250,10 +445,9 @@ class ReactionGame {
   resetGame() {
     // Reset UI
     this.gameButton.className = 'game-button waiting';
-    this.gameText.textContent = '點擊「開始遊戲」';
+    this.gameText.textContent = '點擊開始遊戲';
     this.result.classList.add('hidden');
     this.resetBtn.classList.add('hidden');
-    this.startBtn.classList.remove('hidden');
 
     // Clear timeout just in case
     clearTimeout(this.timeout);
@@ -283,46 +477,7 @@ class ReactionGame {
     localStorage.setItem('reactionGameStats', JSON.stringify(this.stats));
   }
 
-  displayStats() {
-    // Total plays
-    this.totalPlaysEl.textContent = this.stats.totalPlays;
 
-    // Success rate
-    const successCount = this.stats.reactionTimes.length;
-    const successRate = this.stats.totalPlays > 0
-      ? Math.round((successCount / this.stats.totalPlays) * 100)
-      : 0;
-    this.successRateEl.textContent = this.stats.totalPlays > 0 ? `${successRate}%` : '-';
-
-    // Average time
-    if (this.stats.reactionTimes.length > 0) {
-      const sum = this.stats.reactionTimes.reduce((a, b) => a + b, 0);
-      const avg = Math.round(sum / this.stats.reactionTimes.length);
-      this.avgTimeEl.textContent = `${avg}ms`;
-    } else {
-      this.avgTimeEl.textContent = '-';
-    }
-
-    // Best time
-    if (this.stats.reactionTimes.length > 0) {
-      const best = Math.min(...this.stats.reactionTimes);
-      this.bestTimeEl.textContent = `${best}ms`;
-    } else {
-      this.bestTimeEl.textContent = '-';
-    }
-  }
-
-  clearStats() {
-    if (confirm('確定要清除所有統計數據嗎？')) {
-      this.stats = {
-        totalPlays: 0,
-        reactionTimes: [],
-        failures: 0
-      };
-      this.saveStats();
-      this.displayStats();
-    }
-  }
 }
 
 // Initialize game when DOM is ready

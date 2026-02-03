@@ -14,18 +14,10 @@ class ArrowRushGame {
         this.timeEl = document.getElementById('time');
         this.comboEl = document.getElementById('combo');
         this.comboMultiplierEl = document.getElementById('combo-multiplier');
-        this.startBtn = document.getElementById('start-btn');
         this.restartBtn = document.getElementById('restart-btn');
         this.result = document.getElementById('result');
         this.resultTitle = document.getElementById('result-title');
         this.resultMessage = document.getElementById('result-message');
-
-        // Stats elements
-        this.totalPlaysEl = document.getElementById('total-plays');
-        this.highScoreEl = document.getElementById('high-score');
-        this.maxComboEl = document.getElementById('max-combo');
-        this.accuracyEl = document.getElementById('accuracy');
-        this.clearStatsBtn = document.getElementById('clear-stats');
 
         // Modal elements
         this.rulesModal = document.getElementById('rules-modal');
@@ -80,9 +72,13 @@ class ArrowRushGame {
 
     init() {
         // Event listeners
-        this.startBtn.addEventListener('click', () => this.startGame());
+        this.canvas.addEventListener('click', () => {
+            if (!this.isPlaying) {
+                this.startGame();
+            }
+        });
         this.restartBtn.addEventListener('click', () => this.resetGame());
-        this.clearStatsBtn.addEventListener('click', () => this.clearStats());
+
 
         // Modal listeners
         this.btnRules.addEventListener('click', () => this.openRules());
@@ -99,8 +95,7 @@ class ArrowRushGame {
         this.handleKeyDown = this.handleKeyDown.bind(this);
         document.addEventListener('keydown', this.handleKeyDown);
 
-        // Display stats
-        this.displayStats();
+
 
         // Draw初始畫面
         this.drawInitialScreen();
@@ -129,14 +124,44 @@ class ArrowRushGame {
         this.ctx.fillStyle = '#1E1B4B';
         this.ctx.font = 'bold 24px Fredoka, sans-serif';
         this.ctx.textAlign = 'center';
-        this.ctx.fillText('點擊「開始遊戲」', this.canvas.width / 2, this.canvas.height / 2);
+        this.ctx.fillText('點擊畫面開始遊戲', this.canvas.width / 2, this.canvas.height / 2);
     }
 
     startGame() {
         // Hide/show buttons
-        this.startBtn.classList.add('hidden');
         this.restartBtn.classList.add('hidden');
         this.result.classList.add('hidden');
+
+        // Show countdown
+        this.showCountdown();
+    }
+
+    showCountdown() {
+        let countdown = 3;
+        this.isPlaying = false; // Prevent input during countdown
+
+        const countdownInterval = setInterval(() => {
+            this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+            // Draw countdown number
+            this.ctx.fillStyle = '#F97316';
+            this.ctx.font = 'bold 120px Fredoka, sans-serif';
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'middle';
+            this.ctx.fillText(countdown, this.canvas.width / 2, this.canvas.height / 2);
+
+            countdown--;
+
+            if (countdown < 0) {
+                clearInterval(countdownInterval);
+                this.startGamePlay();
+            }
+        }, 1000);
+    }
+
+    startGamePlay() {
+        // Add playing class
+        this.canvas.classList.add('playing');
 
         // Reset state
         this.isPlaying = true;
@@ -367,7 +392,6 @@ class ArrowRushGame {
         this.stats.totalAttempts += this.totalAttempts;
 
         this.saveStats();
-        this.displayStats();
 
         // Show result
         this.showResult();
@@ -404,9 +428,11 @@ class ArrowRushGame {
     }
 
     resetGame() {
+        // Remove playing class
+        this.canvas.classList.remove('playing');
+
         this.restartBtn.classList.add('hidden');
         this.result.classList.add('hidden');
-        this.startBtn.classList.remove('hidden');
 
         // Reset UI values
         this.scoreEl.textContent = '0';
@@ -453,30 +479,7 @@ class ArrowRushGame {
         localStorage.setItem('arrowRushStats', JSON.stringify(this.stats));
     }
 
-    displayStats() {
-        this.totalPlaysEl.textContent = this.stats.totalPlays;
-        this.highScoreEl.textContent = this.stats.highScore;
-        this.maxComboEl.textContent = this.stats.maxCombo;
 
-        const accuracy = this.stats.totalAttempts > 0
-            ? Math.round((this.stats.totalHits / this.stats.totalAttempts) * 100)
-            : 0;
-        this.accuracyEl.textContent = this.stats.totalPlays > 0 ? `${accuracy}%` : '-';
-    }
-
-    clearStats() {
-        if (confirm('確定要清除所有統計數據嗎？')) {
-            this.stats = {
-                totalPlays: 0,
-                highScore: 0,
-                maxCombo: 0,
-                totalHits: 0,
-                totalAttempts: 0
-            };
-            this.saveStats();
-            this.displayStats();
-        }
-    }
 }
 
 // Initialize game when DOM is ready
