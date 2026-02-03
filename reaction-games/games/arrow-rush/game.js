@@ -26,6 +26,11 @@ class ArrowRushGame {
         this.accuracyEl = document.getElementById('accuracy');
         this.clearStatsBtn = document.getElementById('clear-stats');
 
+        // Modal elements
+        this.rulesModal = document.getElementById('rules-modal');
+        this.btnRules = document.getElementById('btn-rules');
+        this.closeModalBtns = document.querySelectorAll('.close-modal, .close-modal-btn');
+
         // Game state
         this.isPlaying = false;
         this.isPaused = false;
@@ -33,7 +38,7 @@ class ArrowRushGame {
         this.score = 0;
         this.combo = 0;
         this.timeLeft = 30;
-        this.currentArrow = null; // 當前箭頭
+        this.arrowQueue = []; // Queue of arrows
         this.totalHits = 0;
         this.totalAttempts = 0;
 
@@ -78,6 +83,17 @@ class ArrowRushGame {
         this.restartBtn.addEventListener('click', () => this.resetGame());
         this.clearStatsBtn.addEventListener('click', () => this.clearStats());
 
+        // Modal listeners
+        this.btnRules.addEventListener('click', () => this.openRules());
+        this.closeModalBtns.forEach(btn => {
+            btn.addEventListener('click', () => this.closeRules());
+        });
+        window.addEventListener('click', (e) => {
+            if (e.target === this.rulesModal) {
+                this.closeRules();
+            }
+        });
+
         // Keyboard listener
         this.handleKeyDown = this.handleKeyDown.bind(this);
         document.addEventListener('keydown', this.handleKeyDown);
@@ -87,6 +103,22 @@ class ArrowRushGame {
 
         // Draw初始畫面
         this.drawInitialScreen();
+
+        // Show rules on load
+        this.openRules();
+    }
+
+    openRules() {
+        this.rulesModal.classList.add('show');
+        if (this.isPlaying && !this.isPaused) {
+            // Optional: Pause game if rules opened during play (though button might be hidden or we want to pause)
+            // effective pause logic not fully implemented but game relies on timer.
+            // For now, assume rules are mostly for pre-game.
+        }
+    }
+
+    closeRules() {
+        this.rulesModal.classList.remove('show');
     }
 
     drawInitialScreen() {
@@ -118,8 +150,11 @@ class ArrowRushGame {
         // Update UI
         this.updateUI();
 
-        // Generate first arrow
-        this.nextArrow();
+        // Generate initial arrows
+        this.arrowQueue = [];
+        for (let i = 0; i < 6; i++) {
+            this.arrowQueue.push(this.getRandomDirection());
+        }
 
         // Start timer
         this.startTimer();
@@ -128,8 +163,8 @@ class ArrowRushGame {
         this.render();
     }
 
-    nextArrow() {
-        this.currentArrow = this.getRandomDirection();
+    addNextArrow() {
+        this.arrowQueue.push(this.getRandomDirection());
     }
 
     getRandomDirection() {
@@ -149,7 +184,7 @@ class ArrowRushGame {
 
         // Check hit
         this.totalAttempts++;
-        if (direction === this.currentArrow) {
+        if (this.arrowQueue.length > 0 && direction === this.arrowQueue[0]) {
             this.handleHit();
         } else {
             this.handleMiss();
@@ -191,8 +226,9 @@ class ArrowRushGame {
         this.score += points;
         this.totalHits++;
 
-        // Next arrow
-        this.nextArrow();
+        // Update Queue
+        this.arrowQueue.shift();
+        this.addNextArrow();
 
         // Update UI logic
         this.updateUI();
@@ -229,49 +265,67 @@ class ArrowRushGame {
         // Clear canvas
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
-        if (!this.isPlaying || !this.currentArrow) return;
+        if (!this.isPlaying || this.arrowQueue.length === 0) return;
 
-        // Draw current arrow centered
-        const x = this.canvas.width / 2 - this.BLOCK_SIZE / 2;
-        const y = this.canvas.height / 2 - this.BLOCK_SIZE / 2;
-        const direction = this.currentArrow;
+        // Draw queue (stack)
+        // Target (index 0) is at the bottom center
+        const startY = this.canvas.height - 150;
 
-        // Background
-        this.ctx.fillStyle = this.isFrozen ? '#9CA3AF' : this.DIRECTION_COLORS[direction];
+        // Draw from last to first
+        for (let i = this.arrowQueue.length - 1; i >= 0; i--) {
+            const isTarget = i === 0;
+            const size = isTarget ? this.BLOCK_SIZE : 80;
+            const spacing = 100;
 
-        // If frozen, shake effect or gray out - for now just gray out handled by color above
+            const cx = this.canvas.width / 2;
+            const cy = startY - (i * spacing);
 
-        // Draw Box
-        this.ctx.fillRect(x, y, this.BLOCK_SIZE, this.BLOCK_SIZE);
+            const x = cx - size / 2;
+            const y = cy - size / 2;
 
-        // Border
-        this.ctx.strokeStyle = '#000000';
-        this.ctx.lineWidth = 4;
-        this.ctx.strokeRect(x, y, this.BLOCK_SIZE, this.BLOCK_SIZE);
+            // Skip drawing if off-screen top
+            if (y + size < 0) continue;
 
-        // Shadow effect
-        this.ctx.fillStyle = '#000000';
-        this.ctx.fillRect(x + 8, y + 8, this.BLOCK_SIZE, this.BLOCK_SIZE);
-        this.ctx.fillStyle = this.isFrozen ? '#9CA3AF' : this.DIRECTION_COLORS[direction];
-        this.ctx.fillRect(x, y, this.BLOCK_SIZE, this.BLOCK_SIZE);
-        this.ctx.strokeRect(x, y, this.BLOCK_SIZE, this.BLOCK_SIZE);
+            const direction = this.arrowQueue[i];
 
-        // Arrow Symbol
-        this.ctx.fillStyle = '#FFFFFF';
-        this.ctx.font = 'bold 64px Fredoka, sans-serif';
-        this.ctx.textAlign = 'center';
-        this.ctx.textBaseline = 'middle';
-        this.ctx.fillText(
-            this.DIRECTION_SYMBOLS[direction],
-            x + this.BLOCK_SIZE / 2,
-            y + this.BLOCK_SIZE / 2 + 5 // slightly adjusted for vertical center
-        );
+            // Color logic
+            const color = this.isFrozen ? '#9CA3AF' : this.DIRECTION_COLORS[direction];
 
-        // Frozen "X" overlay
-        if (this.isFrozen) {
-            this.ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';
-            this.ctx.font = 'bold 80px sans-serif';
-            this.ctx.fillText('X', x + this.BLOCK_SIZE / 2, y + this.BLOCK_SIZE / 2 + 5);
+            // Draw Box
+            this.ctx.fillStyle = color;
+            this.ctx.fillRect(x, y, size, size);
+
+            // Border
+            this.ctx.strokeStyle = '#000000';
+            this.ctx.lineWidth = isTarget ? 4 : 2;
+            this.ctx.strokeRect(x, y, size, size);
+
+            // Shadow effect (only for target?)
+            if (isTarget) {
+                this.ctx.fillStyle = '#000000';
+                this.ctx.fillRect(x + 8, y + 8, size, size);
+                this.ctx.fillStyle = color;
+                this.ctx.fillRect(x, y, size, size);
+                this.ctx.strokeRect(x, y, size, size);
+            }
+
+            // Arrow Symbol
+            this.ctx.fillStyle = '#FFFFFF';
+            this.ctx.font = `bold ${isTarget ? 64 : 40}px Fredoka, sans-serif`;
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'middle';
+            this.ctx.fillText(
+                this.DIRECTION_SYMBOLS[direction],
+                x + size / 2,
+                y + size / 2 + (isTarget ? 5 : 3)
+            );
+
+            // Frozen "X" overlay on target
+            if (isTarget && this.isFrozen) {
+                this.ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';
+                this.ctx.font = 'bold 80px sans-serif';
+                this.ctx.fillText('X', x + size / 2, y + size / 2 + 5);
+            }
         }
     }
 
@@ -321,11 +375,11 @@ class ArrowRushGame {
             : 0;
 
         let rating = '';
-        if (this.score >= 300) {
+        if (this.score >= 1000) {
             rating = '大師級！🏆';
-        } else if (this.score >= 200) {
+        } else if (this.score >= 750) {
             rating = '優秀！⭐';
-        } else if (this.score >= 100) {
+        } else if (this.score >= 500) {
             rating = '不錯！👍';
         } else {
             rating = '繼續加油！💪';

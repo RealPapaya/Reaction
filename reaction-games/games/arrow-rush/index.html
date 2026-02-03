@@ -15,23 +15,12 @@
         <!-- Header -->
         <header class="game-header">
             <a href="../../index.html" class="btn-back">← 返回首頁</a>
+            <button id="btn-rules" class="btn-rules">❓ 規則</button>
             <h1>⬆️ 箭頭衝刺</h1>
             <p>30秒內按下正確的方向鍵，節奏與反應的雙重考驗！</p>
         </header>
 
-        <!-- Instructions -->
-        <section class="instructions card">
-            <h2>遊戲規則</h2>
-            <ol>
-                <li>點擊「開始遊戲」開始 30 秒倒數計時</li>
-                <li>方塊會從上方掉落，顯示方向符號（↑/↓/←/→）</li>
-                <li>螢幕會同時顯示<strong>接下來的 5 個方塊</strong></li>
-                <li>當最下方的方塊到達<strong>判定線</strong>時，按下對應的方向鍵</li>
-                <li>正確按下：<strong>+10 分</strong>，連擊 +1</li>
-                <li>按錯或沒按：<strong>-5 分</strong>，連擊歸零，<strong>僵直 0.5 秒</strong>（畫面閃紅）</li>
-                <li>每 5 連擊有分數加成！</li>
-            </ol>
-        </section>
+
 
         <!-- Game Area -->
         <section class="game-area">
@@ -98,6 +87,29 @@
             </div>
             <button id="clear-stats" class="btn btn-secondary mt-4">清除統計</button>
         </section>
+    </div>
+
+    <!-- Rules Modal -->
+    <div id="rules-modal" class="modal">
+        <div class="modal-content card">
+            <div class="modal-header">
+                <h2>📜 遊戲規則</h2>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <ol>
+                    <li>點擊「開始遊戲」開始 30 秒倒數計時</li>
+                    <li>螢幕中間顯示<strong>當前箭頭</strong>與<strong>即將到來的 5 個箭頭</strong></li>
+                    <li>按下與<strong>最下方（當前）箭頭</strong>相符的方向鍵（↑/↓/←/→）</li>
+                    <li>正確按下：<strong>+10 分</strong>，連擊 +1，箭頭立即更新</li>
+                    <li>按錯：<strong>-5 分</strong>，連擊歸零，<strong>僵直 0.5 秒</strong>（無法操作）</li>
+                    <li>每 5 連擊有分數加成！</li>
+                </ol>
+                <div class="text-center mt-8">
+                    <button class="btn btn-primary close-modal-btn">我知道了！</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="game.js"></script>
