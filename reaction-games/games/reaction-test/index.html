@@ -24,8 +24,17 @@
 
         <!-- Game Area -->
         <section class="game-area">
-            <div id="game-button" class="game-button waiting">
-                <span id="game-text">點擊「開始遊戲」</span>
+            <div class="game-container">
+                <div id="game-button" class="game-button waiting">
+                    <span id="game-text">點擊「開始遊戲」</span>
+                </div>
+
+                <div class="round-history card">
+                    <h3>每輪成績</h3>
+                    <ul id="history-list">
+                        <!-- Round items will be added here -->
+                    </ul>
+                </div>
             </div>
 
             <div id="result" class="result hidden">

@@ -13,6 +13,7 @@ class ReactionGame {
     this.result = document.getElementById('result');
     this.resultTitle = document.getElementById('result-title');
     this.resultMessage = document.getElementById('result-message');
+    this.historyList = document.getElementById('history-list');
 
     // Stats elements
     this.totalPlaysEl = document.getElementById('total-plays');
@@ -31,6 +32,9 @@ class ReactionGame {
     this.isGreen = false;
     this.startTime = null;
     this.timeout = null;
+    this.currentRound = 0;
+    this.roundTimes = [];
+    this.TOTAL_ROUNDS = 5;
 
     // Stats from localStorage
     this.stats = this.loadStats();
@@ -87,10 +91,21 @@ class ReactionGame {
     // Reset state
     this.isWaiting = true;
     this.isGreen = false;
+    this.currentRound = 1;
+    this.roundTimes = [];
+    this.updateHistoryUI(); // Clear list
+
+    this.startRound();
+  }
+
+  startRound() {
+    // Reset light state for new round
+    this.isWaiting = true;
+    this.isGreen = false;
 
     // Show red light
     this.gameButton.className = 'game-button red';
-    this.gameText.textContent = '等待綠燈...';
+    this.gameText.textContent = `Round ${this.currentRound} / ${this.TOTAL_ROUNDS}\n等待綠燈...`;
 
     // Random delay between 2-5 seconds
     const delay = Math.random() * 3000 + 2000; // 2000-5000ms
@@ -152,19 +167,50 @@ class ReactionGame {
 
     // Update state
     this.isGreen = false;
+    this.roundTimes.push(reactionTime);
 
     // Visual feedback
     this.gameButton.className = 'game-button success-click';
     this.gameText.textContent = `${reactionTime}ms`;
 
-    // Show result
-    this.showResult(true, reactionTime);
+    // Update History UI
+    this.updateHistoryUI();
 
-    // Update stats
-    this.stats.totalPlays++;
-    this.stats.reactionTimes.push(reactionTime);
-    this.saveStats();
-    this.displayStats();
+    // Check if rounds complete
+    if (this.currentRound < this.TOTAL_ROUNDS) {
+      this.currentRound++;
+      // Delay before next round
+      setTimeout(() => {
+        if (this.startBtn.classList.contains('hidden')) { // Check if game allowed to continue
+          this.startRound();
+        }
+      }, 1500);
+    } else {
+      // All rounds done
+      const average = Math.round(this.roundTimes.reduce((a, b) => a + b, 0) / this.roundTimes.length);
+
+      // Final result handling
+      // Update stats
+      this.stats.totalPlays++;
+      this.stats.reactionTimes.push(average); // Store average as the play record? Or separate? 
+      // User probably cares about the average as the "score" for this session.
+      this.saveStats();
+      this.displayStats();
+
+      // Show result modal
+      setTimeout(() => {
+        this.showResult(true, average);
+      }, 1000);
+    }
+  }
+
+  updateHistoryUI() {
+    this.historyList.innerHTML = '';
+    this.roundTimes.forEach((time, index) => {
+      const li = document.createElement('li');
+      li.innerHTML = `<span>Round ${index + 1}</span> <span class="time">${time}ms</span>`;
+      this.historyList.appendChild(li);
+    });
   }
 
   showResult(success, data) {
@@ -186,7 +232,7 @@ class ReactionGame {
       }
 
       this.resultMessage.innerHTML = `
-        <span class="success">${time}ms</span><br>
+        <span class="success">平均: ${time}ms</span><br>
         <span>${rating}</span>
       `;
     } else {
@@ -213,6 +259,8 @@ class ReactionGame {
     this.isWaiting = false;
     this.isGreen = false;
     this.startTime = null;
+    this.roundTimes = [];
+    this.updateHistoryUI();
   }
 
   // Stats management
