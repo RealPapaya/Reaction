@@ -66,6 +66,7 @@ class HorseRacingGame {
         this.dom.raceModal = document.getElementById('race-modal');
         this.dom.quickBetModal = document.getElementById('quick-bet-modal');
         this.dom.successModal = document.getElementById('success-modal');
+        this.dom.trackInfoModal = document.getElementById('track-info-modal');
         this.dom.scanningOverlay = document.getElementById('scanning-overlay');
         this.dom.scanningMessage = document.getElementById('scanning-message');
         this.dom.scanningProgressBar = document.getElementById('scanning-progress-bar');
@@ -90,6 +91,7 @@ class HorseRacingGame {
                 this.dom.raceModal?.classList.remove('show');
                 this.dom.quickBetModal?.classList.remove('show');
                 this.dom.successModal?.classList.remove('show');
+                this.dom.trackInfoModal?.classList.remove('show');
 
                 // Restore navigation bar
                 if (this.dom.navContainer) {
@@ -209,6 +211,10 @@ class HorseRacingGame {
                         </div>
                     </div>
                     <div class="track-card-actions">
+                        <button class="btn btn-secondary track-info-btn" 
+                                data-track-id="${status.trackId}">
+                            場地介紹
+                        </button>
                         <button class="btn ${btnClass} track-view-btn" 
                                 data-track-id="${status.trackId}"
                                 ${btnDisabled}>
@@ -219,12 +225,46 @@ class HorseRacingGame {
             `;
         }).join('');
 
+        // Add event listeners for track info
+        this.dom.venuesCardsContainer.querySelectorAll('.track-info-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.showTrackInfo(btn.dataset.trackId);
+            });
+        });
+
         // Add event listeners only to enabled buttons
         this.dom.venuesCardsContainer.querySelectorAll('.track-view-btn:not([disabled])').forEach(btn => {
             btn.addEventListener('click', () => {
                 this.viewRace(btn.dataset.trackId);
             });
         });
+    }
+
+    showTrackInfo(trackId) {
+        const track = raceScheduler.getTrackData(trackId);
+        if (!track) return;
+
+        document.getElementById('track-info-name').textContent = `${track.flagEmoji} ${track.name} (${track.nameEn})`;
+
+        // Handle image
+        const img = document.getElementById('track-info-image');
+        if (track.image) {
+            img.src = track.image;
+            img.classList.remove('hidden');
+        } else {
+            img.src = '';
+            img.classList.add('hidden');
+        }
+
+        document.getElementById('track-info-description').textContent = track.description;
+        document.getElementById('track-info-difficulty').textContent = track.difficultyLevel;
+        document.getElementById('track-info-geology').textContent = track.geologyType;
+        document.getElementById('track-info-characteristics').textContent = track.characteristicsDetail;
+
+        const impactList = document.getElementById('track-info-impact-list');
+        impactList.innerHTML = track.coreImpact.map(impact => `<li>${impact}</li>`).join('');
+
+        this.dom.trackInfoModal.classList.add('show');
     }
 
     // ====================================

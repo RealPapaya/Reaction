@@ -231,6 +231,49 @@
                 </div>
             </div>
         </div>
+
+        <!-- Track Info Modal -->
+        <div id="track-info-modal" class="modal">
+            <div class="modal-content card track-detail-modal">
+                <div class="modal-header">
+                    <h2 id="track-info-name">場地介紹</h2>
+                    <button class="close-modal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="track-info-section">
+                        <div class="track-info-header-row">
+                            <div class="track-info-image-container" id="track-info-image-container">
+                                <img id="track-info-image" src="" alt="Track Image" class="track-info-image hidden">
+                            </div>
+                            <div class="track-info-text">
+                                <div class="track-info-desc" id="track-info-description"></div>
+                                <div class="track-info-details">
+                                    <div class="info-row">
+                                        <span class="info-label">難度評級：</span>
+                                        <span class="info-value" id="track-info-difficulty"></span>
+                                    </div>
+                                    <div class="info-row">
+                                        <span class="info-label">地質類型：</span>
+                                        <span class="info-value" id="track-info-geology"></span>
+                                    </div>
+                                    <div class="info-row">
+                                        <span class="info-label">賽道特性：</span>
+                                        <span class="info-value" id="track-info-characteristics"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="track-info-impact">
+                            <h4>核心影響 (Gameplay Impact)：</h4>
+                            <ul id="track-info-impact-list"></ul>
+                        </div>
+                    </div>
+                    <div class="modal-actions">
+                        <button class="btn btn-primary close-modal">關閉</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script src="racetracks.js"></script>
