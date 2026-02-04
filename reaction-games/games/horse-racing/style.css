@@ -183,7 +183,7 @@ h4,
     flex-grow: 1;
     display: grid;
     /* Updated Grid Columns: Odds | Horse | Info | Body Weight | Weight | Jockey | Trend */
-    grid-template-columns: 220px 2.5fr 1fr 1.5fr 90px 2fr 1.5fr;
+    grid-template-columns: 110px 2.5fr 1fr 1.5fr 90px 2fr 1.5fr;
     align-items: center;
     padding: 3px var(--space-4);
     gap: var(--space-2);
