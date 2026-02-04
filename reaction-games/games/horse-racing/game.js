@@ -165,11 +165,6 @@ class HorseRacingGame {
         });
     }
 
-    updateOdds() {
-        this.calculateOdds();
-        this.renderHorses();
-    }
-
     // ====================================
     // UI Rendering
     // ====================================
@@ -235,10 +230,10 @@ class HorseRacingGame {
                     <div class="cell-odds">賠率</div>
                     <div class="cell-horse">馬名</div>
                     <div class="cell-info">年齡/性別</div>
+                    <div class="cell-body-weight">體重 (增減)</div>
                     <div class="cell-weight">負磅</div>
                     <div class="cell-jockey">騎手</div>
                     <div class="cell-trend">近五場走勢</div>
-                    <div class="cell-body-weight">體重 (增減)</div>
                 </div>
             </div>
             <div class="program-body">
@@ -285,6 +280,10 @@ class HorseRacingGame {
                                     <span class="horse-name">${horse.name}</span>
                                 </div>
                                 <div class="cell-info">${horse.age}歲 / ${horse.gender}</div>
+                                <div class="cell-body-weight">
+                                    <span class="body-val">${horse.weight}kg</span>
+                                    <span class="weight-change ${weightChangeClass}">(${weightChangeText})</span>
+                                </div>
                                 <div class="cell-weight">${horse.weightCarried}磅</div>
                                 <div class="cell-jockey">
                                     <span class="jockey-flag">${horse.jockey.flag}</span>
@@ -293,10 +292,6 @@ class HorseRacingGame {
                                 </div>
                                 <div class="cell-trend">
                                     <div class="trend-container">${trendHtml}</div>
-                                </div>
-                                <div class="cell-body-weight">
-                                    <span class="body-val">${horse.weight}kg</span>
-                                    <span class="weight-change ${weightChangeClass}">(${weightChangeText})</span>
                                 </div>
                             </div>
                         </div>
@@ -447,7 +442,7 @@ class HorseRacingGame {
 
         // Recalculate odds
         this.calculateOdds();
-        this.renderHorses();
+        this.updateOdds();
     }
 
     // ====================================

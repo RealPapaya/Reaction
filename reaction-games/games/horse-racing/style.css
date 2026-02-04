@@ -1,26 +1,75 @@
-/* ====================================
-   Horse Racing Game - Specific Styles
-   ==================================== */
+:root {
+    --primary: #8B5CF6;
+    --primary-dark: #7C3AED;
+    --secondary: #F97312;
+    --accent: #10B981;
+    --background: #F3F4F6;
+    --surface: #FFFFFF;
+    --text: #1F2937;
+    --text-light: #6B7280;
+    --border-color: #000000;
+    --shadow-color: #000000;
+    --error: #EF4444;
+    --success: #22C55E;
 
-html,
-body {
-    height: 100vh;
-    overflow-x: hidden;
-    overflow-y: auto;
+    --font-display: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --font-body: 'Inter', system-ui, -apple-system, sans-serif;
+
+    --space-1: 0.25rem;
+    --space-2: 0.5rem;
+    --space-3: 0.75rem;
+    --space-4: 1rem;
+    --space-6: 1.5rem;
+    --space-8: 2rem;
+    --space-12: 3rem;
+
+    --text-xs: 0.75rem;
+    --text-sm: 0.875rem;
+    --text-base: 1rem;
+    --text-lg: 1.125rem;
+    --text-xl: 1.25rem;
+    --text-2xl: 1.5rem;
+    --text-3xl: 1.875rem;
+
+    --font-regular: 400;
+    --font-medium: 500;
+    --font-bold: 700;
+}
+
+* {
     margin: 0;
     padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background-color: var(--background);
+    color: var(--text);
+    font-family: var(--font-body);
+    line-height: 1.5;
+    padding: var(--space-4);
+    min-height: 100vh;
+}
+
+h1,
+h2,
+h3,
+h4,
+.btn,
+.odds-val {
+    font-family: var(--font-display);
 }
 
 .container {
-    min-height: 100%;
-    display: flex;
-    flex-direction: column;
-    padding-bottom: var(--space-4);
+    max-width: 1600px;
+    margin: 0 auto;
 }
 
-/* Game Header */
+/* Header & Navigation */
 .game-header {
-    text-align: center;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: var(--space-8);
     position: relative;
 }
@@ -28,75 +77,12 @@ body {
 .btn-back {
     position: absolute;
     left: 0;
-    top: 0;
-    padding: var(--space-2) var(--space-4);
-    background: var(--surface);
-    border: 3px solid var(--border-color);
-    box-shadow: 4px 4px 0 var(--shadow-color);
-    font-family: var(--font-display);
-    font-weight: var(--font-bold);
-    color: var(--text);
-    display: inline-block;
-    transition: transform 150ms ease, box-shadow 150ms ease;
-}
-
-.btn-back:hover {
-    transform: translate(2px, 2px);
-    box-shadow: 2px 2px 0 var(--shadow-color);
-    color: var(--primary);
+    top: 50%;
+    transform: translateY(-50%);
 }
 
 .game-header h1 {
-    margin-top: var(--space-8);
-    color: #FFD700;
-    /* Gold */
-}
-
-/* Status Bar */
-.status-bar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: var(--space-4);
-    margin-bottom: var(--space-8);
-    flex-wrap: wrap;
-}
-
-.balance-display,
-.timer-display {
-    background: var(--surface);
-    border: 3px solid var(--border-color);
-    box-shadow: 4px 4px 0 var(--shadow-color);
-    padding: var(--space-4);
-    min-width: 150px;
-    text-align: center;
-}
-
-.balance-display .label,
-.timer-display .label {
-    display: block;
-    font-size: var(--text-sm);
-    color: var(--text);
-    margin-bottom: var(--space-2);
-}
-
-.balance-display .value {
-    display: block;
-    font-size: var(--text-2xl);
-    font-weight: var(--font-bold);
-    color: #16A34A;
-    /* Green */
-}
-
-.timer-display .value {
-    display: block;
-    font-size: var(--text-2xl);
-    font-weight: var(--font-bold);
-    color: var(--primary);
-}
-
-.race-status {
-    flex: 1;
+    width: 100%;
     text-align: center;
 }
 
@@ -117,9 +103,7 @@ body {
     animation: pulse 1s infinite;
 }
 
-/* Professional Odds Table */
-/* Professional Odds Table */
-/* Professional Racing Program Layout (Div-based) */
+/* Professional Racing Program Layout (Refined) */
 .odds-table-container {
     background: transparent;
     border: none;
@@ -136,7 +120,7 @@ body {
 .row-wrapper {
     display: flex;
     align-items: stretch;
-    gap: var(--space-4);
+    gap: var(--space-2);
     width: 100%;
 }
 
@@ -173,12 +157,11 @@ body {
 .program-row {
     flex-grow: 1;
     display: grid;
-    /* Grid Columns: Odds | Horse | Info | Weight | Jockey | Trend | Body Weight */
-    grid-template-columns: 140px 2.5fr 1fr 90px 2fr 1.5fr 1.5fr;
+    /* Updated Grid Columns: Odds | Horse | Info | Body Weight | Weight | Jockey | Trend */
+    grid-template-columns: 220px 2.5fr 1fr 1.5fr 90px 2fr 1.5fr;
     align-items: center;
-    padding: 2px var(--space-4);
-    /* Extra compact height */
-    gap: var(--space-4);
+    padding: 3px var(--space-4);
+    gap: var(--space-2);
     min-width: 0;
 }
 
@@ -201,6 +184,9 @@ body {
     border-radius: 4px;
     min-height: 48px;
     /* Consistent height */
+    white-space: nowrap;
+    /* Prevent wrap */
+    overflow: hidden;
 }
 
 .program-row:hover {
@@ -219,14 +205,13 @@ body {
     background: white;
     border: 2px solid var(--border-color);
     border-radius: 6px;
-    padding: var(--space-2) var(--space-4);
+    padding: 2px var(--space-4);
     font-size: var(--text-xl);
     font-weight: var(--font-bold);
     color: #B45309;
     box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.1);
-    min-width: 90px;
+    min-width: 100px;
     text-align: center;
-
     transform-style: preserve-3d;
     backface-visibility: hidden;
 }
@@ -266,14 +251,20 @@ body {
     }
 }
 
-.odds-val {
-    /* Text is static inside the flipping card */
-}
+
 
 .odds-change {
-    font-size: 0.6em;
+    font-size: 0.65em;
     vertical-align: middle;
     margin-left: 4px;
+}
+
+.odds-change.up {
+    color: #EF4444;
+}
+
+.odds-change.down {
+    color: #22C55E;
 }
 
 .cell-horse {
@@ -281,8 +272,8 @@ body {
     align-items: center;
     min-width: 0;
     /* Prevent overflow */
+    overflow: hidden;
 }
-
 
 .horse-num {
     display: inline-block;
@@ -294,25 +285,37 @@ body {
     color: white;
     font-weight: var(--font-bold);
     border-radius: 4px;
-    margin-right: var(--space-2);
+    margin-right: var(--space-3);
+    flex-shrink: 0;
 }
 
 .horse-name {
     font-weight: var(--font-bold);
     font-size: var(--text-base);
+    text-overflow: ellipsis;
+    overflow: hidden;
 }
 
-.col-jockey {
-    line-height: 1.2;
+.cell-jockey {
+    line-height: 1.1;
+    overflow: hidden;
 }
 
 .jockey-name {
     font-weight: var(--font-bold);
+    font-size: var(--text-sm);
+    display: block;
 }
 
 .jockey-country {
-    font-size: var(--text-xs);
+    font-size: 10px;
     opacity: 0.6;
+}
+
+.cell-info,
+.cell-weight,
+.cell-body-weight {
+    font-size: var(--text-sm);
 }
 
 /* Trend Balls */
@@ -340,21 +343,17 @@ body {
     border-color: #854D0E;
 }
 
-/* Gold */
 .trend-ball.rank-2 {
     background: #E5E7EB;
     color: #374151;
     border-color: #374151;
 }
 
-/* Silver */
 .trend-ball.rank-3 {
     background: #FED7AA;
     color: #9A3412;
     border-color: #9A3412;
 }
-
-/* Bronze */
 
 /* Weight Change */
 .weight-change {
@@ -684,6 +683,19 @@ body {
     background: rgba(139, 92, 246, 0.05);
 }
 
+/* Ranking Colors */
+.ranking-item:nth-child(1) {
+    border-left: 4px solid #FDE047;
+}
+
+.ranking-item:nth-child(2) {
+    border-left: 4px solid #E5E7EB;
+}
+
+.ranking-item:nth-child(3) {
+    border-left: 4px solid #FED7AA;
+}
+
 .payout-display {
     text-align: center;
     padding: var(--space-6);
@@ -714,6 +726,78 @@ body {
 
 .payout-display.loss .payout-amount strong {
     color: #DC2626;
+}
+
+/* Status Bar & Timer */
+.status-bar {
+    display: flex;
+    gap: var(--space-4);
+    margin-bottom: var(--space-6);
+}
+
+.balance-display,
+.timer-display {
+    flex: 1;
+    background: var(--surface);
+    border: 3px solid var(--border-color);
+    box-shadow: 4px 4px 0 var(--shadow-color);
+    padding: var(--space-4);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.balance-display .label,
+.timer-display .label {
+    font-weight: var(--font-bold);
+    text-transform: uppercase;
+    font-size: var(--text-sm);
+    color: var(--text-light);
+}
+
+.balance-display .value,
+.timer-display .value {
+    font-family: var(--font-display);
+    font-size: var(--text-2xl);
+    font-weight: var(--font-bold);
+}
+
+.timer-display .value.urgent {
+    color: var(--error);
+}
+
+/* Button & UI Basic components */
+.btn {
+    display: inline-block;
+    padding: var(--space-3) var(--space-8);
+    background: var(--secondary);
+    color: white;
+    border: 3px solid var(--border-color);
+    box-shadow: 4px 4px 0 var(--shadow-color);
+    font-weight: var(--font-bold);
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: transform 150ms ease, box-shadow 150ms ease;
+}
+
+.btn:hover:not(:disabled) {
+    transform: translate(2px, 2px);
+    box-shadow: 2px 2px 0 var(--shadow-color);
+}
+
+.btn:active:not(:disabled) {
+    transform: translate(4px, 4px);
+    box-shadow: 0 0 0 var(--shadow-color);
+}
+
+.btn:disabled {
+    background: #9CA3AF;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.btn-secondary {
+    background: var(--primary);
 }
 
 /* Animations */
@@ -775,10 +859,6 @@ body {
     .balance-display,
     .timer-display {
         width: 100%;
-    }
-
-    .horses-grid {
-        grid-template-columns: 1fr;
     }
 
     .chip-buttons {
