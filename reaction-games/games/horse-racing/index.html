@@ -4,10 +4,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="賽馬競技場 - 8匹駿馬，動態賠率，即時下注">
+    <meta name="description" content="賽馬競技場 - 全球真實賽馬場，動態賠率，即時下注">
     <title>賽馬競技場 | Reaction Games</title>
     <link rel="stylesheet" href="../../css/style.css">
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="track-selection-styles.css">
 </head>
 
 <body>
@@ -16,61 +17,139 @@
         <header class="game-header">
             <a href="../../index.html" class="btn-back">← 返回首頁</a>
             <h1>🏇 賽馬競技場</h1>
-            <p>8匹駿馬爭奪冠軍，誰能率先衝線？</p>
+            <p>全球頂級賽馬場，真實賽道挑戰</p>
         </header>
 
-        <!-- Balance & Timer Section -->
-        <section class="status-bar">
+        <!-- Global Balance & My Bets Button -->
+        <section class="global-status-bar">
             <div class="balance-display">
-                <span class="label">💰 餘額</span>
-                <span class="value" id="balance">$10,000</span>
+                <span class="label">💰 總餘額</span>
+                <span class="value" id="global-balance">$10,000</span>
             </div>
-            <div class="timer-display">
-                <span class="label">⏱️ 下場比賽</span>
-                <span class="value" id="timer">02:00</span>
-            </div>
-            <div class="race-status">
-                <span class="status-badge" id="race-status">投注中</span>
+            <button class="btn btn-primary" id="my-bets-btn">📋 我的投注</button>
+        </section>
+
+        <!-- Track Selection Screen (Default View) -->
+        <section id="track-selection-screen" class="track-selection-screen">
+            <h2>選擇賽馬場</h2>
+            <div id="track-cards-container" class="track-cards-grid">
+                <!-- Track cards will be generated here -->
             </div>
         </section>
 
-        <!-- Horses Info Section -->
-        <section class="horses-section">
-            <h2>馬匹資訊 & 賠率</h2>
-            <div id="horses-container" class="odds-table-container">
-                <!-- 8 horse cards will be generated here -->
+        <!-- Track Detail Screen (Hidden by default) -->
+        <section id="track-detail-screen" class="track-detail-screen hidden">
+            <!-- Track Header -->
+            <div class="track-detail-header">
+                <button class="btn btn-secondary" id="back-to-selection">← 返回選擇</button>
+                <div class="track-title">
+                    <h2 id="current-track-name">雅士谷</h2>
+                    <p id="current-track-location">英國</p>
+                </div>
+                <div class="track-timer">
+                    <span class="label">⏱️ 下場比賽</span>
+                    <span class="value" id="track-timer">05:00</span>
+                </div>
+            </div>
+
+            <!-- Track Options (3 tabs) -->
+            <div class="track-options">
+                <button class="track-option-btn active" data-option="intro">📖 場地介紹</button>
+                <button class="track-option-btn" data-option="betting">💰 投注區</button>
+                <button class="track-option-btn" data-option="race">🏁 比賽場地</button>
+            </div>
+
+            <!-- Track Intro Panel -->
+            <div id="track-intro-panel" class="track-panel active">
+                <div class="track-intro-content">
+                    <div class="track-info-card">
+                        <h3>🏟️ 場地資訊</h3>
+                        <div class="info-row">
+                            <span class="info-label">賽道類型</span>
+                            <span class="info-value" id="intro-surface">草地</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">標誌性賽事</span>
+                            <span class="info-value" id="intro-signature">皇家雅士谷賽事</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">難度</span>
+                            <span class="info-value" id="intro-difficulty">中等</span>
+                        </div>
+                    </div>
+                    <div class="track-description-card">
+                        <h3>📝 場地特色</h3>
+                        <p id="intro-description">英國皇室直屬馬場，擁有極長的最後直路...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Betting Panel -->
+            <div id="track-betting-panel" class="track-panel">
+                <div class="race-status-indicator">
+                    <span class="status-badge" id="race-status">投注中</span>
+                </div>
+
+                <!-- Horses Info Section -->
+                <h3>馬匹資訊 & 賠率</h3>
+                <div id="horses-container" class="odds-table-container">
+                    <!-- Horse cards will be generated here -->
+                </div>
+
+                <!-- Current Track Bets -->
+                <h3>本場投注</h3>
+                <div id="current-track-bets" class="bets-container">
+                    <p class="no-bets">尚未下注</p>
+                </div>
+                <div class="total-bet">
+                    本場總投注：<strong id="current-track-total">$0</strong>
+                </div>
+            </div>
+
+            <!-- Race Track Panel -->
+            <div id="track-race-panel" class="track-panel">
+                <div class="race-track-view">
+                    <canvas id="race-canvas" width="1000" height="600"></canvas>
+                    <div id="race-waiting-message" class="race-waiting">
+                        <p>⏳ 比賽尚未開始</p>
+                        <p>馬匹正在起跑線等待...</p>
+                    </div>
+                </div>
             </div>
         </section>
 
-        <!-- Betting Section -->
-        <section class="betting-section">
-            <h2>我的投注</h2>
-            <div id="bets-display" class="bets-container">
-                <p class="no-bets">尚未下注</p>
-            </div>
-            <div class="total-bet">
-                總投注：<strong id="total-bet">$0</strong>
-            </div>
-        </section>
+        <!-- My Bets Modal (Cross-track) -->
+        <div id="my-bets-modal" class="modal">
+            <div class="modal-content card my-bets-modal-content">
+                <div class="modal-header">
+                    <h2>📋 我的投注</h2>
+                    <button class="close-modal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <!-- All Tracks Bets Summary -->
+                    <div class="my-bets-summary">
+                        <h3>所有場地投注彙總</h3>
+                        <div id="all-bets-list" class="all-bets-list">
+                            <!-- Grouped by track -->
+                        </div>
+                        <div class="total-all-bets">
+                            全部投注總額：<strong id="total-all-bets">$0</strong>
+                        </div>
+                    </div>
 
-        <!-- Race Track Section (shown during race) -->
-        <section id="race-section" class="race-section hidden">
-            <h2>🏁 比賽進行中</h2>
-            <div class="race-track">
-                <canvas id="race-canvas" width="800" height="480"></canvas>
+                    <!-- History Section -->
+                    <div class="my-bets-history">
+                        <h3>歷史紀錄</h3>
+                        <div id="global-history-container" class="history-list">
+                            <p class="no-history">暫無紀錄</p>
+                        </div>
+                    </div>
+                </div>
             </div>
-        </section>
-
-        <!-- History Section -->
-        <section class="history-section">
-            <h2>歷史紀錄</h2>
-            <div id="history-container" class="history-list">
-                <p class="no-history">暫無紀錄</p>
-            </div>
-        </section>
+        </div>
     </div>
 
-    <!-- Betting Modal -->
+    <!-- Betting Modal (same as before) -->
     <div id="bet-modal" class="modal">
         <div class="modal-content card">
             <div class="modal-header">
@@ -106,7 +185,7 @@
         </div>
     </div>
 
-    <!-- Result Modal -->
+    <!-- Result Modal (same as before) -->
     <div id="result-modal" class="modal">
         <div class="modal-content card">
             <div class="modal-header">
@@ -131,6 +210,7 @@
         </div>
     </div>
 
+    <script src="racetracks.js"></script>
     <script src="data-generator.js"></script>
     <script src="race-engine.js"></script>
     <script src="game.js"></script>
