@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="小遊戲大廳 - 精選反應遊戲集合">
+    <title>小遊戲大廳 - 反應遊戲中心</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: var(--space-8);
+            position: relative;
+        }
+
+        .hub-header {
+            text-align: center;
+            margin-bottom: var(--space-12);
+            position: relative;
+        }
+
+        .btn-back {
+            position: absolute;
+            left: 0;
+            top: 0;
+            padding: var(--space-2) var(--space-4);
+            background: var(--surface);
+            border: 3px solid var(--border-color);
+            box-shadow: 4px 4px 0 var(--shadow-color);
+            font-family: var(--font-display);
+            font-weight: var(--font-bold);
+            color: var(--text);
+            text-decoration: none;
+            display: inline-block;
+            transition: transform 150ms ease, box-shadow 150ms ease;
+        }
+
+        .btn-back:hover {
+            transform: translate(2px, 2px);
+            box-shadow: 2px 2px 0 var(--shadow-color);
+            color: var(--primary);
+        }
+
+        .hub-header h1 {
+            font-size: clamp(2rem, 5vw, 3.5rem);
+            color: var(--primary);
+            margin-bottom: var(--space-4);
+            text-transform: uppercase;
+        }
+
+        .games-grid {
+            display: grid;
+            gap: var(--space-8);
+            grid-template-columns: 1fr;
+        }
+
+        @media (min-width: 768px) {
+            .games-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .games-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        .game-card {
+            background: var(--surface);
+            border: 3px solid var(--border-color);
+            box-shadow: 8px 8px 0 var(--shadow-color);
+            padding: var(--space-8);
+            cursor: pointer;
+            transition: transform 200ms ease, box-shadow 200ms ease;
+            text-decoration: none;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .game-card:hover {
+            transform: translate(4px, 4px);
+            box-shadow: 4px 4px 0 var(--shadow-color);
+        }
+
+        .game-card h3 {
+            color: var(--primary);
+            margin-bottom: var(--space-4);
+            font-size: var(--text-2xl);
+        }
+
+        .game-card p {
+            color: var(--text);
+            margin-bottom: var(--space-6);
+            flex-grow: 1;
+        }
+
+        .game-tag {
+            align-self: flex-start;
+            background: var(--success);
+            color: white;
+            padding: var(--space-1) var(--space-2);
+            border: 2px solid var(--border-color);
+            font-family: var(--font-display);
+            font-weight: var(--font-bold);
+            font-size: var(--text-xs);
+            margin-bottom: var(--space-4);
+        }
+
+
+
+        /* Leaderboard Button */
+        #leaderboard-btn {
+            position: fixed;
+            top: var(--space-8);
+            right: var(--space-8);
+            z-index: 100;
+            /* Ensure it stays on top */
+        }
+
+        @media (max-width: 900px) {
+            .hub-header {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: var(--space-4);
+            }
+
+            .btn-back {
+                position: static;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header class="hub-header">
+            <a href="index.html" class="btn-back">← 返回首頁</a>
+            <h1>🕹️ 小遊戲大廳</h1>
+            <p>精選反應力測試，挑戰你的極限速度！</p>
+        </header>
+
+        <button id="leaderboard-btn" class="btn btn-primary">🏆 排行榜</button>
+
+        <main>
+            <section class="games-grid">
+                <!-- Reaction Test Game -->
+                <a href="games/reaction-test/index.html" class="game-card">
+                    <span class="game-tag">經典</span>
+                    <h3>紅綠燈反應測試</h3>
+                    <p>等待紅燈轉綠，測試你的反應有多快。點擊即刻開始測試！</p>
+                    <div class="btn btn-secondary">立即玩</div>
+                </a>
+
+                <!-- Arrow Rush Game -->
+                <a href="games/arrow-rush/index.html" class="game-card">
+                    <span class="game-tag">挑戰</span>
+                    <h3>箭頭衝刺</h3>
+                    <p>30秒內按下正確的方向鍵！考驗節奏感與指尖活力的巔峰對決。</p>
+                    <div class="btn btn-secondary">立即玩</div>
+                </a>
+
+                <!-- Block Lights Game -->
+                <a href="games/block-lights/index.html" class="game-card">
+                    <span class="game-tag">熱門</span>
+                    <h3>方塊燈</h3>
+                    <p>3×3 方塊網格中隨機亮起，在限時內點擊越多越好！</p>
+                    <div class="btn btn-secondary">立即玩</div>
+                </a>
+            </section>
+        </main>
+
+
+    </div>
+
+    <!-- Leaderboard Modal -->
+    <div id="leaderboard-modal" class="modal">
+        <div class="modal-content card" style="max-width: 800px;">
+            <div class="modal-header">
+                <h2 style="margin: 0;">🏆 排行榜</h2>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div
+                    style="margin-bottom: var(--space-6); display: flex; align-items: center; gap: var(--space-4); flex-wrap: wrap;">
+                    <label for="game-select" style="font-weight: bold;">選擇遊戲：</label>
+                    <select id="game-select"
+                        style="padding: var(--space-2); border: 3px solid #000; font-family: inherit; font-weight: bold; flex-grow: 1;">
+                        <option value="reaction-test">紅綠燈反應測試</option>
+                        <option value="arrow-rush">箭頭衝刺</option>
+                    </select>
+                </div>
+                <div id="leaderboard-content" style="overflow-x: auto;">
+                    <p style="text-align: center;">載入中...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/leaderboard-service.js"></script>
+    <script>
+        const modal = document.getElementById('leaderboard-modal');
+        const btn = document.getElementById('leaderboard-btn');
+        const closeBtn = document.querySelector('.close-modal');
+        const gameSelect = document.getElementById('game-select');
+        const leaderboardContent = document.getElementById('leaderboard-content');
+
+        btn.addEventListener('click', () => {
+            modal.classList.add('show');
+            loadLeaderboard();
+        });
+
+        closeBtn.addEventListener('click', () => {
+            modal.classList.remove('show');
+        });
+
+        window.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.classList.remove('show');
+            }
+        });
+
+        gameSelect.addEventListener('change', loadLeaderboard);
+
+        async function loadLeaderboard() {
+            const gameId = gameSelect.value;
+            leaderboardContent.innerHTML = '<p style="text-align: center;">載入中...</p>';
+            const scores = await leaderboard.getScores(gameId);
+            if (scores && scores.length > 0) {
+                let html = '<table style="width:100%; border-collapse: collapse; text-align: left; min-width: 400px;">';
+                html += '<thead><tr style="border-bottom: 3px solid #000;">';
+                html += '<th style="padding: var(--space-2);">排名</th><th style="padding: var(--space-2);">名字</th><th style="padding: var(--space-2); text-align: right;">分數/時間</th></tr></thead><tbody>';
+                scores.forEach((s, i) => {
+                    html += `<tr style="border-bottom: 1px solid #ddd;">
+                        <td style="padding: var(--space-2); font-weight: bold;">${i + 1}</td>
+                        <td style="padding: var(--space-2);">${s.name}</td>
+                        <td style="padding: var(--space-2); text-align: right; font-weight: bold;">${s.score}${gameId === 'reaction-test' ? 'ms' : ''}</td>
+                    </tr>`;
+                });
+                html += '</tbody></table>';
+                leaderboardContent.innerHTML = html;
+            } else {
+                leaderboardContent.innerHTML = '<p style="text-align: center; color: #666;">尚無紀錄</p>';
+            }
+        }
+
+        // Shared Modal Styles (Injection)
+        if (!document.getElementById('modal-styles')) {
+            const style = document.createElement('style');
+            style.id = 'modal-styles';
+            style.textContent = `
+                .modal {
+                    display: none;
+                    position: fixed;
+                    z-index: 1000;
+                    left: 0;
+                    top: 0;
+                    width: 100%;
+                    height: 100%;
+                    background-color: rgba(0, 0, 0, 0.4);
+                    backdrop-filter: blur(4px);
+                    align-items: center;
+                    justify-content: center;
+                    padding: var(--space-4);
+                }
+                .modal.show {
+                    display: flex;
+                }
+                .modal-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: var(--space-6);
+                }
+                .close-modal {
+                    background: none;
+                    border: none;
+                    font-size: 2rem;
+                    font-weight: bold;
+                    cursor: pointer;
+                    color: var(--text);
+                    padding: 0 var(--space-2);
+                    line-height: 1;
+                }
+                .close-modal:hover {
+                    color: var(--error);
+                }
+            `;
+            document.head.appendChild(style);
+        }
+    </script>
+</body>
+
+</html>

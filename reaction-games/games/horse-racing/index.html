@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="賽馬競技場 - 8匹駿馬，動態賠率，即時下注">
+    <title>賽馬競技場 | Reaction Games</title>
+    <link rel="stylesheet" href="../../css/style.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="game-header">
+            <a href="../../index.html" class="btn-back">← 返回首頁</a>
+            <h1>🏇 賽馬競技場</h1>
+            <p>8匹駿馬爭奪冠軍，誰能率先衝線？</p>
+        </header>
+
+        <!-- Balance & Timer Section -->
+        <section class="status-bar">
+            <div class="balance-display">
+                <span class="label">💰 餘額</span>
+                <span class="value" id="balance">$10,000</span>
+            </div>
+            <div class="timer-display">
+                <span class="label">⏱️ 下場比賽</span>
+                <span class="value" id="timer">02:00</span>
+            </div>
+            <div class="race-status">
+                <span class="status-badge" id="race-status">投注中</span>
+            </div>
+        </section>
+
+        <!-- Horses Info Section -->
+        <section class="horses-section">
+            <h2>馬匹資訊 & 賠率</h2>
+            <div id="horses-container" class="horses-grid">
+                <!-- 8 horse cards will be generated here -->
+            </div>
+        </section>
+
+        <!-- Betting Section -->
+        <section class="betting-section">
+            <h2>我的投注</h2>
+            <div id="bets-display" class="bets-container">
+                <p class="no-bets">尚未下注</p>
+            </div>
+            <div class="total-bet">
+                總投注：<strong id="total-bet">$0</strong>
+            </div>
+        </section>
+
+        <!-- Race Track Section (shown during race) -->
+        <section id="race-section" class="race-section hidden">
+            <h2>🏁 比賽進行中</h2>
+            <div class="race-track">
+                <canvas id="race-canvas" width="800" height="480"></canvas>
+            </div>
+        </section>
+
+        <!-- History Section -->
+        <section class="history-section">
+            <h2>歷史紀錄</h2>
+            <div id="history-container" class="history-list">
+                <p class="no-history">暫無紀錄</p>
+            </div>
+        </section>
+    </div>
+
+    <!-- Betting Modal -->
+    <div id="bet-modal" class="modal">
+        <div class="modal-content card">
+            <div class="modal-header">
+                <h2>下注</h2>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="horse-info-modal">
+                    <h3 id="modal-horse-name">1號 - 閃電俠</h3>
+                    <p id="modal-horse-details">公 5歲 520kg 165cm</p>
+                    <p id="modal-jockey-details">騎手: 王大明 (52kg, 10年)</p>
+                    <p class="odds-display">賠率: <strong id="modal-odds">3.2x</strong></p>
+                </div>
+                <div class="bet-amount-selector">
+                    <label>投注金額：</label>
+                    <div class="chip-buttons">
+                        <button class="chip-btn" data-amount="100">$100</button>
+                        <button class="chip-btn" data-amount="500">$500</button>
+                        <button class="chip-btn" data-amount="1000">$1,000</button>
+                        <button class="chip-btn" data-amount="5000">$5,000</button>
+                    </div>
+                    <input type="number" id="custom-amount" placeholder="自訂金額" min="10" step="10">
+                </div>
+                <div class="bet-preview">
+                    <p>投注金額: <strong id="preview-amount">$0</strong></p>
+                    <p>預期獲利: <strong id="preview-profit">$0</strong></p>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn btn-secondary close-modal-btn">取消</button>
+                    <button class="btn btn-primary" id="confirm-bet-btn">確認下注</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Result Modal -->
+    <div id="result-modal" class="modal">
+        <div class="modal-content card">
+            <div class="modal-header">
+                <h2>🏁 比賽結果</h2>
+            </div>
+            <div class="modal-body">
+                <div class="result-display">
+                    <h3>🥇 冠軍：<span id="winner-name">3號 - 疾風</span></h3>
+                    <div class="ranking-list" id="ranking-list">
+                        <!-- Ranking will be displayed here -->
+                    </div>
+                </div>
+                <div class="payout-display">
+                    <p class="result-message" id="result-message">恭喜中獎！</p>
+                    <p class="payout-amount">獲利: <strong id="payout-amount">+$1,600</strong></p>
+                    <p class="new-balance">新餘額: <strong id="new-balance">$11,600</strong></p>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn btn-primary close-modal-btn">繼續遊戲</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="data-generator.js"></script>
+    <script src="race-engine.js"></script>
+    <script src="game.js"></script>
+</body>
+
+</html>

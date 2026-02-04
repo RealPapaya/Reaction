@@ -5,143 +5,204 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="小遊戲集成網站 - 美式漫畫風格的趣味反應遊戲">
-    <title>Reaction Games Hub - 反應遊戲中心</title>
+    <title>小遊戲 - 反應遊戲中心</title>
     <link rel="stylesheet" href="css/style.css">
     <style>
-        .hero {
-            text-align: center;
-            padding: var(--space-12) 0;
+        body {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
         }
 
-        .hero h1 {
-            font-size: clamp(2rem, 5vw, 4rem);
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 90vh;
+            padding: var(--space-8);
+            position: relative;
+        }
+
+        /* Featured Game Section */
+        .featured-game {
+            text-align: center;
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .featured-card {
+            background: var(--surface);
+            border: 5px solid var(--border-color);
+            box-shadow: 15px 15px 0 var(--shadow-color);
+            padding: var(--space-12);
+            text-decoration: none;
+            display: block;
+            transition: transform 200ms ease, box-shadow 200ms ease;
+            margin-bottom: var(--space-12);
+        }
+
+        .featured-card:hover {
+            transform: translate(5px, 5px);
+            box-shadow: 10px 10px 0 var(--shadow-color);
+        }
+
+        .featured-card h2 {
+            font-size: clamp(2rem, 8vw, 4rem);
             color: var(--primary);
             margin-bottom: var(--space-4);
             text-transform: uppercase;
-            letter-spacing: 2px;
         }
 
-        .hero p {
-            font-size: var(--text-xl);
+        .featured-card p {
+            font-size: var(--text-2xl);
             color: var(--text);
-            max-width: 600px;
-            margin: 0 auto var(--space-8);
+            margin-bottom: var(--space-8);
         }
 
-        .games-grid {
+        /* Other Games Section */
+        .other-games {
             display: grid;
-            gap: var(--space-8);
-            margin-top: var(--space-12);
+            gap: var(--space-6);
+            width: 100%;
+            max-width: 1000px;
         }
 
         @media (min-width: 768px) {
-            .games-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-        }
-
-        @media (min-width: 1024px) {
-            .games-grid {
+            .other-games {
                 grid-template-columns: repeat(3, 1fr);
             }
         }
 
-        .game-card {
+        .mini-card {
             background: var(--surface);
             border: 3px solid var(--border-color);
-            box-shadow: 8px 8px 0 var(--shadow-color);
-            padding: var(--space-8);
-            cursor: pointer;
-            transition: transform 200ms ease, box-shadow 200ms ease;
+            box-shadow: 6px 6px 0 var(--shadow-color);
+            padding: var(--space-6);
             text-decoration: none;
             display: block;
+            transition: all 200ms ease;
+            font-size: var(--text-sm);
         }
 
-        .game-card:hover {
-            transform: translate(4px, 4px);
-            box-shadow: 4px 4px 0 var(--shadow-color);
+        .mini-card:hover {
+            transform: translate(3px, 3px);
+            box-shadow: 3px 3px 0 var(--shadow-color);
         }
 
-        .game-card:active {
-            transform: translate(8px, 8px);
-            box-shadow: 0 0 0 var(--shadow-color);
-        }
-
-        .game-card h3 {
+        .mini-card h3 {
+            font-size: var(--text-lg);
+            margin-bottom: var(--space-2);
             color: var(--primary);
-            margin-bottom: var(--space-4);
-            font-size: var(--text-2xl);
         }
 
-        .game-card p {
+        .mini-card p {
+            margin-bottom: 0;
+            line-height: 1.4;
+        }
+
+
+
+        /* Hub Corner (Bottom Right) */
+        .hub-corner {
+            position: fixed;
+            bottom: var(--space-8);
+            right: var(--space-8);
+            text-align: right;
+            z-index: 10;
+            text-decoration: none;
+            color: inherit;
+            background: var(--surface);
+            border: 3px solid var(--border-color);
+            box-shadow: 6px 6px 0 var(--shadow-color);
+            padding: var(--space-4);
+            transition: all 200ms ease;
+            max-width: 200px;
+        }
+
+        .hub-corner:hover {
+            transform: translate(-3px, -3px);
+            box-shadow: 9px 9px 0 var(--shadow-color);
+            border-color: var(--accent);
+        }
+
+        .hub-corner h3 {
+            font-size: var(--text-lg);
+            margin-bottom: var(--space-1);
             color: var(--text);
-            margin-bottom: var(--space-6);
+        }
+
+        .hub-corner p {
+            font-size: var(--text-xs);
+            margin-bottom: 0;
+            opacity: 0.7;
         }
 
         .game-tag {
             display: inline-block;
             background: var(--accent);
             color: white;
-            padding: var(--space-2) var(--space-4);
+            padding: var(--space-1) var(--space-2);
             border: 2px solid var(--border-color);
             font-family: var(--font-display);
             font-weight: var(--font-bold);
-            font-size: var(--text-sm);
-            margin-right: var(--space-2);
+            font-size: var(--text-xs);
+            margin-bottom: var(--space-2);
         }
 
         .game-tag.new {
             background: var(--success);
         }
 
-        .footer {
-            text-align: center;
-            margin-top: var(--space-12);
-            padding: var(--space-8) 0;
-            border-top: 3px solid var(--border-color);
+        #leaderboard-btn {
+            position: fixed;
+            top: var(--space-8);
+            right: var(--space-8);
+            z-index: 10;
+        }
+
+        @media (max-width: 768px) {
+
+            .hub-corner {
+                position: static;
+                margin-top: var(--space-8);
+                text-align: center;
+                width: 100%;
+                max-width: none;
+            }
+
+            #leaderboard-btn {
+                position: static;
+                margin-bottom: var(--space-8);
+            }
         }
     </style>
 </head>
 
 <body>
     <div class="container">
-        <header class="hero">
-            <h1>🎮 Reaction Games Hub</h1>
-            <p>測試你的反應速度！挑戰極限，打破紀錄！</p>
-            <button id="leaderboard-btn" class="btn btn-primary" style="margin-top: var(--space-4);">🏆 排行榜</button>
-        </header>
+        <button id="leaderboard-btn" class="btn btn-primary">🏆 排行榜</button>
 
-        <main>
-            <section class="games-grid">
-                <!-- Reaction Test Game -->
-                <a href="games/reaction-test/index.html" class="game-card">
-                    <span class="game-tag new">NEW</span>
-                    <h3>紅綠燈反應測試</h3>
-                    <p>經典的反應時間測試！等待紅燈轉綠，測試你的反應有多快。</p>
-                    <p><strong>目標：</strong> 在綠燈亮起後盡快點擊</p>
-                </a>
-
-                <!-- Arrow Rush Game -->
-                <a href="games/arrow-rush/index.html" class="game-card">
-                    <span class="game-tag new">NEW</span>
-                    <h3>箭頭衝刺</h3>
-                    <p>30秒內按下正確的方向鍵！節奏感與反應的雙重考驗。</p>
-                    <p><strong>目標：</strong> 獲得最高分數與連擊</p>
-                </a>
-
-                <!-- Block Lights Game -->
-                <a href="games/block-lights/index.html" class="game-card">
-                    <span class="game-tag new">NEW</span>
-                    <h3>方塊燈</h3>
-                    <p>3×3 方塊網格中同時亮起兩個方塊，在 30 秒內點擊越多越好！</p>
-                    <p><strong>目標：</strong> 快速點擊亮起的方塊獲得高分</p>
-                </a>
-            </section>
+        <!-- Main Featured Game: Horse Racing -->
+        <main class="featured-game">
+            <a href="games/horse-racing/index.html" class="featured-card">
+                <span class="game-tag new">HOT & NEW</span>
+                <h2>🏇 賽馬競技場</h2>
+                <p>8匹駿馬爭奪冠軍，動態賠率每15秒更新！</p>
+                <div class="btn btn-primary" style="font-size: 1.5rem; padding: 1rem 3rem;">立即開賭</div>
+            </a>
         </main>
 
-        <footer class="footer">
-            <p>&copy; 2026 Reaction Games Hub | Made with ❤️ in Neubrutalism Style</p>
-        </footer>
+        <!-- Hub Corner (Bottom Right) -->
+        <a href="hub.html" class="hub-corner">
+            <span class="game-tag">🕹️ MINI GAMES</span>
+            <h3>進入小遊戲區</h3>
+            <p>挑戰反應極限</p>
+        </a>
+
+
     </div>
 
     <!-- Leaderboard Modal -->
