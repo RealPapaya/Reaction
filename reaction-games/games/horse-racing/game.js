@@ -174,14 +174,76 @@ class HorseRacingGame {
     // UI Rendering
     // ====================================
 
+    updateOdds() {
+        this.calculateOdds();
+
+        // If list exists, perform smart update with animation
+        const list = this.horsesContainer.querySelector('.program-list');
+        if (list) {
+            this.updateOddsValues();
+        } else {
+            this.renderHorses();
+        }
+    }
+
+    updateOddsValues() {
+        this.horses.forEach(horse => {
+            const oddsCard = document.getElementById(`odds-card-${horse.id}`);
+            const oddsElement = document.getElementById(`odds-val-${horse.id}`);
+            const changeElement = document.getElementById(`odds-change-${horse.id}`);
+
+            if (oddsCard && oddsElement && changeElement) {
+                // Check if odds actually changed to trigger animation
+                const currentText = parseFloat(oddsElement.textContent);
+                if (currentText !== horse.odds) {
+                    // Trigger Flip Animation on the CARD
+                    oddsCard.classList.remove('flipping');
+                    void oddsCard.offsetWidth; // Trigger reflow
+                    oddsCard.classList.add('flipping');
+
+                    // Update text halfway through animation to hide the swap (at 90deg)
+                    setTimeout(() => {
+                        oddsElement.textContent = horse.odds;
+
+                        // Update change indicator
+                        let oddsChangeHtml = '';
+                        if (horse.previousOdds > 0) {
+                            if (horse.odds > horse.previousOdds) {
+                                oddsChangeHtml = '<span class="odds-change up">↑</span>';
+                            } else if (horse.odds < horse.previousOdds) {
+                                oddsChangeHtml = '<span class="odds-change down">↓</span>';
+                            }
+                        }
+                        changeElement.innerHTML = oddsChangeHtml;
+                    }, 300); // Half of 600ms animation
+                }
+            }
+        });
+    }
+
     renderHorses() {
         this.horsesContainer.innerHTML = '';
 
-        this.horses.forEach(horse => {
-            const card = document.createElement('div');
-            card.className = 'horse-card';
+        const container = document.createElement('div');
+        container.className = 'program-list';
 
-            // Odds change indicator
+        // Header Row (Now separated from Action placeholder)
+        container.innerHTML = `
+            <div class="row-wrapper header-wrapper">
+                <div class="action-placeholder"></div>
+                <div class="program-header">
+                    <div class="cell-odds">賠率</div>
+                    <div class="cell-horse">馬名</div>
+                    <div class="cell-info">年齡/性別</div>
+                    <div class="cell-weight">負磅</div>
+                    <div class="cell-jockey">騎手</div>
+                    <div class="cell-trend">近五場走勢</div>
+                    <div class="cell-body-weight">體重 (增減)</div>
+                </div>
+            </div>
+            <div class="program-body">
+                ${this.horses.map(horse => {
+            // Odds status
             let oddsChange = '';
             if (horse.previousOdds > 0) {
                 if (horse.odds > horse.previousOdds) {
@@ -191,48 +253,68 @@ class HorseRacingGame {
                 }
             }
 
-            card.innerHTML = `
-                <div class="horse-header">
-                    <div class="horse-number">${horse.id}</div>
-                    <div class="horse-name">${horse.name}</div>
-                </div>
-                <div class="horse-details">
-                    <div class="detail-item">
-                        <span class="detail-label">年齡:</span>
-                        <span class="detail-value">${horse.age}歲</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">性別:</span>
-                        <span class="detail-value">${horse.gender}</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">體重:</span>
-                        <span class="detail-value">${horse.weight}kg</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">身長:</span>
-                        <span class="detail-value">${horse.height}cm</span>
-                    </div>
-                </div>
-                <div class="jockey-info">
-                    🏇 騎手: ${horse.jockey.name} (${horse.jockey.weight}kg, ${horse.jockey.experience}年)
-                </div>
-                <div class="odds-section">
-                    <div class="odds-display">
-                        ${horse.odds}x ${oddsChange}
-                    </div>
-                    <button class="bet-btn" data-horse-id="${horse.id}" ${this.phase !== 'BETTING' ? 'disabled' : ''}>
-                        下注
-                    </button>
-                </div>
-            `;
+            // Weight change
+            const weightChangeText = horse.weightChange >= 0 ? `+${horse.weightChange}` : horse.weightChange;
+            const weightChangeClass = horse.weightChange > 0 ? 'up' : (horse.weightChange < 0 ? 'down' : '');
 
-            // Add bet button listener
-            const betBtn = card.querySelector('.bet-btn');
-            betBtn.addEventListener('click', () => this.openBetModal(horse));
+            // Trend balls
+            const trendHtml = horse.lastFiveTrend.map(rank => {
+                let colorClass = '';
+                if (rank === 1) colorClass = 'rank-1';
+                else if (rank === 2) colorClass = 'rank-2';
+                else if (rank === 3) colorClass = 'rank-3';
+                return `<span class="trend-ball ${colorClass}">${rank}</span>`;
+            }).join('');
 
-            this.horsesContainer.appendChild(card);
+            return `
+                        <div class="row-wrapper">
+                            <div class="cell-action">
+                                <button class="btn btn-secondary bet-btn" data-horse-id="${horse.id}" ${this.phase !== 'BETTING' ? 'disabled' : ''}>
+                                    下注
+                                </button>
+                            </div>
+                            <div class="program-row">
+                                <div class="cell-odds">
+                                    <div id="odds-card-${horse.id}" class="odds-card">
+                                        <span id="odds-val-${horse.id}" class="odds-val">${horse.odds}</span>
+                                        <span id="odds-change-${horse.id}">${oddsChange}</span>
+                                    </div>
+                                </div>
+                                <div class="cell-horse">
+                                    <span class="horse-num">${horse.id}</span>
+                                    <span class="horse-name">${horse.name}</span>
+                                </div>
+                                <div class="cell-info">${horse.age}歲 / ${horse.gender}</div>
+                                <div class="cell-weight">${horse.weightCarried}磅</div>
+                                <div class="cell-jockey">
+                                    <span class="jockey-flag">${horse.jockey.flag}</span>
+                                    <span class="jockey-name">${horse.jockey.name}</span>
+                                    <div class="jockey-country">${horse.jockey.country}</div>
+                                </div>
+                                <div class="cell-trend">
+                                    <div class="trend-container">${trendHtml}</div>
+                                </div>
+                                <div class="cell-body-weight">
+                                    <span class="body-val">${horse.weight}kg</span>
+                                    <span class="weight-change ${weightChangeClass}">(${weightChangeText})</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+        }).join('')}
+            </div>
+        `;
+
+        // Add bet button listeners
+        container.querySelectorAll('.bet-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const horseId = parseInt(e.currentTarget.dataset.horseId);
+                const horse = this.horses.find(h => h.id === horseId);
+                this.openBetModal(horse);
+            });
         });
+
+        this.horsesContainer.appendChild(container);
     }
 
     updateDisplay() {
