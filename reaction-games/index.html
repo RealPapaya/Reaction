@@ -34,32 +34,50 @@
         }
 
         .featured-card {
-            background: var(--surface);
-            border: 5px solid var(--border-color);
-            box-shadow: 15px 15px 0 var(--shadow-color);
-            padding: var(--space-12);
+            background: transparent;
+            border: none;
+            box-shadow: none;
+            padding: 0;
             text-decoration: none;
             display: block;
-            transition: transform 200ms ease, box-shadow 200ms ease;
+            transition: transform 200ms ease;
             margin-bottom: var(--space-12);
+            position: relative;
         }
 
         .featured-card:hover {
-            transform: translate(5px, 5px);
-            box-shadow: 10px 10px 0 var(--shadow-color);
+            transform: scale(1.05);
         }
 
-        .featured-card h2 {
-            font-size: clamp(2rem, 8vw, 4rem);
+        .entrance-image {
+            width: 100%;
+            height: auto;
+            display: block;
+            transition: transform 300ms ease;
+        }
+
+        .featured-card:hover .entrance-image {
+            transform: scale(1.02);
+        }
+
+        .entrance-title {
+            font-size: clamp(2.5rem, 6vw, 4rem);
+            font-weight: var(--font-black);
             color: var(--primary);
-            margin-bottom: var(--space-4);
+            text-align: center;
+            margin: 0;
+            padding: var(--space-4) var(--space-6);
+            background: var(--surface);
+            border: 5px solid var(--border-color);
+            box-shadow: 8px 8px 0 var(--shadow-color);
+            position: relative;
+            margin-top: -30px;
+            z-index: 2;
+            display: inline-block;
+            left: 50%;
+            transform: translateX(-50%);
             text-transform: uppercase;
-        }
-
-        .featured-card p {
-            font-size: var(--text-2xl);
-            color: var(--text);
-            margin-bottom: var(--space-8);
+            letter-spacing: 2px;
         }
 
         /* Other Games Section */
@@ -188,10 +206,8 @@
         <!-- Main Featured Game: Horse Racing -->
         <main class="featured-game">
             <a href="games/horse-racing/index.html" class="featured-card">
-                <span class="game-tag new">HOT & NEW</span>
-                <h2>🏇 賽馬競技場</h2>
-                <p>8匹駿馬爭奪冠軍，動態賠率每15秒更新！</p>
-                <div class="btn btn-primary" style="font-size: 1.5rem; padding: 1rem 3rem;">立即開賭</div>
+                <img src="assets/Gallop.webp" alt="賽馬競技場入口" class="entrance-image">
+                <h2 class="entrance-title">賽馬競技場</h2>
             </a>
         </main>
 
