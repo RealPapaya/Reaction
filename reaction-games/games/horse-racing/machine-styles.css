@@ -1,0 +1,383 @@
+/* ====================================
+   Navigation & Screen System
+   ==================================== */
+
+.main-nav {
+    display: flex;
+    gap: var(--space-2);
+    margin-bottom: var(--space-6);
+}
+
+.nav-btn {
+    flex: 1;
+    padding: var(--space-4);
+    background: var(--surface);
+    color: var(--text);
+    border: 3px solid var(--border-color);
+    box-shadow: 3px 3px 0 var(--shadow-color);
+    font-family: var(--font-display);
+    font-weight: var(--font-bold);
+    font-size: var(--text-lg);
+    cursor: pointer;
+    transition: transform 150ms ease, box-shadow 150ms ease;
+}
+
+.nav-btn:hover {
+    transform: translate(2px, 2px);
+    box-shadow: 1px 1px 0 var(--shadow-color);
+}
+
+.nav-btn.active {
+    background: var(--primary);
+    color: white;
+    transform: translate(3px, 3px);
+    box-shadow: 0 0 0 var(--shadow-color);
+}
+
+.screen {
+    display: none;
+}
+
+.screen.active {
+    display: block;
+}
+
+.screen h2 {
+    color: var(--primary);
+    margin: 0 0 var(--space-6) 0;
+    text-align: center;
+}
+
+/* ====================================
+   Machine Screens Common
+   ==================================== */
+
+.machine-section {
+    margin-bottom: var(--space-8);
+    background: var(--surface);
+    border: 3px solid var(--border-color);
+    box-shadow: 4px 4px 0 var(--shadow-color);
+    padding: var(--space-6);
+}
+
+.machine-section h3 {
+    color: var(--primary);
+    margin: 0 0 var(--space-4) 0;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.machine-section.hidden {
+    display: none;
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-4);
+}
+
+.badge {
+    background: var(--primary);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: var(--text-sm);
+    font-weight: var(--font-bold);
+}
+
+.no-tickets,
+.no-history {
+    text-align: center;
+    color: var(--text-light);
+    padding: var(--space-8);
+    font-style: italic;
+}
+
+/* ====================================
+   Track List (Betting Machine)
+   ==================================== */
+
+.track-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+.track-list-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-4);
+    background: rgba(139, 92, 246, 0.05);
+    border: 2px solid #E5E7EB;
+    transition: border-color 150ms ease;
+}
+
+.track-list-item:hover {
+    border-color: var(--primary);
+}
+
+.track-list-info {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+}
+
+.track-flag {
+    font-size: var(--text-3xl);
+}
+
+.track-details h4 {
+    margin: 0;
+    color: var(--text);
+}
+
+.track-details p {
+    margin: var(--space-1) 0 0 0;
+    font-size: var(--text-sm);
+    color: var(--text-light);
+}
+
+/* ====================================
+   Horse Betting Cards
+   ==================================== */
+
+.horses-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.horse-betting-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-4);
+    background: var(--surface);
+    border: 2px solid var(--border-color);
+    transition: transform 150ms ease;
+}
+
+.horse-betting-card:hover {
+    transform: translateX(4px);
+    border-color: var(--primary);
+}
+
+.horse-betting-info {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    flex: 1;
+}
+
+.horse-num {
+    font-size: var(--text-2xl);
+    font-weight: var(--font-bold);
+    color: var(--primary);
+    min-width: 40px;
+    text-align: center;
+}
+
+.horse-details {
+    flex: 1;
+}
+
+.horse-details h4 {
+    margin: 0 0 var(--space-1) 0;
+    color: var(--text);
+}
+
+.horse-details p {
+    margin: 0;
+    font-size: var(--text-sm);
+    color: var(--text-light);
+}
+
+.horse-odds {
+    text-align: right;
+    margin-right: var(--space-4);
+}
+
+.odds-label {
+    display: block;
+    font-size: var(--text-sm);
+    color: var(--text-light);
+}
+
+.odds-value {
+    display: block;
+    font-size: var(--text-xl);
+    font-weight: var(--font-bold);
+    color: var(--primary);
+    font-family: var(--font-display);
+}
+
+/* ====================================
+   Redeemable Tickets
+   ==================================== */
+
+.redeemable-ticket-wrapper {
+    position: relative;
+}
+
+.redeemable-ticket-wrapper .redeem-btn {
+    width: 100%;
+    margin-top: var(--space-3);
+}
+
+/* ====================================
+   Redemption History
+   ==================================== */
+
+.redemption-history {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.history-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-4);
+    background: var(--surface);
+    border: 2px solid var(--border-color);
+    border-left: 4px solid #6B7280;
+}
+
+.history-item.win {
+    border-left-color: #10B981;
+    background: rgba(16, 185, 129, 0.05);
+}
+
+.history-item.lose {
+    border-left-color: #DC2626;
+    background: rgba(220, 38, 38, 0.05);
+}
+
+.history-info {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+}
+
+.history-icon {
+    font-size: var(--text-2xl);
+}
+
+.history-details p {
+    margin: 0;
+    color: var(--text);
+}
+
+.history-details p.small {
+    font-size: var(--text-sm);
+    color: var(--text-light);
+    margin-top: var(--space-1);
+}
+
+.history-amount {
+    font-size: var(--text-xl);
+    font-weight: var(--font-bold);
+    font-family: var(--font-display);
+}
+
+.history-amount.win {
+    color: #10B981;
+}
+
+.history-amount.lose {
+    color: #DC2626;
+}
+
+/* ====================================
+   Track Detail Modal
+   ==================================== */
+
+.track-detail-modal {
+    max-width: 1200px;
+}
+
+.track-status-display {
+    background: rgba(139, 92, 246, 0.05);
+    border: 2px solid var(--border-color);
+    padding: var(--space-4);
+    margin-bottom: var(--space-4);
+}
+
+.status-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: var(--space-2) 0;
+}
+
+.status-label {
+    font-weight: var(--font-bold);
+    color: var(--text-light);
+}
+
+.status-badge {
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-weight: var(--font-bold);
+    font-size: var(--text-sm);
+}
+
+.status-badge.status-BETTING {
+    background: #F59E0B;
+    color: white;
+}
+
+.status-badge.status-RACING {
+    background: #10B981;
+    color: white;
+}
+
+.status-badge.status-POST_RACE {
+    background: #8B5CF6;
+    color: white;
+}
+
+.status-badge.status-CLOSED {
+    background: #6B7280;
+    color: white;
+}
+
+.timer-value {
+    font-family: var(--font-display);
+    font-size: var(--text-xl);
+    font-weight: var(--font-bold);
+    color: var(--primary);
+}
+
+/* ====================================
+   Responsive
+   ==================================== */
+
+@media (max-width: 768px) {
+    .main-nav {
+        flex-direction: column;
+    }
+
+    .track-list-item {
+        flex-direction: column;
+        gap: var(--space-3);
+    }
+
+    .track-list-item button {
+        width: 100%;
+    }
+
+    .horse-betting-card {
+        flex-direction: column;
+        gap: var(--space-3);
+    }
+
+    .horse-betting-card button {
+        width: 100%;
+    }
+}

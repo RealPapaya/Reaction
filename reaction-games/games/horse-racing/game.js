@@ -1,475 +1,311 @@
 // ====================================
-// Horse Racing Game - Multi-Track System
-// Modular Architecture
+// Horse Racing Game - Separate Venues and Betting
 // ====================================
 
-// ====================================
-// Track State Manager
-// ====================================
-class TrackStateManager {
-    constructor() {
-        this.tracks = new Map();
-        this.initializeTracks();
-    }
-
-    initializeTracks() {
-        RACETRACKS.forEach(trackData => {
-            this.tracks.set(trackData.id, {
-                data: trackData,
-                timeRemaining: 300, // 5 minutes
-                phase: 'BETTING', // BETTING, RACING, RESULTS
-                horses: [],
-                bets: [],
-                raceNumber: 0,
-                history: [],
-                timerInterval: null,
-                oddsInterval: null
-            });
-        });
-    }
-
-    getTrack(trackId) {
-        return this.tracks.get(trackId);
-    }
-
-    getAllTracks() {
-        return Array.from(this.tracks.values());
-    }
-
-    startTimer(trackId, onTick, onExpire) {
-        const track = this.getTrack(trackId);
-        if (!track) return;
-
-        // Clear existing timer
-        if (track.timerInterval) {
-            clearInterval(track.timerInterval);
-        }
-
-        track.timerInterval = setInterval(() => {
-            track.timeRemaining--;
-            if (onTick) onTick(track.timeRemaining);
-
-            if (track.timeRemaining <= 0) {
-                this.stopTimer(trackId);
-                if (onExpire) onExpire();
-            }
-        }, 1000);
-    }
-
-    stopTimer(trackId) {
-        const track = this.getTrack(trackId);
-        if (track && track.timerInterval) {
-            clearInterval(track.timerInterval);
-            track.timerInterval = null;
-        }
-    }
-
-    resetTimer(trackId) {
-        const track = this.getTrack(trackId);
-        if (track) {
-            this.stopTimer(trackId);
-            track.timeRemaining = 300;
-        }
-    }
-}
-
-// ====================================
-// Main Game Controller
-// ====================================
 class HorseRacingGame {
     constructor() {
-        // Global state
         this.balance = 10000;
-        this.trackManager = new TrackStateManager();
-        this.currentTrackId = null;
-        this.currentView = 'TRACK_SELECTION'; // TRACK_SELECTION, TRACK_DETAIL
-        this.currentPanel = 'intro'; // intro, betting, race
-
-        // Race engine
-        this.raceEngine = null;
-
-        // Betting
-        this.currentBettingHorse = null;
+        this.currentScreen = 'venues';
+        this.selectedTrackId = null;
         this.currentBetAmount = 0;
+        this.currentBettingHorse = null;
 
-        // DOM elements - will be initialized
+        // Stats
+        this.totalBet = 0;
+        this.totalProfit = 0;
+        this.winCount = 0;
+        this.totalBets = 0;
+
+        // Race engine for viewing
+        this.raceEngine = null;
+        this.updateInterval = null;
+
         this.dom = {};
-
-        // Initialize
         this.init();
     }
-
-    // ====================================
-    // Initialization
-    // ====================================
 
     init() {
         this.cacheDOMElements();
         this.setupEventListeners();
-        this.renderTrackSelection();
-        this.startAllTrackTimers();
+        this.loadBalance();
+        this.loadStats();
+        this.renderVenuesScreen();
+        this.startGlobalUpdate();
     }
 
     cacheDOMElements() {
-        // Global
-        this.dom.globalBalance = document.getElementById('global-balance');
-        this.dom.myBetsBtn = document.getElementById('my-bets-btn');
+        this.dom.globalBackBtn = document.querySelector('.global-back-btn');
+        this.dom.navContainer = document.querySelector('.main-nav-bottom');
+        this.dom.navBtns = document.querySelectorAll('.nav-btn-bottom');
+        this.dom.screens = document.querySelectorAll('.screen');
 
-        // Track Selection
-        this.dom.trackSelectionScreen = document.getElementById('track-selection-screen');
-        this.dom.trackCardsContainer = document.getElementById('track-cards-container');
+        // Venues
+        this.dom.venuesCardsContainer = document.getElementById('venues-cards-container');
 
-        // Track Detail
-        this.dom.trackDetailScreen = document.getElementById('track-detail-screen');
-        this.dom.backToSelectionBtn = document.getElementById('back-to-selection');
-        this.dom.currentTrackName = document.getElementById('current-track-name');
-        this.dom.currentTrackLocation = document.getElementById('current-track-location');
-        this.dom.trackTimer = document.getElementById('track-timer');
+        // Betting Machine
+        this.dom.bettingTrackList = document.getElementById('betting-track-list');
 
-        // Track Options
-        this.dom.trackOptionBtns = document.querySelectorAll('.track-option-btn');
+        // Balance
+        this.dom.balanceAmount = document.getElementById('balance-amount');
+        this.dom.totalBet = document.getElementById('total-bet');
+        this.dom.totalProfit = document.getElementById('total-profit');
+        this.dom.winRate = document.getElementById('win-rate');
 
-        // Panels
-        this.dom.trackIntroPanel = document.getElementById('track-intro-panel');
-        this.dom.trackBettingPanel = document.getElementById('track-betting-panel');
-        this.dom.trackRacePanel = document.getElementById('track-race-panel');
+        // My Bets
+        this.dom.activeTickets = document.getElementById('active-tickets');
+        this.dom.activeCount = document.getElementById('active-count');
+        this.dom.redeemableTickets = document.getElementById('redeemable-tickets');
+        this.dom.redeemableCount = document.getElementById('redeemable-count');
+        this.dom.betHistory = document.getElementById('bet-history');
 
-        // Intro Panel Elements
-        this.dom.introSurface = document.getElementById('intro-surface');
-        this.dom.introSignature = document.getElementById('intro-signature');
-        this.dom.introDifficulty = document.getElementById('intro-difficulty');
-        this.dom.introDescription = document.getElementById('intro-description');
-
-        // Betting Panel Elements
-        this.dom.raceStatus = document.getElementById('race-status');
-        this.dom.horsesContainer = document.getElementById('horses-container');
-        this.dom.currentTrackBets = document.getElementById('current-track-bets');
-        this.dom.currentTrackTotal = document.getElementById('current-track-total');
-
-        // Race Panel Elements
-        this.dom.raceCanvas = document.getElementById('race-canvas');
-        this.dom.raceWaitingMessage = document.getElementById('race-waiting-message');
+        // Betting Detail
+        this.dom.bettingDetailTitle = document.getElementById('betting-detail-title');
+        this.dom.bettingHorsesContainer = document.getElementById('betting-horses-container');
 
         // Modals
-        this.dom.betModal = document.getElementById('bet-modal');
-        this.dom.resultModal = document.getElementById('result-modal');
-        this.dom.myBetsModal = document.getElementById('my-bets-modal');
+        this.dom.raceModal = document.getElementById('race-modal');
+        this.dom.quickBetModal = document.getElementById('quick-bet-modal');
+        this.dom.scanningOverlay = document.getElementById('scanning-overlay');
+        this.dom.scanningMessage = document.getElementById('scanning-message');
+        this.dom.scanningProgressBar = document.getElementById('scanning-progress-bar');
     }
 
     setupEventListeners() {
-        // My Bets button
-        this.dom.myBetsBtn.addEventListener('click', () => this.openMyBetsModal());
-
-        // Back to selection
-        this.dom.backToSelectionBtn.addEventListener('click', () => this.showTrackSelection());
-
-        // Track option tabs
-        this.dom.trackOptionBtns.forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const option = e.target.dataset.option;
-                this.switchPanel(option);
+        // Navigation
+        this.dom.navBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.switchScreen(btn.dataset.screen);
             });
         });
 
-        // Modal close buttons
+        // Back to betting
+        document.getElementById('back-to-betting')?.addEventListener('click', () => {
+            this.switchScreen('betting');
+        });
+
+        // Modals
         document.querySelectorAll('.close-modal').forEach(btn => {
             btn.addEventListener('click', () => {
-                this.dom.betModal.classList.remove('show');
-                this.dom.resultModal.classList.remove('show');
-                this.dom.myBetsModal.classList.remove('show');
+                this.dom.raceModal?.classList.remove('show');
+                this.dom.quickBetModal?.classList.remove('show');
+
+                // Restore navigation bar
+                if (this.dom.navContainer) {
+                    this.dom.navContainer.style.display = 'flex';
+                }
+
+                // Restore global back button
+                if (this.dom.globalBackBtn) {
+                    this.dom.globalBackBtn.style.display = 'block';
+                }
             });
         });
 
-        // Betting modal
+        // Chip buttons
         document.querySelectorAll('.chip-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                const amount = parseInt(e.target.dataset.amount);
-                this.selectBetAmount(amount);
+                this.selectBetAmount(parseInt(e.target.dataset.amount));
             });
         });
 
-        document.getElementById('custom-amount').addEventListener('input', (e) => {
-            const amount = parseInt(e.target.value) || 0;
-            this.selectBetAmount(amount);
+        document.getElementById('quick-bet-amount')?.addEventListener('input', (e) => {
+            this.selectBetAmount(parseInt(e.target.value) || 0);
         });
 
-        document.getElementById('confirm-bet-btn').addEventListener('click', () => {
-            this.confirmBet();
-        });
-    }
-
-    // ====================================
-    // Track Selection View
-    // ====================================
-
-    renderTrackSelection() {
-        this.dom.trackCardsContainer.innerHTML = '';
-
-        this.trackManager.getAllTracks().forEach(track => {
-            const card = this.createTrackCard(track);
-            this.dom.trackCardsContainer.appendChild(card);
+        document.getElementById('confirm-quick-bet-btn')?.addEventListener('click', () => {
+            this.confirmQuickBet();
         });
     }
 
-    createTrackCard(track) {
-        const card = document.createElement('div');
-        card.className = 'track-card';
-        card.innerHTML = `
-            <div class="track-card-header">
-                <div class="track-card-title">
-                    <span class="track-card-flag">${track.data.flagEmoji}</span>
-                    <h3>${track.data.name}</h3>
-                </div>
-                <div class="track-card-timer" data-track-id="${track.data.id}">
-                    ${this.formatTime(track.timeRemaining)}
-                </div>
-            </div>
-            <div class="track-card-info">
-                <div class="track-info-item">
-                    <span class="track-info-label">地點</span>
-                    <span class="track-info-value">${track.data.location}</span>
-                </div>
-                <div class="track-info-item">
-                    <span class="track-info-label">賽道</span>
-                    <span class="track-info-value">${track.data.surfaceDisplay}</span>
-                </div>
-                <div class="track-info-item">
-                    <span class="track-info-label">狀態</span>
-                    <span class="track-info-value">${this.getPhaseDisplay(track.phase)}</span>
-                </div>
-            </div>
-            <p class="track-card-signature">🏆 ${track.data.signature}</p>
-            <button class="btn btn-primary track-card-btn">進入賽場</button>
-        `;
+    switchScreen(screenName) {
+        this.currentScreen = screenName;
 
-        card.querySelector('.track-card-btn').addEventListener('click', () => {
-            this.selectTrack(track.data.id);
-        });
-
-        return card;
-    }
-
-    updateTrackCardTimers() {
-        this.trackManager.getAllTracks().forEach(track => {
-            const timerEl = document.querySelector(`[data-track-id="${track.data.id}"]`);
-            if (timerEl) {
-                timerEl.textContent = this.formatTime(track.timeRemaining);
-            }
-        });
-    }
-
-    // ====================================
-    // Track Detail View
-    // ====================================
-
-    selectTrack(trackId) {
-        this.currentTrackId = trackId;
-        this.currentPanel = 'intro';
-        this.showTrackDetail();
-    }
-
-    showTrackDetail() {
-        const track = this.trackManager.getTrack(this.currentTrackId);
-        if (!track) return;
-
-        // Initialize horses if not already done
-        if (track.horses.length === 0) {
-            track.horses = generateHorses();
-            this.calculateOdds(this.currentTrackId);
-        }
-
-        // Update header
-        this.dom.currentTrackName.textContent = track.data.name;
-        this.dom.currentTrackLocation.textContent = track.data.location;
-
-        // Update intro panel
-        this.dom.introSurface.textContent = track.data.surfaceDisplay;
-        this.dom.introSignature.textContent = track.data.signature;
-        this.dom.introDifficulty.textContent = track.data.characteristics.難度;
-        this.dom.introDescription.textContent = track.data.description;
-
-        // Switch to track detail view
-        this.dom.trackSelectionScreen.classList.add('hidden');
-        this.dom.trackDetailScreen.classList.remove('hidden');
-
-        // Show intro panel by default
-        this.switchPanel('intro');
-
-        // Update timer display
-        this.updateTrackTimer();
-    }
-
-    showTrackSelection() {
-        this.currentTrackId = null;
-        this.dom.trackDetailScreen.classList.add('hidden');
-        this.dom.trackSelectionScreen.classList.remove('hidden');
-        this.renderTrackSelection();
-    }
-
-    switchPanel(panelName) {
-        this.currentPanel = panelName;
-
-        // Update button states
-        this.dom.trackOptionBtns.forEach(btn => {
-            if (btn.dataset.option === panelName) {
+        // Update navigation buttons
+        this.dom.navBtns.forEach(btn => {
+            if (btn.dataset.screen === screenName) {
                 btn.classList.add('active');
             } else {
                 btn.classList.remove('active');
             }
         });
 
-        // Update panel visibility
-        this.dom.trackIntroPanel.classList.remove('active');
-        this.dom.trackBettingPanel.classList.remove('active');
-        this.dom.trackRacePanel.classList.remove('active');
-
-        if (panelName === 'intro') {
-            this.dom.trackIntroPanel.classList.add('active');
-        } else if (panelName === 'betting') {
-            this.dom.trackBettingPanel.classList.add('active');
-            this.renderHorses();
-            this.renderCurrentTrackBets();
-        } else if (panelName === 'race') {
-            this.dom.trackRacePanel.classList.add('active');
-            this.showRaceView();
-        }
-    }
-
-    // ====================================
-    // Timer Management
-    // ====================================
-
-    startAllTrackTimers() {
-        this.trackManager.getAllTracks().forEach(track => {
-            this.trackManager.startTimer(
-                track.data.id,
-                () => {
-                    // On tick
-                    if (this.currentTrackId === track.data.id) {
-                        this.updateTrackTimer();
-                    }
-                    this.updateTrackCardTimers();
-                },
-                () => {
-                    // On expire
-                    this.endBettingPhase(track.data.id);
-                }
-            );
-        });
-    }
-
-    updateTrackTimer() {
-        if (!this.currentTrackId) return;
-        const track = this.trackManager.getTrack(this.currentTrackId);
-        if (track) {
-            this.dom.trackTimer.textContent = this.formatTime(track.timeRemaining);
-            if (track.timeRemaining <= 30) {
-                this.dom.trackTimer.classList.add('urgent');
+        // Switch screens with proper animation - FIXED
+        this.dom.screens.forEach(screen => {
+            if (screen.id === `${screenName}-screen`) {
+                // Show the target screen
+                screen.classList.remove('fade-out');
+                screen.classList.add('active', 'fade-in');
             } else {
-                this.dom.trackTimer.classList.remove('urgent');
-            }
-        }
-    }
-
-    formatTime(seconds) {
-        const mins = Math.floor(seconds / 60);
-        const secs = seconds % 60;
-        return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-    }
-
-    getPhaseDisplay(phase) {
-        const displays = {
-            'BETTING': '投注中',
-            'RACING': '比賽中',
-            'RESULTS': '結算中'
-        };
-        return displays[phase] || '準備中';
-    }
-
-    // ====================================
-    // Odds Management
-    // ====================================
-
-    calculateOdds(trackId) {
-        const track = this.trackManager.getTrack(trackId);
-        if (!track) return;
-
-        const totalPool = track.bets.reduce((sum, bet) => sum + bet.amount, 0) || 1;
-
-        track.horses.forEach(horse => {
-            const horseBets = track.bets
-                .filter(bet => bet.horseId === horse.id)
-                .reduce((sum, bet) => sum + bet.amount, 0);
-
-            const baseOdds = 1 / horse.competitiveFactor;
-            const betRatio = horseBets / totalPool;
-            const poolAdjustment = 1 - (betRatio * 0.5);
-            const randomFactor = randomFloat(0.95, 1.05);
-
-            let finalOdds = baseOdds * poolAdjustment * randomFactor;
-            finalOdds = Math.max(1.1, Math.min(50, finalOdds));
-
-            horse.previousOdds = horse.odds;
-            horse.odds = parseFloat(finalOdds.toFixed(2));
-        });
-    }
-
-    updateOdds(trackId) {
-        this.calculateOdds(trackId);
-        if (this.currentTrackId === trackId && this.currentPanel === 'betting') {
-            this.updateOddsValues();
-        }
-    }
-
-    updateOddsValues() {
-        const track = this.trackManager.getTrack(this.currentTrackId);
-        if (!track) return;
-
-        track.horses.forEach(horse => {
-            const oddsCard = document.getElementById(`odds-card-${horse.id}`);
-            const oddsElement = document.getElementById(`odds-val-${horse.id}`);
-            const changeElement = document.getElementById(`odds-change-${horse.id}`);
-
-            if (oddsCard && oddsElement && changeElement) {
-                const currentText = parseFloat(oddsElement.textContent);
-                if (currentText !== horse.odds) {
-                    oddsCard.classList.remove('flipping');
-                    void oddsCard.offsetWidth;
-                    oddsCard.classList.add('flipping');
-
-                    setTimeout(() => {
-                        oddsElement.textContent = horse.odds;
-
-                        let oddsChangeHtml = '';
-                        if (horse.previousOdds > 0) {
-                            if (horse.odds > horse.previousOdds) {
-                                oddsChangeHtml = '<span class="odds-change up">↑</span>';
-                            } else if (horse.odds < horse.previousOdds) {
-                                oddsChangeHtml = '<span class="odds-change down">↓</span>';
-                            }
-                        }
-                        changeElement.innerHTML = oddsChangeHtml;
-                    }, 300);
+                // Hide other screens
+                screen.classList.remove('fade-in');
+                // Only add fade-out to screens that are currently active
+                if (screen.classList.contains('active')) {
+                    screen.classList.add('fade-out');
                 }
+                screen.classList.remove('active');
             }
+        });
+
+        // Render appropriate screen content
+        if (screenName === 'venues') {
+            this.renderVenuesScreen();
+        } else if (screenName === 'betting') {
+            this.renderBettingMachineScreen();
+        } else if (screenName === 'balance') {
+            this.renderBalanceScreen();
+        } else if (screenName === 'my-bets') {
+            this.renderMyBetsScreen();
+        }
+    }
+
+    // ====================================
+    // Venues Screen
+    // ====================================
+
+    renderVenuesScreen() {
+        const statuses = raceScheduler.getAllTrackStatuses();
+
+        this.dom.venuesCardsContainer.innerHTML = statuses.map(status => {
+            const track = raceScheduler.getTrackData(status.trackId);
+
+            // Determine if view button should be enabled
+            // Can view: PRE_RACE, RACING, POST_RACE
+            // Cannot view: BETTING, CLOSED
+            const canView = ['PRE_RACE', 'RACING', 'POST_RACE'].includes(status.phase);
+            const btnClass = canView ? 'btn-primary' : 'btn-secondary';
+            const btnDisabled = canView ? '' : 'disabled';
+
+            return `
+                <div class="track-card" data-track-id="${status.trackId}">
+                    <div class="track-card-header">
+                        <div class="track-card-title">
+                            <span class="track-card-flag">${status.flagEmoji}</span>
+                            <h3>${status.trackName}</h3>
+                        </div>
+                        <div class="track-card-timer ${status.phase}">
+                            ${this.formatTime(status.timeRemaining)}
+                        </div>
+                    </div>
+                    <div class="track-card-info">
+                        <div class="track-info-item">
+                            <span class="track-info-label">場次</span>
+                            <span class="track-info-value">第 ${status.raceNumber} 場</span>
+                        </div>
+                        <div class="track-info-item">
+                            <span class="track-info-label">狀態</span>
+                            <span class="track-info-value status-${status.phase}">${status.message}</span>
+                        </div>
+                        <div class="track-info-item">
+                            <span class="track-info-label">賽道</span>
+                            <span class="track-info-value">${track.surfaceDisplay}</span>
+                        </div>
+                    </div>
+                    <div class="track-card-actions">
+                        <button class="btn ${btnClass} track-view-btn" 
+                                data-track-id="${status.trackId}"
+                                ${btnDisabled}>
+                            ${canView ? '觀看比賽' : '無法觀看'}
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        // Add event listeners only to enabled buttons
+        this.dom.venuesCardsContainer.querySelectorAll('.track-view-btn:not([disabled])').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.viewRace(btn.dataset.trackId);
+            });
         });
     }
 
     // ====================================
-    // Horse Rendering
+    // Betting Machine Screen
     // ====================================
 
-    renderHorses() {
-        const track = this.trackManager.getTrack(this.currentTrackId);
-        if (!track) return;
+    renderBettingMachineScreen() {
+        const statuses = raceScheduler.getAllTrackStatuses();
 
-        this.dom.horsesContainer.innerHTML = '';
+        this.dom.bettingTrackList.innerHTML = statuses.map(status => {
+            const canBet = status.phase === 'BETTING';
+            const btnClass = canBet ? 'btn-primary' : 'btn-secondary';
 
+            return `
+                <button class="track-select-btn btn ${btnClass}"
+                        data-track-id="${status.trackId}"
+                        ${!canBet ? 'disabled' : ''}>
+                    <div class="track-select-info">
+                        <span class="track-select-flag">${status.flagEmoji}</span>
+                        <div class="track-select-details">
+                            <h4>${status.trackName}</h4>
+                            <p>第 ${status.raceNumber} 場 · ${status.message}</p>
+                        </div>
+                    </div>
+                    <div class="track-select-timer">${this.formatTime(status.timeRemaining)}</div>
+                </button>
+                `;
+        }).join('');
+
+        this.dom.bettingTrackList.querySelectorAll('.track-select-btn:not([disabled])').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.goToBettingDetail(btn.dataset.trackId);
+            });
+        });
+    }
+
+    goToBettingDetail(trackId) {
+        this.selectedTrackId = trackId;
+        const status = raceScheduler.getTrackStatus(trackId);
+        const track = raceScheduler.getTrackData(trackId);
+        const horses = raceScheduler.getOrGenerateHorses(trackId);
+
+        // Calculate odds - ALWAYS recalculate for fresh data
+        horses.forEach(horse => {
+            const factor = horse.competitiveFactor;
+
+            // Store previous odds for change indicator
+            horse.previousOdds = horse.odds || 0;
+
+            // Always recalculate odds
+            const safeFactor = (factor && factor > 0) ? factor : 0.1;
+            const rawOdds = 1 / safeFactor;
+            const clampedOdds = Math.max(1.5, Math.min(50, rawOdds));
+            horse.odds = parseFloat(clampedOdds.toFixed(2));
+        });
+
+        this.dom.bettingDetailTitle.textContent = `${track.flagEmoji} ${track.name} - 第 ${status.raceNumber} 場 · ${this.formatTime(status.timeRemaining)} `;
+
+        // Track current screen state - FIXED
+        this.currentScreen = 'betting-detail';
+
+        this.renderHorsesTable(horses, trackId);
+
+        // Properly show betting detail screen - FIXED
+        this.dom.screens.forEach(screen => {
+            if (screen.id === 'betting-detail-screen') {
+                screen.classList.remove('fade-out');
+                screen.classList.add('active', 'fade-in');
+            } else {
+                screen.classList.remove('fade-in');
+                if (screen.classList.contains('active')) {
+                    screen.classList.add('fade-out');
+                }
+                screen.classList.remove('active');
+            }
+        });
+
+        // Update navigation to deselect all buttons
+        this.dom.navBtns.forEach(btn => {
+            btn.classList.remove('active');
+        });
+    }
+
+    renderHorsesTable(horses, trackId) {
         const container = document.createElement('div');
         container.className = 'program-list';
 
         container.innerHTML = `
-            <div class="row-wrapper header-wrapper">
+                <div class="row-wrapper header-wrapper">
                 <div class="action-placeholder"></div>
                 <div class="program-header">
                     <div class="cell-odds">賠率</div>
@@ -480,24 +316,25 @@ class HorseRacingGame {
                     <div class="cell-jockey">騎手</div>
                     <div class="cell-trend">近五場走勢</div>
                 </div>
-            </div>
-            <div class="program-body">
-                ${track.horses.map(horse => this.createHorseRow(horse, track)).join('')}
-            </div>
-        `;
+            </div >
+                <div class="program-body">
+                    ${horses.map(horse => this.createHorseRow(horse, trackId)).join('')}
+                </div>
+            `;
 
         container.querySelectorAll('.bet-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const horseId = parseInt(e.currentTarget.dataset.horseId);
-                const horse = track.horses.find(h => h.id === horseId);
-                this.openBetModal(horse);
+                const horse = horses.find(h => h.id === horseId);
+                this.openQuickBetModal(trackId, horseId, horse.odds);
             });
         });
 
-        this.dom.horsesContainer.appendChild(container);
+        this.dom.bettingHorsesContainer.innerHTML = '';
+        this.dom.bettingHorsesContainer.appendChild(container);
     }
 
-    createHorseRow(horse, track) {
+    createHorseRow(horse, trackId) {
         let oddsChange = '';
         if (horse.previousOdds > 0) {
             if (horse.odds > horse.previousOdds) {
@@ -507,7 +344,7 @@ class HorseRacingGame {
             }
         }
 
-        const weightChangeText = horse.weightChange >= 0 ? `+${horse.weightChange}` : horse.weightChange;
+        const weightChangeText = horse.weightChange >= 0 ? `+ ${horse.weightChange} ` : horse.weightChange;
         const weightChangeClass = horse.weightChange > 0 ? 'up' : (horse.weightChange < 0 ? 'down' : '');
 
         const trendHtml = horse.lastFiveTrend.map(rank => {
@@ -519,9 +356,9 @@ class HorseRacingGame {
         }).join('');
 
         return `
-            <div class="row-wrapper">
+                <div class="row-wrapper">
                 <div class="cell-action">
-                    <button class="btn btn-secondary bet-btn" data-horse-id="${horse.id}" ${track.phase !== 'BETTING' ? 'disabled' : ''}>
+                    <button class="btn btn-secondary bet-btn" data-horse-id="${horse.id}">
                         下注
                     </button>
                 </div>
@@ -552,62 +389,240 @@ class HorseRacingGame {
                     </div>
                 </div>
             </div>
-        `;
+                `;
     }
 
-    renderCurrentTrackBets() {
-        const track = this.trackManager.getTrack(this.currentTrackId);
-        if (!track) return;
+    // ====================================
+    // Balance Screen
+    // ====================================
 
-        if (track.bets.length === 0) {
-            this.dom.currentTrackBets.innerHTML = '<p class="no-bets">尚未下注</p>';
-            this.dom.currentTrackTotal.textContent = '$0';
-            return;
+    renderBalanceScreen() {
+        this.dom.balanceAmount.textContent = `$${this.balance.toLocaleString()} `;
+        this.dom.totalBet.textContent = `$${this.totalBet.toLocaleString()} `;
+        this.dom.totalProfit.textContent = `$${this.totalProfit.toLocaleString()} `;
+
+        const winRate = this.totalBets > 0 ? ((this.winCount / this.totalBets) * 100).toFixed(1) : 0;
+        this.dom.winRate.textContent = `${winRate}% `;
+
+        if (this.totalProfit > 0) {
+            this.dom.totalProfit.classList.add('win');
+            this.dom.totalProfit.classList.remove('loss');
+        } else if (this.totalProfit < 0) {
+            this.dom.totalProfit.classList.add('loss');
+            this.dom.totalProfit.classList.remove('win');
+        }
+    }
+
+    // ====================================
+    // My Bets Screen
+    // ====================================
+
+    renderMyBetsScreen() {
+        const tickets = bettingMachine.getAllTickets();
+        const active = tickets.filter(t => t.status === 'active');
+        const redeemable = tickets.filter(t => t.status === 'redeemable');
+        const redeemed = redemptionMachine.getRedemptionHistory();
+
+        // Active tickets
+        this.dom.activeCount.textContent = active.length;
+        if (active.length === 0) {
+            this.dom.activeTickets.innerHTML = '<p class="no-tickets">暫無進行中的投注</p>';
+        } else {
+            this.dom.activeTickets.innerHTML = active.map(ticket => this.renderTicketCard(ticket)).join('');
         }
 
-        const totalBet = track.bets.reduce((sum, bet) => sum + bet.amount, 0);
+        // Redeemable tickets
+        this.dom.redeemableCount.textContent = redeemable.length;
+        if (redeemable.length === 0) {
+            this.dom.redeemableTickets.innerHTML = '<p class="no-tickets">暫無可兌獎的投注單</p>';
+        } else {
+            this.dom.redeemableTickets.innerHTML = redeemable.map(ticket => this.renderTicketCard(ticket, true)).join('');
+        }
 
-        this.dom.currentTrackBets.innerHTML = track.bets.map(bet => {
-            const horse = track.horses.find(h => h.id === bet.horseId);
-            const potential = (bet.amount * bet.odds).toFixed(0);
+        // History
+        if (redeemed.length === 0) {
+            this.dom.betHistory.innerHTML = '<p class="no-history">暫無紀錄</p>';
+        } else {
+            this.dom.betHistory.innerHTML = redeemed.map(record => this.renderHistoryCard(record)).join('');
+        }
 
-            return `
-                <div class="bet-item">
-                    <div>
-                        <span class="bet-horse-name">${horse.id}號 ${horse.name}</span>
-                        <div class="bet-potential">預期獲利: $${potential}</div>
-                    </div>
-                    <div class="bet-amount">$${bet.amount}</div>
+        // Add event listeners for redemption buttons
+        this.dom.redeemableTickets.querySelectorAll('.redeem-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.redeemTicket(btn.dataset.ticketId);
+            });
+        });
+    }
+
+    renderTicketCard(ticket, showRedeemBtn = false) {
+        const track = raceScheduler.getTrackData(ticket.trackId);
+        const horses = raceScheduler.getOrGenerateHorses(ticket.trackId);
+        const horse = horses.find(h => h.id === ticket.horseId);
+
+        return `
+                < div class="ticket-card" >
+                <div class="ticket-header">
+                    <span class="ticket-id">#{ticket.ticketId}</span>
+                    <span class="ticket-status status-${ticket.status}">${ticket.status === 'active' ? '進行中' : '可兌獎'}</span>
                 </div>
-            `;
-        }).join('');
+                <div class="ticket-body">
+                    <div class="ticket-info">
+                        <p><strong>${track.flagEmoji} ${track.name}</strong> - 第 ${ticket.raceNumber} 場</p>
+                        <p>投注馬匹: ${ticket.horseId}號 - ${horse?.name || '未知'}</p>
+                        <p>投注金額: $${ticket.amount.toLocaleString()}</p>
+                        <p>賠率: ${ticket.odds}x</p>
+                    </div>
+                </div>
+                ${showRedeemBtn ? `
+                    <div class="ticket-actions">
+                        <button class="btn btn-primary redeem-btn" data-ticket-id="${ticket.ticketId}">
+                            兌獎
+                        </button>
+                    </div>
+                ` : ''
+            }
+            </div >
+                `;
+    }
 
-        this.dom.currentTrackTotal.textContent = `$${totalBet.toLocaleString()}`;
+    renderHistoryCard(record) {
+        const resultClass = record.result.isWinner ? 'win' : 'loss';
+        const resultText = record.result.isWinner ? '✅ 中獎' : '❌ 未中獎';
+
+        return `
+                < div class="history-card ${resultClass}" >
+                <div class="history-header">
+                    <span class="history-id">#{record.ticketId}</span>
+                    <span class="history-result">${resultText}</span>
+                </div>
+                <div class="history-body">
+                    <p>${record.trackName} - 第 ${record.raceNumber} 場</p>
+                    <p>投注: ${record.horseId}號 · $${record.amount.toLocaleString()}</p>
+                    ${record.result.isWinner ? `<p class="win-amount">獲利: $${record.result.payout.toLocaleString()}</p>` : ''}
+                </div>
+            </div >
+                `;
+    }
+
+    async redeemTicket(ticketId) {
+        this.dom.scanningOverlay.classList.remove('hidden');
+        this.dom.scanningMessage.textContent = '正在掃描投注單...';
+        this.dom.scanningProgressBar.style.width = '0%';
+
+        try {
+            // Simulate scanning animation
+            await new Promise(resolve => {
+                let progress = 0;
+                const interval = setInterval(() => {
+                    progress += 10;
+                    this.dom.scanningProgressBar.style.width = `${progress}% `;
+                    if (progress >= 100) {
+                        clearInterval(interval);
+                        resolve();
+                    }
+                }, 100);
+            });
+
+            this.dom.scanningMessage.textContent = '正在兌獎...';
+
+            const ticket = bettingMachine.getTicket(ticketId);
+            const result = redemptionMachine.redeemTicket(ticketId);
+
+            this.dom.scanningOverlay.classList.add('hidden');
+
+            if (result.isWinner) {
+                this.balance += result.payout;
+                this.winCount++;
+                this.totalProfit += (result.payout - ticket.amount);
+            } else {
+                this.totalProfit -= ticket.amount;
+            }
+            this.totalBets++;
+
+            this.saveBalance();
+            this.saveStats();
+
+            const resultMessage = ticket.result.isWinner
+                ? `🎉 恭喜中獎!\n獲利: $${ticket.result.payout.toLocaleString()} `
+                : `😔 很遺憾, 未中獎`;
+
+            alert(resultMessage);
+            this.renderMyBetsScreen();
+
+        } catch (error) {
+            this.dom.scanningOverlay.classList.add('hidden');
+            alert(`❌ 兌獎失敗: ${error.message} `);
+        }
     }
 
     // ====================================
-    // Betting Methods
+    // Race Viewing with Fullscreen
     // ====================================
 
-    openBetModal(horse) {
-        const track = this.trackManager.getTrack(this.currentTrackId);
-        if (!track || track.phase !== 'BETTING') return;
+    viewRace(trackId) {
+        this.selectedTrackId = trackId;
+        const status = raceScheduler.getTrackStatus(trackId);
+        const track = raceScheduler.getTrackData(trackId);
 
-        this.currentBettingHorse = horse;
+        document.getElementById('race-modal-title').textContent = `${track.flagEmoji} ${track.name} - 第 ${status.raceNumber} 場`;
+        document.getElementById('race-modal-status').textContent = status.message;
+        document.getElementById('race-modal-timer').textContent = this.formatTime(status.timeRemaining);
+
+        this.dom.raceModal.classList.add('show');
+
+        // Hide navigation bar for full immersion
+        if (this.dom.navContainer) {
+            this.dom.navContainer.style.display = 'none';
+        }
+
+        // Hide global back button for full immersion
+        if (this.dom.globalBackBtn) {
+            this.dom.globalBackBtn.style.display = 'none';
+        }
+
+        if (status.phase === 'RACING') {
+            this.startRaceViewing(trackId);
+        } else {
+            document.getElementById('race-waiting').style.display = 'block';
+            document.getElementById('race-canvas').style.display = 'none';
+        }
+    }
+
+    startRaceViewing(trackId) {
+        const canvas = document.getElementById('race-canvas');
+        const horses = raceScheduler.getOrGenerateHorses(trackId);
+        const track = raceScheduler.getTrackData(trackId);
+
+        document.getElementById('race-waiting').style.display = 'none';
+        canvas.style.display = 'block';
+
+        if (this.raceEngine) {
+            this.raceEngine.stopRace();
+        }
+
+        this.raceEngine = new RaceEngine(canvas, horses, track);
+        this.raceEngine.startRace();
+    }
+
+    // ====================================
+    // Betting Modal
+    // ====================================
+
+    openQuickBetModal(trackId, horseId, odds) {
+        const horses = raceScheduler.getOrGenerateHorses(trackId);
+        const horse = horses.find(h => h.id === horseId);
+
+        this.currentBettingHorse = { trackId, horseId, odds };
         this.currentBetAmount = 0;
 
-        document.getElementById('modal-horse-name').textContent = `${horse.id}號 - ${horse.name}`;
-        document.getElementById('modal-horse-details').textContent =
-            `${horse.gender} ${horse.age}歲 ${horse.weight}kg ${horse.height}cm`;
-        document.getElementById('modal-jockey-details').textContent =
-            `騎手: ${horse.jockey.name} (${horse.jockey.weight}kg, ${horse.jockey.experience}年)`;
-        document.getElementById('modal-odds').textContent = `${horse.odds}x`;
+        document.getElementById('quick-bet-horse-name').textContent = `${horse.id} 號 - ${horse.name} `;
+        document.getElementById('quick-bet-odds').textContent = `${odds} x`;
 
         document.querySelectorAll('.chip-btn').forEach(btn => btn.classList.remove('selected'));
-        document.getElementById('custom-amount').value = '';
+        document.getElementById('quick-bet-amount').value = '';
         this.updateBetPreview();
 
-        this.dom.betModal.classList.add('show');
+        this.dom.quickBetModal.classList.add('show');
     }
 
     selectBetAmount(amount) {
@@ -630,11 +645,11 @@ class HorseRacingGame {
         const amount = this.currentBetAmount;
         const profit = (amount * this.currentBettingHorse.odds).toFixed(0);
 
-        document.getElementById('preview-amount').textContent = `$${amount.toLocaleString()}`;
-        document.getElementById('preview-profit').textContent = `$${profit.toLocaleString()}`;
+        document.getElementById('quick-bet-preview-amount').textContent = `$${amount.toLocaleString()} `;
+        document.getElementById('quick-bet-preview-profit').textContent = `$${profit.toLocaleString()} `;
     }
 
-    confirmBet() {
+    confirmQuickBet() {
         if (this.currentBetAmount <= 0) {
             alert('請選擇投注金額');
             return;
@@ -645,288 +660,100 @@ class HorseRacingGame {
             return;
         }
 
-        const track = this.trackManager.getTrack(this.currentTrackId);
-        if (!track) return;
+        try {
+            const ticket = bettingMachine.createTicket(
+                this.currentBettingHorse.trackId,
+                this.currentBettingHorse.horseId,
+                this.currentBetAmount,
+                this.currentBettingHorse.odds
+            );
 
-        track.bets.push({
-            horseId: this.currentBettingHorse.id,
-            amount: this.currentBetAmount,
-            odds: this.currentBettingHorse.odds
-        });
+            this.balance -= this.currentBetAmount;
+            this.totalBet += this.currentBetAmount;
+            this.saveBalance();
+            this.saveStats();
 
-        this.balance -= this.currentBetAmount;
-        this.updateGlobalBalance();
-        this.renderCurrentTrackBets();
-        this.dom.betModal.classList.remove('show');
+            this.dom.quickBetModal.classList.remove('show');
 
-        this.calculateOdds(this.currentTrackId);
-        this.updateOdds(this.currentTrackId);
-    }
+            alert(`✅ 投注成功!\n投注單號: ${ticket.ticketId} \n請至「我的投注」查看`);
 
-    updateGlobalBalance() {
-        this.dom.globalBalance.textContent = `$${this.balance.toLocaleString()}`;
+        } catch (error) {
+            alert(`❌ 投注失敗: ${error.message} `);
+        }
     }
 
     // ====================================
-    // Race Management
+    // Global Updates
     // ====================================
 
-    showRaceView() {
-        const track = this.trackManager.getTrack(this.currentTrackId);
-        if (!track) return;
-
-        if (track.phase === 'BETTING') {
-            // Show waiting state
-            this.dom.raceWaitingMessage.style.display = 'block';
-        } else if (track.phase === 'RACING') {
-            // Hide waiting message and show race
-            this.dom.raceWaitingMessage.style.display = 'none';
-            // Race is already running
-        }
-    }
-
-    endBettingPhase(trackId) {
-        const track = this.trackManager.getTrack(trackId);
-        if (!track || track.phase !== 'BETTING') return;
-
-        track.phase = 'RACING';
-
-        if (this.currentTrackId === trackId) {
-            this.dom.raceStatus.textContent = '比賽中';
-            this.dom.raceStatus.classList.add('racing');
-
-            if (this.currentPanel === 'race') {
-                this.dom.raceWaitingMessage.style.display = 'none';
+    startGlobalUpdate() {
+        this.updateInterval = setInterval(() => {
+            if (this.currentScreen === 'venues') {
+                this.renderVenuesScreen();
+            } else if (this.currentScreen === 'betting') {
+                this.renderBettingMachineScreen();
+            } else if (this.currentScreen === 'betting-detail' && this.selectedTrackId) {
+                const status = raceScheduler.getTrackStatus(this.selectedTrackId);
+                const track = raceScheduler.getTrackData(this.selectedTrackId);
+                this.dom.bettingDetailTitle.textContent = `${track.flagEmoji} ${track.name} - 第 ${status.raceNumber} 場 · ${this.formatTime(status.timeRemaining)} `;
             }
-        }
 
-        // Disable bet buttons
-        document.querySelectorAll('.bet-btn').forEach(btn => btn.disabled = true);
+            if (this.selectedTrackId && this.dom.raceModal?.classList.contains('show')) {
+                const status = raceScheduler.getTrackStatus(this.selectedTrackId);
+                document.getElementById('race-modal-timer').textContent = this.formatTime(status.timeRemaining);
+                document.getElementById('race-modal-status').textContent = status.message;
 
-        // Start race after short delay
-        setTimeout(() => this.startRace(trackId), 1000);
-    }
-
-    startRace(trackId) {
-        const track = this.trackManager.getTrack(trackId);
-        if (!track) return;
-
-        // Only initialize race engine if on this track's race view
-        if (this.currentTrackId === trackId && this.currentPanel === 'race') {
-            this.raceEngine = new RaceEngine(this.dom.raceCanvas, track.horses, track.data);
-            this.raceEngine.startRace();
-        }
-
-        // Race duration
-        setTimeout(() => this.endRace(trackId), 32000);
-    }
-
-    endRace(trackId) {
-        const track = this.trackManager.getTrack(trackId);
-        if (!track) return;
-
-        track.phase = 'RESULTS';
-
-        // Get results (simulate if engine not running)
-        let results;
-        if (this.raceEngine && this.currentTrackId === trackId) {
-            results = this.raceEngine.getResults();
-        } else {
-            // Simulate results based on competitive factors
-            results = track.horses
-                .sort((a, b) => b.competitiveFactor - a.competitiveFactor)
-                .map((horse, index) => ({ horse, position: index + 1 }));
-        }
-
-        const winner = results[0].horse;
-        const payout = this.calculatePayout(trackId, winner);
-        const profit = payout - track.bets.reduce((sum, bet) => sum + bet.amount, 0);
-
-        this.balance += payout;
-        this.updateGlobalBalance();
-
-        track.raceNumber++;
-        track.history.push({
-            raceNumber: track.raceNumber,
-            trackName: track.data.name,
-            winner: winner,
-            profit: profit
-        });
-
-        if (this.currentTrackId === trackId) {
-            this.showResultModal(winner, results, payout, profit);
-        }
-
-        // Reset for next race
-        setTimeout(() => this.startNextRace(trackId), 10000);
-    }
-
-    calculatePayout(trackId, winner) {
-        const track = this.trackManager.getTrack(trackId);
-        if (!track) return 0;
-
-        let totalPayout = 0;
-        track.bets.forEach(bet => {
-            if (bet.horseId === winner.id) {
-                totalPayout += bet.amount * bet.odds;
-            }
-        });
-        return totalPayout;
-    }
-
-    showResultModal(winner, results, payout, profit) {
-        document.getElementById('winner-name').textContent = `${winner.id}號 - ${winner.name}`;
-
-        const rankingHTML = results.map((result, index) => {
-            const medals = ['🥇', '🥈', '🥉'];
-            const medal = medals[index] || `${index + 1}.`;
-            return `
-                <div class="ranking-item">
-                    ${medal} ${result.horse.id}號 ${result.horse.name}
-                </div>
-            `;
-        }).join('');
-
-        document.getElementById('ranking-list').innerHTML = rankingHTML;
-
-        const payoutDisplay = document.querySelector('.payout-display');
-        if (profit > 0) {
-            payoutDisplay.classList.remove('loss');
-            document.getElementById('result-message').textContent = '🎉 恭喜中獎！';
-            document.getElementById('payout-amount').innerHTML = `<strong>+$${profit.toLocaleString()}</strong>`;
-        } else {
-            payoutDisplay.classList.add('loss');
-            document.getElementById('result-message').textContent = '很遺憾，未中獎';
-            document.getElementById('payout-amount').innerHTML = `<strong>$${profit.toLocaleString()}</strong>`;
-        }
-
-        document.getElementById('new-balance').textContent = `$${this.balance.toLocaleString()}`;
-        this.dom.resultModal.classList.add('show');
-    }
-
-    startNextRace(trackId) {
-        const track = this.trackManager.getTrack(trackId);
-        if (!track) return;
-
-        track.bets = [];
-        track.phase = 'BETTING';
-        this.trackManager.resetTimer(trackId);
-
-        // Generate new horses
-        track.horses = generateHorses();
-        this.calculateOdds(trackId);
-
-        // Restart timer
-        this.trackManager.startTimer(
-            trackId,
-            () => {
-                if (this.currentTrackId === trackId) {
-                    this.updateTrackTimer();
+                if (status.phase === 'RACING' && !this.raceEngine) {
+                    this.startRaceViewing(this.selectedTrackId);
                 }
-                this.updateTrackCardTimers();
-            },
-            () => this.endBettingPhase(trackId)
-        );
-
-        // Update UI if on this track
-        if (this.currentTrackId === trackId) {
-            this.dom.raceStatus.textContent = '投注中';
-            this.dom.raceStatus.classList.remove('racing');
-            if (this.currentPanel === 'betting') {
-                this.renderHorses();
-                this.renderCurrentTrackBets();
-            } else if (this.currentPanel === 'race') {
-                this.dom.raceWaitingMessage.style.display = 'block';
             }
-        }
+        }, 1000);
     }
 
     // ====================================
-    // My Bets Modal
+    // Persistence
     // ====================================
 
-    openMyBetsModal() {
-        const allBetsList = document.getElementById('all-bets-list');
-        allBetsList.innerHTML = '';
-
-        let totalAllBets = 0;
-
-        this.trackManager.getAllTracks().forEach(track => {
-            if (track.bets.length > 0) {
-                const trackGroup = document.createElement('div');
-                trackGroup.className = 'track-bets-group';
-
-                const betsHTML = track.bets.map(bet => {
-                    const horse = track.horses.find(h => h.id === bet.horseId);
-                    totalAllBets += bet.amount;
-                    return `
-                        <div class="bet-item">
-                            <div>
-                                <span class="bet-horse-name">${horse.id}號 ${horse.name}</span>
-                            </div>
-                            <div class="bet-amount">$${bet.amount}</div>
-                        </div>
-                    `;
-                }).join('');
-
-                trackGroup.innerHTML = `
-                    <h4>${track.data.flagEmoji} ${track.data.name}</h4>
-                    ${betsHTML}
-                `;
-
-                allBetsList.appendChild(trackGroup);
-            }
-        });
-
-        if (totalAllBets === 0) {
-            allBetsList.innerHTML = '<p class="no-bets">尚無投注</p>';
-        }
-
-        document.getElementById('total-all-bets').textContent = `$${totalAllBets.toLocaleString()}`;
-
-        // Show history
-        this.renderGlobalHistory();
-
-        this.dom.myBetsModal.classList.add('show');
+    loadBalance() {
+        const saved = localStorage.getItem('playerBalance');
+        if (saved) this.balance = parseInt(saved);
     }
 
-    renderGlobalHistory() {
-        const historyContainer = document.getElementById('global-history-container');
-        const allHistory = [];
+    saveBalance() {
+        localStorage.setItem('playerBalance', this.balance);
+    }
 
-        this.trackManager.getAllTracks().forEach(track => {
-            track.history.forEach(record => {
-                allHistory.push({
-                    ...record,
-                    trackFlag: track.data.flagEmoji
-                });
-            });
-        });
-
-        if (allHistory.length === 0) {
-            historyContainer.innerHTML = '<p class="no-history">暫無紀錄</p>';
-            return;
+    loadStats() {
+        const saved = localStorage.getItem('playerStats');
+        if (saved) {
+            const stats = JSON.parse(saved);
+            this.totalBet = stats.totalBet || 0;
+            this.totalProfit = stats.totalProfit || 0;
+            this.winCount = stats.winCount || 0;
+            this.totalBets = stats.totalBets || 0;
         }
+    }
 
-        allHistory.sort((a, b) => b.raceNumber - a.raceNumber);
+    saveStats() {
+        const stats = {
+            totalBet: this.totalBet,
+            totalProfit: this.totalProfit,
+            winCount: this.winCount,
+            totalBets: this.totalBets
+        };
+        localStorage.setItem('playerStats', JSON.stringify(stats));
+    }
 
-        historyContainer.innerHTML = allHistory.slice(0, 20).map(record => {
-            const resultClass = record.profit >= 0 ? 'win' : 'lose';
-            const profitText = record.profit >= 0 ? `+$${record.profit}` : `-$${Math.abs(record.profit)}`;
+    // ====================================
+    // Utilities
+    // ====================================
 
-            return `
-                <div class="history-item">
-                    <div class="history-race-number">${record.trackFlag} ${record.trackName} - 第 ${record.raceNumber} 場</div>
-                    <div class="history-winner">🏆 ${record.winner.id}號 ${record.winner.name} (${record.winner.odds}x)</div>
-                    <div class="history-result ${resultClass}">${profitText}</div>
-                </div>
-            `;
-        }).join('');
+    formatTime(seconds) {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')} `;
     }
 }
 
-// ====================================
-// Start Game
-// ====================================
-
+// Start game
 const game = new HorseRacingGame();

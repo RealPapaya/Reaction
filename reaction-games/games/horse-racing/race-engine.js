@@ -99,7 +99,7 @@ class RaceEngine {
     // ====================================
 
     startRace() {
-        this.isRacing = true;
+        this.isRunning = true;
         this.raceStartTime = Date.now();
         this.finishOrder = [];
 
@@ -107,55 +107,53 @@ class RaceEngine {
         this.horses.forEach(horse => {
             horse.progress = 0;
             horse.speed = horse.competitiveFactor * randomFloat(0.8, 1.2);
+            horse.finishTime = null;
         });
 
         // Start animation
-        this.animate();
+        this.update();
     }
 
-    animate() {
-        if (!this.isRacing) return;
+    stopRace() {
+        if (this.animationId) {
+            cancelAnimationFrame(this.animationId);
+            this.animationId = null;
+        }
+        this.isRunning = false;
+    }
 
-        const elapsed = Date.now() - this.raceStartTime;
-        const progress = Math.min(elapsed / this.raceDuration, 1);
+    update() {
+        if (!this.isRunning) return;
 
-        // Update each horse's progress
+        const now = Date.now();
+        const elapsed = (now - this.startTime) / 1000;
+
+        // Update horse positions
         this.horses.forEach(horse => {
             if (horse.progress < 1) {
-                const speedVar = randomFloat(0.95, 1.05);
-                const increment = (horse.speed / 100) * speedVar;
-                horse.progress = Math.min(horse.progress + increment, 1);
+                // Simple linear movement for now
+                const speed = horse.competitiveFactor * 0.035; // Speed factor
+                horse.progress += speed;
 
-                // Check if finished
-                if (horse.progress >= 1 && !this.finishOrder.includes(horse)) {
-                    this.finishOrder.push(horse);
+                if (horse.progress >= 1) {
+                    horse.progress = 1;
+                    horse.finishTime = elapsed;
+                    this.finishOrder.push(horse); // Add to finish order when finished
                 }
             }
         });
 
-        // Render
+        // Check if all finished
+        const allFinished = this.horses.every(h => h.progress >= 1);
+        if (allFinished) {
+            this.isRunning = false;
+        }
+
         this.render();
 
-        // Check if race is complete
-        if (this.finishOrder.length === this.horses.length || progress >= 1) {
-            this.endRace();
-        } else {
-            this.animationId = requestAnimationFrame(() => this.animate());
+        if (this.isRunning) {
+            this.animationId = requestAnimationFrame(() => this.update());
         }
-    }
-
-    endRace() {
-        this.isRacing = false;
-        if (this.animationId) {
-            cancelAnimationFrame(this.animationId);
-        }
-
-        // Ensure all horses are in finish order
-        this.horses.forEach(horse => {
-            if (!this.finishOrder.includes(horse)) {
-                this.finishOrder.push(horse);
-            }
-        });
     }
 
     // ====================================
@@ -164,83 +162,58 @@ class RaceEngine {
 
     render() {
         // Clear canvas
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.fillStyle = '#7EC850';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-        // Draw background based on surface type
-        this.drawBackground();
+        // Draw straight track (simple version)
+        const trackWidth = this.canvas.width - 100;
+        const trackHeight = this.canvas.height - 100;
+        const trackX = 50;
+        const trackY = 50;
 
-        // Draw track outline
-        this.drawTrack();
+        // Track outline
+        this.ctx.strokeStyle = '#ffffff';
+        this.ctx.lineWidth = 3;
+        this.ctx.strokeRect(trackX, trackY, trackWidth, trackHeight);
 
-        // Draw start/finish line
-        this.drawStartFinishLine();
+        // Center divider
+        this.ctx.beginPath();
+        this.ctx.moveTo(trackX + trackWidth / 2, trackY);
+        this.ctx.lineTo(trackX + trackWidth / 2, trackY + trackHeight);
+        this.ctx.stroke();
 
         // Draw horses
+        const laneHeight = trackHeight / this.horses.length;
+
         this.horses.forEach((horse, index) => {
-            this.drawHorse(horse, index);
+            const laneY = trackY + (index * laneHeight) + (laneHeight / 2);
+            const horseX = trackX + (horse.progress * trackWidth);
+
+            // Draw horse as colored square with number
+            const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E2'];
+            this.ctx.fillStyle = colors[index % colors.length];
+            this.ctx.fillRect(horseX - 10, laneY - 10, 20, 20);
+
+            // Draw horse number
+            this.ctx.fillStyle = '#000';
+            this.ctx.font = 'bold 14px Arial';
+            this.ctx.textAlign = 'center';
+            this.ctx.fillText(horse.id, horseX, laneY + 5);
+
+            // Draw horse name
+            this.ctx.fillStyle = '#000';
+            this.ctx.font = '12px Arial';
+            this.ctx.fillText(horse.name, horseX, laneY - 15);
         });
-    }
 
-    drawBackground() {
-        // Background color based on track surface
-        if (this.trackData.surface === 'turf') {
-            this.ctx.fillStyle = '#86EFAC'; // Grass green
-        } else {
-            this.ctx.fillStyle = '#D4A574'; // Dirt brown
-        }
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-    }
-
-    drawTrack() {
-        // Draw outer track boundary
-        this.ctx.strokeStyle = '#FFFFFF';
-        this.ctx.lineWidth = 6;
-        this.ctx.beginPath();
-        this.trackPath.forEach((point, index) => {
-            if (index === 0) {
-                this.ctx.moveTo(point.x, point.y);
-            } else {
-                this.ctx.lineTo(point.x, point.y);
-            }
-        });
-        this.ctx.closePath();
-        this.ctx.stroke();
-
-        // Draw inner track boundary (slightly smaller)
-        const innerOffset = -this.laneWidth * 4;
-        this.ctx.strokeStyle = '#FFFFFF';
-        this.ctx.lineWidth = 4;
-        this.ctx.beginPath();
-        this.trackPath.forEach((point, index) => {
-            const innerPos = this.getPositionOnPath(index / (this.trackPath.length - 1), innerOffset);
-            if (index === 0) {
-                this.ctx.moveTo(innerPos.x, innerPos.y);
-            } else {
-                this.ctx.lineTo(innerPos.x, innerPos.y);
-            }
-        });
-        this.ctx.closePath();
-        this.ctx.stroke();
-
-        // Draw lane dividers
-        this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+        // Draw finish line
+        this.ctx.strokeStyle = '#FF0000';
         this.ctx.lineWidth = 2;
-        this.ctx.setLineDash([10, 10]);
-
-        for (let lane = 1; lane < 8; lane++) {
-            const offset = -this.laneWidth * (4 - lane);
-            this.ctx.beginPath();
-            this.trackPath.forEach((point, index) => {
-                const lanePos = this.getPositionOnPath(index / (this.trackPath.length - 1), offset);
-                if (index === 0) {
-                    this.ctx.moveTo(lanePos.x, lanePos.y);
-                } else {
-                    this.ctx.lineTo(lanePos.x, lanePos.y);
-                }
-            });
-            this.ctx.stroke();
-        }
-
+        this.ctx.setLineDash([5, 5]);
+        this.ctx.beginPath();
+        this.ctx.moveTo(trackX + trackWidth - 20, trackY);
+        this.ctx.lineTo(trackX + trackWidth - 20, trackY + trackHeight);
+        this.ctx.stroke();
         this.ctx.setLineDash([]);
     }
 

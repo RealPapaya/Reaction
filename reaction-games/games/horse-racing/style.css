@@ -81,6 +81,31 @@ h4,
     transform: translateY(-50%);
 }
 
+.global-back-btn {
+    position: fixed;
+    top: var(--space-4);
+    left: var(--space-4);
+    padding: var(--space-2) var(--space-4);
+    background: var(--surface);
+    color: var(--text);
+    border: 3px solid var(--border-color);
+    box-shadow: 4px 4px 0 var(--shadow-color);
+    font-weight: var(--font-bold);
+    text-decoration: none;
+    z-index: 2000;
+    transition: transform 150ms ease, box-shadow 150ms ease;
+}
+
+.global-back-btn:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 6px 6px 0 var(--shadow-color);
+}
+
+.global-back-btn:active {
+    transform: translate(2px, 2px);
+    box-shadow: 2px 2px 0 var(--shadow-color);
+}
+
 .game-header h1 {
     width: 100%;
     text-align: center;
@@ -205,12 +230,12 @@ h4,
     background: white;
     border: 2px solid var(--border-color);
     border-radius: 6px;
-    padding: 2px var(--space-4);
+    padding: 2px var(--space-3);
     font-size: var(--text-xl);
     font-weight: var(--font-bold);
     color: #B45309;
     box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.1);
-    min-width: 100px;
+    min-width: 70px;
     text-align: center;
     transform-style: preserve-3d;
     backface-visibility: hidden;
