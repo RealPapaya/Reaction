@@ -1,0 +1,52 @@
+/* Success Modal Styles */
+.success-notification {
+    max-width: 500px;
+}
+
+.success-header {
+    background: linear-gradient(135deg, var(--success) 0%, #16A34A 100%);
+    color: white;
+    border-bottom: 3px solid var(--border-color);
+}
+
+.success-header h2 {
+    color: white;
+    margin: 0;
+}
+
+.success-message {
+    text-align: center;
+    padding: var(--space-8) var(--space-4);
+}
+
+.ticket-id-display {
+    font-size: var(--text-2xl);
+    font-weight: var(--font-bold);
+    color: var(--primary);
+    margin-bottom: var(--space-4);
+    font-family: var(--font-display);
+}
+
+.success-hint {
+    color: var(--text-light);
+    font-size: var(--text-base);
+}
+
+/* Ticket Wrapper for Redeem Button */
+.ticket-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    margin-bottom: var(--space-6);
+}
+
+.ticket-redeem-actions {
+    display: flex;
+    justify-content: center;
+    padding: var(--space-4);
+}
+
+.ticket-redeem-actions .redeem-btn {
+    font-size: var(--text-lg);
+    padding: var(--space-3) var(--space-8);
+}

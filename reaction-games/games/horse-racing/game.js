@@ -65,6 +65,7 @@ class HorseRacingGame {
         // Modals
         this.dom.raceModal = document.getElementById('race-modal');
         this.dom.quickBetModal = document.getElementById('quick-bet-modal');
+        this.dom.successModal = document.getElementById('success-modal');
         this.dom.scanningOverlay = document.getElementById('scanning-overlay');
         this.dom.scanningMessage = document.getElementById('scanning-message');
         this.dom.scanningProgressBar = document.getElementById('scanning-progress-bar');
@@ -88,6 +89,7 @@ class HorseRacingGame {
             btn.addEventListener('click', () => {
                 this.dom.raceModal?.classList.remove('show');
                 this.dom.quickBetModal?.classList.remove('show');
+                this.dom.successModal?.classList.remove('show');
 
                 // Restore navigation bar
                 if (this.dom.navContainer) {
@@ -99,6 +101,12 @@ class HorseRacingGame {
                     this.dom.globalBackBtn.style.display = 'block';
                 }
             });
+        });
+
+        // Go to my bets button
+        document.getElementById('go-to-my-bets')?.addEventListener('click', () => {
+            this.dom.successModal.classList.remove('show');
+            this.switchScreen('my-bets');
         });
 
         // Chip buttons
@@ -419,11 +427,13 @@ class HorseRacingGame {
 
     renderMyBetsScreen() {
         const tickets = bettingMachine.getAllTickets();
-        const active = tickets.filter(t => t.status === 'active');
-        const redeemable = tickets.filter(t => t.status === 'redeemable');
+
+        // Use betting machine methods to categorize tickets
+        const active = bettingMachine.getActiveTickets();
+        const pending = bettingMachine.getPendingTickets();
         const redeemed = redemptionMachine.getRedemptionHistory();
 
-        // Active tickets
+        // Active tickets (current race)
         this.dom.activeCount.textContent = active.length;
         if (active.length === 0) {
             this.dom.activeTickets.innerHTML = '<p class="no-tickets">暫無進行中的投注</p>';
@@ -431,12 +441,12 @@ class HorseRacingGame {
             this.dom.activeTickets.innerHTML = active.map(ticket => this.renderTicketCard(ticket)).join('');
         }
 
-        // Redeemable tickets
-        this.dom.redeemableCount.textContent = redeemable.length;
-        if (redeemable.length === 0) {
+        // Redeemable tickets (race finished, not redeemed yet)
+        this.dom.redeemableCount.textContent = pending.length;
+        if (pending.length === 0) {
             this.dom.redeemableTickets.innerHTML = '<p class="no-tickets">暫無可兌獎的投注單</p>';
         } else {
-            this.dom.redeemableTickets.innerHTML = redeemable.map(ticket => this.renderTicketCard(ticket, true)).join('');
+            this.dom.redeemableTickets.innerHTML = pending.map(ticket => this.renderTicketCard(ticket, true)).join('');
         }
 
         // History
@@ -455,34 +465,24 @@ class HorseRacingGame {
     }
 
     renderTicketCard(ticket, showRedeemBtn = false) {
-        const track = raceScheduler.getTrackData(ticket.trackId);
-        const horses = raceScheduler.getOrGenerateHorses(ticket.trackId);
-        const horse = horses.find(h => h.id === ticket.horseId);
+        // Use betting machine's realistic ticket rendering
+        const ticketHTML = bettingMachine.renderTicketHTML(ticket);
 
-        return `
-                < div class="ticket-card" >
-                <div class="ticket-header">
-                    <span class="ticket-id">#{ticket.ticketId}</span>
-                    <span class="ticket-status status-${ticket.status}">${ticket.status === 'active' ? '進行中' : '可兌獎'}</span>
-                </div>
-                <div class="ticket-body">
-                    <div class="ticket-info">
-                        <p><strong>${track.flagEmoji} ${track.name}</strong> - 第 ${ticket.raceNumber} 場</p>
-                        <p>投注馬匹: ${ticket.horseId}號 - ${horse?.name || '未知'}</p>
-                        <p>投注金額: $${ticket.amount.toLocaleString()}</p>
-                        <p>賠率: ${ticket.odds}x</p>
-                    </div>
-                </div>
-                ${showRedeemBtn ? `
-                    <div class="ticket-actions">
+        // If we need a redeem button, wrap it with additional controls
+        if (showRedeemBtn) {
+            return `
+                <div class="ticket-wrapper">
+                    ${ticketHTML}
+                    <div class="ticket-redeem-actions">
                         <button class="btn btn-primary redeem-btn" data-ticket-id="${ticket.ticketId}">
-                            兌獎
+                            🎁 立即兌獎
                         </button>
                     </div>
-                ` : ''
-            }
-            </div >
-                `;
+                </div>
+            `;
+        }
+
+        return ticketHTML;
     }
 
     renderHistoryCard(record) {
@@ -490,7 +490,7 @@ class HorseRacingGame {
         const resultText = record.result.isWinner ? '✅ 中獎' : '❌ 未中獎';
 
         return `
-                < div class="history-card ${resultClass}" >
+            <div class="history-card ${resultClass}">
                 <div class="history-header">
                     <span class="history-id">#{record.ticketId}</span>
                     <span class="history-result">${resultText}</span>
@@ -500,8 +500,8 @@ class HorseRacingGame {
                     <p>投注: ${record.horseId}號 · $${record.amount.toLocaleString()}</p>
                     ${record.result.isWinner ? `<p class="win-amount">獲利: $${record.result.payout.toLocaleString()}</p>` : ''}
                 </div>
-            </div >
-                `;
+            </div>
+        `;
     }
 
     async redeemTicket(ticketId) {
@@ -675,7 +675,9 @@ class HorseRacingGame {
 
             this.dom.quickBetModal.classList.remove('show');
 
-            alert(`✅ 投注成功!\n投注單號: ${ticket.ticketId} \n請至「我的投注」查看`);
+            // Show custom success modal
+            document.getElementById('success-ticket-id').textContent = `投注單號: ${ticket.ticketId}`;
+            this.dom.successModal.classList.add('show');
 
         } catch (error) {
             alert(`❌ 投注失敗: ${error.message} `);

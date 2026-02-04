@@ -12,6 +12,7 @@
     <link rel="stylesheet" href="ticket-styles.css">
     <link rel="stylesheet" href="machine-styles.css">
     <link rel="stylesheet" href="navigation-styles.css">
+    <link rel="stylesheet" href="success-modal-styles.css">
     <link rel="stylesheet" href="screen-transitions.css">
 </head>
 
@@ -206,6 +207,26 @@
                     <div class="modal-actions">
                         <button class="btn btn-secondary close-modal-btn">取消</button>
                         <button class="btn btn-primary" id="confirm-quick-bet-btn">確認下注</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Success Notification Modal -->
+        <div id="success-modal" class="modal">
+            <div class="modal-content card success-notification">
+                <div class="modal-header success-header">
+                    <h2>✅ 投注成功</h2>
+                    <button class="close-modal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="success-message">
+                        <p id="success-ticket-id" class="ticket-id-display"></p>
+                        <p class="success-hint">請至「我的投注」查看詳情</p>
+                    </div>
+                    <div class="modal-actions">
+                        <button class="btn btn-secondary close-modal">繼續投注</button>
+                        <button class="btn btn-primary" id="go-to-my-bets">查看我的投注</button>
                     </div>
                 </div>
             </div>
