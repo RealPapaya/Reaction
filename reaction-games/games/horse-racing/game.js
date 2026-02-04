@@ -177,10 +177,24 @@ class HorseRacingGame {
     renderHorses() {
         this.horsesContainer.innerHTML = '';
 
-        this.horses.forEach(horse => {
-            const card = document.createElement('div');
-            card.className = 'horse-card';
+        const table = document.createElement('table');
+        table.className = 'odds-table';
 
+        table.innerHTML = `
+            <thead>
+                <tr>
+                    <th class="col-odds">賠率</th>
+                    <th class="col-horse">馬名</th>
+                    <th class="col-info">年齡/性別</th>
+                    <th class="col-weight">負磅</th>
+                    <th class="col-jockey">騎手</th>
+                    <th class="col-trend">近五場走勢</th>
+                    <th class="col-body-weight">體重 (增減)</th>
+                    <th class="col-action">下注</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${this.horses.map(horse => {
             // Odds change indicator
             let oddsChange = '';
             if (horse.previousOdds > 0) {
@@ -191,48 +205,64 @@ class HorseRacingGame {
                 }
             }
 
-            card.innerHTML = `
-                <div class="horse-header">
-                    <div class="horse-number">${horse.id}</div>
-                    <div class="horse-name">${horse.name}</div>
-                </div>
-                <div class="horse-details">
-                    <div class="detail-item">
-                        <span class="detail-label">年齡:</span>
-                        <span class="detail-value">${horse.age}歲</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">性別:</span>
-                        <span class="detail-value">${horse.gender}</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">體重:</span>
-                        <span class="detail-value">${horse.weight}kg</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">身長:</span>
-                        <span class="detail-value">${horse.height}cm</span>
-                    </div>
-                </div>
-                <div class="jockey-info">
-                    🏇 騎手: ${horse.jockey.name} (${horse.jockey.weight}kg, ${horse.jockey.experience}年)
-                </div>
-                <div class="odds-section">
-                    <div class="odds-display">
-                        ${horse.odds}x ${oddsChange}
-                    </div>
-                    <button class="bet-btn" data-horse-id="${horse.id}" ${this.phase !== 'BETTING' ? 'disabled' : ''}>
-                        下注
-                    </button>
-                </div>
-            `;
+            // Weight change with +/-
+            const weightChangeText = horse.weightChange >= 0 ? `+${horse.weightChange}` : horse.weightChange;
+            const weightChangeClass = horse.weightChange > 0 ? 'up' : (horse.weightChange < 0 ? 'down' : '');
 
-            // Add bet button listener
-            const betBtn = card.querySelector('.bet-btn');
-            betBtn.addEventListener('click', () => this.openBetModal(horse));
+            // Performance trend circles
+            const trendHtml = horse.lastFiveTrend.map(rank => {
+                let colorClass = '';
+                if (rank === 1) colorClass = 'rank-1';
+                else if (rank === 2) colorClass = 'rank-2';
+                else if (rank === 3) colorClass = 'rank-3';
+                return `<span class="trend-ball ${colorClass}">${rank}</span>`;
+            }).join('');
 
-            this.horsesContainer.appendChild(card);
+            return `
+                        <tr>
+                            <td class="col-odds">
+                                <div class="odds-val">${horse.odds}</div>
+                                ${oddsChange}
+                            </td>
+                            <td class="col-horse">
+                                <span class="horse-num">${horse.id}</span>
+                                <span class="horse-name">${horse.name}</span>
+                            </td>
+                            <td class="col-info">${horse.age}歲 / ${horse.gender}</td>
+                            <td class="col-weight">${horse.weightCarried}磅</td>
+                            <td class="col-jockey">
+                                <span class="jockey-flag">${horse.jockey.flag}</span>
+                                <span class="jockey-name">${horse.jockey.name}</span>
+                                <div class="jockey-country">${horse.jockey.country}</div>
+                            </td>
+                            <td class="col-trend">
+                                <div class="trend-container">${trendHtml}</div>
+                            </td>
+                            <td class="col-body-weight">
+                                <span class="body-val">${horse.weight}kg</span>
+                                <span class="weight-change ${weightChangeClass}">(${weightChangeText})</span>
+                            </td>
+                            <td class="col-action">
+                                <button class="btn btn-secondary bet-btn" data-horse-id="${horse.id}" ${this.phase !== 'BETTING' ? 'disabled' : ''}>
+                                    下注
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+        }).join('')}
+            </tbody>
+        `;
+
+        // Add bet button listeners
+        table.querySelectorAll('.bet-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const horseId = parseInt(e.currentTarget.dataset.horseId);
+                const horse = this.horses.find(h => h.id === horseId);
+                this.openBetModal(horse);
+            });
         });
+
+        this.horsesContainer.appendChild(table);
     }
 
     updateDisplay() {
