@@ -149,13 +149,18 @@
         // 視覺單位：像素
         const PIXELS_PER_METER = 2.2;  // 1 米 = 2.2 像素（放大賽道）
 
+        // **關鍵修正**：視覺尺寸必須符合物理尺寸
+        // 物理：bodyRadius = 0.6m → 直徑 1.2m
+        // 視覺：1.2m * 2.2 px/m = 2.64px → 但這太小，我們用 3 倍放大
+        const VISUAL_SCALE = 3.0; // 視覺放大倍數
+
         // 物理尺寸（米）
         const HORSE_PHYSICAL_LENGTH = 2.0;   // 馬長 2.0 米
-        const HORSE_PHYSICAL_WIDTH = 0.8;    // 馬寬 0.8 米
+        const HORSE_PHYSICAL_WIDTH = 1.2;    // 馬寬 1.2 米 （= bodyRadius * 2）
 
-        // 視覺尺寸（像素）- 根據比例自動計算
-        const HORSE_VISUAL_LENGTH = Math.max(HORSE_PHYSICAL_LENGTH * PIXELS_PER_METER, 8);  // 最小 8px
-        const HORSE_VISUAL_WIDTH = Math.max(HORSE_PHYSICAL_WIDTH * PIXELS_PER_METER, 4);    // 最小 4px
+        // 視覺尺寸（像素）
+        const HORSE_VISUAL_LENGTH = HORSE_PHYSICAL_LENGTH * PIXELS_PER_METER * VISUAL_SCALE;  // 2.0*2.2*3 = 13.2
+        const HORSE_VISUAL_WIDTH = HORSE_PHYSICAL_WIDTH * PIXELS_PER_METER * VISUAL_SCALE;    // 1.2*2.2*3 = 7.92
 
         console.log('視覺尺寸:', { length: HORSE_VISUAL_LENGTH, width: HORSE_VISUAL_WIDTH });
 
@@ -362,6 +367,45 @@
                 }
 
                 ctx.restore();
+
+                // 拉線號碼標示（像賽馬轉播）
+                const leaderboard = simulator.getCurrentLeaderboard();
+                const position = leaderboard.findIndex(item => item.horse.id === horse.id) + 1;
+
+                // **關鍵修正**：標籤放在操場內側，不擋到賽道
+                // 1. 計算賽道中心點（物理座標 0,0）
+                const centerCanvas = physicsToCanvas(0, 0);
+
+                // 2. 計算馬匹到中心的方向向量
+                const toCenterX = centerCanvas.x - canvasPos.x;
+                const toCenterY = centerCanvas.y - canvasPos.y;
+                const distToCenter = Math.sqrt(toCenterX * toCenterX + toCenterY * toCenterY);
+
+                // 3. 標籤位置：在馬匹與中心之間，距離馬匹 100px
+                const labelDistance = Math.min(100, distToCenter * 0.5); // **拉長** 60->100px
+                const labelX = canvasPos.x + (toCenterX / distToCenter) * labelDistance;
+                const labelY = canvasPos.y + (toCenterY / distToCenter) * labelDistance;
+
+                // 拉線
+                ctx.strokeStyle = colors[index];
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(canvasPos.x, canvasPos.y);
+                ctx.lineTo(labelX, labelY);
+                ctx.stroke();
+
+                // 標籤背景
+                const labelText = `${position}. #${horse.id} ${horse.name}`;
+                ctx.font = 'bold 11px Arial';
+                const textWidth = ctx.measureText(labelText).width;
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+                ctx.fillRect(labelX - textWidth / 2 - 4, labelY - 8, textWidth + 8, 16);
+
+                // 標籤文字
+                ctx.fillStyle = '#fff';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(labelText, labelX, labelY);
 
                 // 軌跡（物理座標轉畫布座標）
                 if (horse.positionHistory && horse.positionHistory.length > 2) {

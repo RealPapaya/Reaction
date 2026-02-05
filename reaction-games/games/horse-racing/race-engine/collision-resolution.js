@@ -1,9 +1,9 @@
 // ====================================
-// 碰撞解決（位置衝量修正）
+// 碰撞解決（V2 - 混合策略）
+// 策略：輕微位置修正 + 速度調整
 // ====================================
 
 resolveCollisions() {
-    // 檢查所有馬匹對，如果重疊則強制分開
     for (let i = 0; i < this.horses.length; i++) {
         for (let j = i + 1; j < this.horses.length; j++) {
             const horseA = this.horses[i];
@@ -15,60 +15,76 @@ resolveCollisions() {
             const deltaD = horseB.d - horseA.d;
             const distance = Math.sqrt(deltaS * deltaS + deltaD * deltaD);
 
-            const minDistance = (horseA.bodyRadius || 0.6) + (horseB.bodyRadius || 0.6);
+            // **關鍵修正**：使用更大的碰撞體積（接近視覺尺寸）
+            const minDistance = 1.5; // 固定 1.5 米（視覺是 2.0m，留點空隙）
 
-            // 如果重疊了
-            if (distance < minDistance && distance > 0) {
+            if (distance < minDistance && distance > 0.01) {
                 const overlap = minDistance - distance;
 
-                // 計算推開方向（單位向量）
+                // 計算推開方向
                 const pushDirD = deltaD / distance;
                 const pushDirS = deltaS / distance;
 
-                // 根據質量比例分配位移
+                // 質量比例
                 const massA = horseA.mass || 500;
                 const massB = horseB.mass || 500;
                 const totalMass = massA + massB;
-
-                const ratioA = massB / totalMass;  // 質量大的馬移動少
+                const ratioA = massB / totalMass;
                 const ratioB = massA / totalMass;
 
-                // **橫向距離判斷**：如果橫向距離很近（在同一跑道）
                 const isDirectCollision = Math.abs(deltaD) < 1.5;
 
                 if (isDirectCollision) {
-                    // **同跑道碰撞**：主要修正縱向，防止穿模
+                    // **同跑道碰撞**
 
-                    // 縱向修正：強制分開
-                    horseA.s -= pushDirS * overlap * ratioA * 0.8;
-                    horseB.s += pushDirS * overlap * ratioB * 0.8;
+                    // **混合策略 1：輕微的即時位置修正（30%）**
+                    const positionCorrection = 0.3;
+                    horseA.s -= pushDirS * overlap * ratioA * positionCorrection;
+                    horseB.s += pushDirS * overlap * ratioB * positionCorrection;
+                    horseA.d -= pushDirD * overlap * ratioA * positionCorrection;
+                    horseB.d += pushDirD * overlap * ratioB * positionCorrection;
 
-                    // 橫向修正：輕微推開
-                    horseA.d -= pushDirD * overlap * ratioA * 0.5;
-                    horseB.d += pushDirD * overlap * ratioB * 0.5;
+                    // **混合策略 2：速度調整（70%）**
+                    const speedCorrection = 0.25; // 增強
 
-                    // **速度調整**：後方馬強制減速
                     if (deltaS > 0) {
-                        // B 在 A 後方，B 減速
-                        horseB.speed *= 0.92;
+                        // B 在 A 後方
+                        if (!horseB.speedDamping) horseB.speedDamping = 1.0;
+                        horseB.speedDamping *= (1.0 - speedCorrection);
                     } else {
-                        // A 在 B 後方，A 減速
-                        horseA.speed *= 0.92;
+                        if (!horseA.speedDamping) horseA.speedDamping = 1.0;
+                        horseA.speedDamping *= (1.0 - speedCorrection);
                     }
+
+                    // 橫向速度推開
+                    const lateralPush = overlap * 0.4; // 增強
+                    if (!horseA.lateralSpeed) horseA.lateralSpeed = 0;
+                    if (!horseB.lateralSpeed) horseB.lateralSpeed = 0;
+
+                    horseA.lateralSpeed -= pushDirD * lateralPush * ratioA;
+                    horseB.lateralSpeed += pushDirD * lateralPush * ratioB;
+
                 } else {
-                    // **不同跑道側面碰撞**：主要修正橫向
+                    // **側面碰撞**
 
-                    // 橫向修正：主要修正方向
-                    horseA.d -= pushDirD * overlap * ratioA;
-                    horseB.d += pushDirD * overlap * ratioB;
+                    // 位置修正（50%）
+                    const positionCorrection = 0.5;
+                    horseA.d -= pushDirD * overlap * ratioA * positionCorrection;
+                    horseB.d += pushDirD * overlap * ratioB * positionCorrection;
 
-                    // 縱向修正：輕微
-                    horseA.s -= pushDirS * overlap * ratioA * 0.3;
-                    horseB.s += pushDirS * overlap * ratioB * 0.3;
+                    // 橫向速度
+                    const lateralPush = overlap * 0.6;
+                    if (!horseA.lateralSpeed) horseA.lateralSpeed = 0;
+                    if (!horseB.lateralSpeed) horseB.lateralSpeed = 0;
+
+                    horseA.lateralSpeed -= pushDirD * lateralPush * ratioA;
+                    horseB.lateralSpeed += pushDirD * lateralPush * ratioB;
 
                     // 輕微減速
-                    horseA.speed *= 0.97;
-                    horseB.speed *= 0.97;
+                    if (!horseA.speedDamping) horseA.speedDamping = 1.0;
+                    if (!horseB.speedDamping) horseB.speedDamping = 1.0;
+                    horseA.speedDamping *= 0.97;
+                    horseB.speedDamping *= 0.97;
                 }
 
                 // 限制在賽道範圍內
