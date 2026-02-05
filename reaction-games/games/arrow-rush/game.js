@@ -36,6 +36,7 @@ class ArrowRushGame {
         this.totalHits = 0;
         this.totalAttempts = 0;
         this.floatingTexts = []; // Floating score texts
+        this.isEnding = false;
 
         // Game config
         this.BLOCK_SIZE = 120; // 放大箭頭
@@ -88,7 +89,7 @@ class ArrowRushGame {
             this.canvas.classList.remove('active');
 
             // Start game on mouseup if button was pressed (and not already counting down)
-            if (wasActive && !this.isPlaying && !this.isCountingDown) {
+            if (wasActive && !this.isPlaying && !this.isCountingDown && !this.isEnding) {
                 this.startGame();
             }
         });
@@ -200,6 +201,7 @@ class ArrowRushGame {
         this.isFrozen = false;
         this.score = 0;
         this.combo = 0;
+        this.sessionMaxCombo = 0;
         this.timeLeft = 30;
         this.totalHits = 0;
         this.totalAttempts = 0;
@@ -273,6 +275,9 @@ class ArrowRushGame {
     handleHit() {
         // Increment score and combo
         this.combo++;
+        if (this.combo > this.sessionMaxCombo) {
+            this.sessionMaxCombo = this.combo;
+        }
 
         // Calculate Multiplier
         // 0-5: x1.0
@@ -465,6 +470,7 @@ class ArrowRushGame {
 
     endGame() {
         this.isPlaying = false;
+        this.isEnding = true;
         clearInterval(this.timerInterval);
         if (this.animationId) {
             cancelAnimationFrame(this.animationId);
@@ -483,19 +489,30 @@ class ArrowRushGame {
 
         this.saveStats();
 
-        // Show result
         this.showResult();
-
-        // Show restart button
-        this.restartBtn.classList.remove('hidden');
     }
 
     showResult() {
-        // Directly show leaderboard modal
-        this.showLeaderboardModal(this.score);
+        // Create Time's Up overlay
+        const overlay = document.createElement('div');
+        overlay.className = 'times-up-overlay';
+        overlay.innerHTML = '<div class="times-up-text">時間到</div>';
+        document.body.appendChild(overlay);
+
+        // Wait before showing leaderboard and allowing restart
+        setTimeout(() => {
+            overlay.remove();
+            this.restartBtn.classList.remove('hidden');
+            this.showLeaderboardModal(this.score);
+        }, 1500);
     }
 
     showLeaderboardModal(score) {
+        // Calculate stats
+        const accuracy = this.totalAttempts > 0 ? Math.round((this.totalHits / this.totalAttempts) * 100) : 0;
+        const arrowCount = this.totalHits;
+        const maxCombo = this.sessionMaxCombo; // Use session max combo
+
         // Create modal if not exists
         let modal = document.getElementById('leaderboard-submit-modal-arrow');
         if (!modal) {
@@ -551,13 +568,17 @@ class ArrowRushGame {
             const scores = await leaderboard.getScores('arrow-rush');
             if (scores && scores.length > 0) {
                 let html = '<table style="width:100%; border-collapse: collapse;">';
-                html += '<thead><tr style="border-bottom: 3px solid #000;"><th style="padding: 8px; text-align:left">排名</th><th style="padding: 8px; text-align:left">名字</th><th style="padding: 8px; text-align:right">分數</th></tr></thead><tbody>';
+                html += '<thead><tr style="border-bottom: 3px solid #000;"><th style="padding: 8px; text-align:left">排名</th><th style="padding: 8px; text-align:left">名字</th><th style="padding: 8px; text-align:right">箭頭</th><th style="padding: 8px; text-align:right">正確率</th><th style="padding: 8px; text-align:right">最高連擊</th><th style="padding: 8px; text-align:right">分數</th></tr></thead><tbody>';
                 scores.forEach((s, i) => {
                     const rank = i + 1;
                     const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : '';
+                    const details = s.details ? (typeof s.details === 'string' ? JSON.parse(s.details) : s.details) : { count: '-', accuracy: '-', maxCombo: '-' };
                     html += `<tr style="border-bottom: 1px solid #ddd;">
                     <td style="padding: 8px;"><strong>${medal} ${rank}</strong></td>
                     <td style="padding: 8px;">${s.name}</td>
+                    <td style="padding: 8px; text-align:right">${details.count || '-'}</td>
+                    <td style="padding: 8px; text-align:right">${details.accuracy || '-'}</td>
+                    <td style="padding: 8px; text-align:right">${details.maxCombo || '-'}</td>
                     <td style="padding: 8px; text-align:right; font-weight: bold; color: var(--primary);">${s.score}</td>
                 </tr>`;
                 });
@@ -591,7 +612,14 @@ class ArrowRushGame {
             btn.disabled = true;
             btn.textContent = '提交中...';
 
-            const res = await leaderboard.submitScore('arrow-rush', name, score);
+            // Submit with details
+            const details = {
+                count: arrowCount,
+                accuracy: accuracy + '%',
+                maxCombo: maxCombo
+            };
+
+            const res = await leaderboard.submitScore('arrow-rush', name, score, details);
             if (res.success) {
                 status.innerHTML = '<span style="color:green; font-weight:bold;">✅ 已提交！</span>';
                 loadLeaderboard();
@@ -617,6 +645,7 @@ class ArrowRushGame {
     resetGame() {
         // Remove playing class
         this.canvas.classList.remove('playing');
+        this.isEnding = false;
 
         this.restartBtn.classList.add('hidden');
         this.result.classList.add('hidden');
@@ -624,6 +653,7 @@ class ArrowRushGame {
         // Reset UI values
         this.scoreEl.textContent = '0';
         this.comboEl.textContent = '0';
+        this.sessionMaxCombo = 0; // Reset session max combo
         this.timeEl.textContent = '30s';
         this.comboMultiplierEl.classList.add('hidden');
 

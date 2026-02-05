@@ -6,7 +6,7 @@
 class LeaderboardService {
     constructor() {
         // REPLACE THIS URL AFTER DEPLOYING YOUR GOOGLE APPS SCRIPT
-        this.API_URL = 'https://script.google.com/macros/s/AKfycbxbJLwaObtyB3TQzAGAHdODyPXpb8yP0YPAJq-zOkEcxelxAUdp_xHbmys2vHoMI0wO-g/exec';
+        this.API_URL = 'https://script.google.com/macros/s/AKfycby6GjBUE0WZ5_ES7kxRc19sBTIMHWWC4aCxljuxp2gcoPxejd_4Xrg3AD97jlMOYmg5VQ/exec';
     }
 
     /**
@@ -14,8 +14,9 @@ class LeaderboardService {
      * @param {string} gameId - 'arrow-rush' or 'reaction-test'
      * @param {string} name - Player's name
      * @param {number} score - The score or time
+     * @param {object} details - Additional stats (count, accuracy, etc.)
      */
-    async submitScore(gameId, name, score) {
+    async submitScore(gameId, name, score, details = {}) {
         if (!this.isValidUrl()) {
             console.warn('Leaderboard API URL not configured.');
             return { success: false, error: 'API_NOT_CONFIGURED' };
@@ -39,7 +40,8 @@ class LeaderboardService {
                 body: JSON.stringify({
                     gameId,
                     name,
-                    score
+                    score,
+                    details: JSON.stringify(details)
                 })
             });
 
@@ -89,9 +91,9 @@ class LeaderboardService {
         // Fallback mock data for development
         console.log('Using Mock Leaderboard Data');
         const mockData = [
-            { name: 'Morris', score: gameId === 'reaction-test' ? 250 : 1200, date: new Date().toISOString() },
-            { name: 'AI Bot', score: gameId === 'reaction-test' ? 280 : 900, date: new Date().toISOString() },
-            { name: 'Tester', score: gameId === 'reaction-test' ? 300 : 850, date: new Date().toISOString() },
+            { name: 'Morris', score: gameId === 'reaction-test' ? 250 : 1200, date: new Date().toISOString(), details: { accuracy: '95%', count: 120, maxCombo: 50 } },
+            { name: 'AI Bot', score: gameId === 'reaction-test' ? 280 : 900, date: new Date().toISOString(), details: { accuracy: '88%', count: 90, maxCombo: 30 } },
+            { name: 'Tester', score: gameId === 'reaction-test' ? 300 : 850, date: new Date().toISOString(), details: { accuracy: '80%', count: 85, maxCombo: 15 } },
         ];
         // Sort for mock
         return mockData.sort((a, b) => {
