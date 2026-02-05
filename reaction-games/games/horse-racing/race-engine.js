@@ -106,6 +106,7 @@ class RaceEngine {
         // Reset horse progress
         this.horses.forEach(horse => {
             horse.progress = 0;
+            // 使用 competitiveFactor (已包含走勢、負磅、狀態等所有因素)
             horse.speed = horse.competitiveFactor * randomFloat(0.8, 1.2);
             horse.finishTime = null;
         });
@@ -131,7 +132,7 @@ class RaceEngine {
         // Update horse positions
         this.horses.forEach(horse => {
             if (horse.progress < 1) {
-                // Simple linear movement for now
+                // 使用 competitiveFactor (已包含所有專業因素)
                 const speed = horse.competitiveFactor * 0.035; // Speed factor
                 horse.progress += speed;
 

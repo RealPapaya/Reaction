@@ -229,7 +229,7 @@ class Horse {
     constructor(id) {
         this.id = id;
         this.name = horseGenerator();
-        this.age = randomInt(2, 8);             // 2-8 years old
+        this.age = randomInt(3, 7);             // 3-7 years old (避免2歲vs8歲)
         this.gender = randomChoice(Genders);
         this.weight = randomInt(450, 550);      // 450-550 kg
         this.weightChange = randomInt(-10, 10); // Weight change from last race
@@ -237,8 +237,8 @@ class Horse {
         this.color = randomChoice(HorseColors);
         this.jockey = new Jockey();
 
-        // Calculated metadata
-        this.weightCarried = this.jockey.weight + 2; // Jockey weight + 2kg equipment
+        // Calculated metadata - 改為 kg 單位
+        this.weightCarried = randomInt(50, 60); // 50-60 kg (專業賽馬負磅範圍)
 
         // Performance Trend (Last 5 races)
         this.lastFiveTrend = Array.from({ length: 5 }, () => randomInt(1, 8));
@@ -265,9 +265,48 @@ class Horse {
         }
     }
 
-    // Calculate total competitive factor
+    // 走勢評分系統 (近五場表現)
+    get trendScore() {
+        // 名次對應分數：第1名=10分，第2名=7分，第3名=5分，第4-8名遞減
+        const scoreMap = { 1: 10, 2: 7, 3: 5, 4: 3, 5: 2, 6: 1, 7: 0.5, 8: 0 };
+        // 最近的比賽權重更高 (最近35%, 次近25%, 依此類推)
+        const weights = [0.35, 0.25, 0.2, 0.12, 0.08];
+
+        return this.lastFiveTrend.reduce((total, rank, index) => {
+            return total + (scoreMap[rank] || 0) * weights[index];
+        }, 0);
+    }
+
+    // 體重變動狀態評估
+    get conditionStatus() {
+        const absChange = Math.abs(this.weightChange);
+        if (absChange <= 5) return '穩定';
+        if (absChange <= 10) return '不穩定';
+        return '狀態差';
+    }
+
+    // 體重變動對狀態的影響係數
+    get conditionFactor() {
+        if (this.conditionStatus === '穩定') return 1.0;
+        if (this.conditionStatus === '不穩定') return 0.9;
+        return 0.8; // 狀態差
+    }
+
+    // 負磅懲罰係數 (每增加1kg，速度降低0.5%)
+    get weightPenalty() {
+        return 1 - ((this.weightCarried - 50) * 0.005);
+    }
+
+    // 重新設計的競爭力計算 (整合所有因素)
     get competitiveFactor() {
-        return this.baseWinRate * this.ageFactor * this.jockey.skillLevel;
+        const trendFactor = this.trendScore / 10; // 轉換為 0-1 範圍
+        const ageFactor = this.ageFactor;
+        const jockeyFactor = this.jockey.skillLevel;
+        const weightPenalty = this.weightPenalty;
+        const conditionFactor = this.conditionFactor;
+
+        // 整合所有因素
+        return this.baseWinRate * trendFactor * ageFactor * jockeyFactor * weightPenalty * conditionFactor;
     }
 }
 

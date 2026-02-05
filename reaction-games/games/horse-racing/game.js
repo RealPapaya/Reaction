@@ -307,17 +307,23 @@ class HorseRacingGame {
         const track = raceScheduler.getTrackData(trackId);
         const horses = raceScheduler.getOrGenerateHorses(trackId);
 
-        // Calculate odds - ALWAYS recalculate for fresh data
-        horses.forEach(horse => {
-            const factor = horse.competitiveFactor;
+        // Calculate odds - 專業賠率計算系統
+        // 1. 計算所有馬匹的競爭力總和
+        const totalCompetitive = horses.reduce((sum, h) => sum + h.competitiveFactor, 0);
 
+        horses.forEach(horse => {
             // Store previous odds for change indicator
             horse.previousOdds = horse.odds || 0;
 
-            // Always recalculate odds
-            const safeFactor = (factor && factor > 0) ? factor : 0.1;
-            const rawOdds = 1 / safeFactor;
-            const clampedOdds = Math.max(1.5, Math.min(50, rawOdds));
+            // 2. 計算每匹馬的勝率（確保總和=100%）
+            const winProbability = horse.competitiveFactor / totalCompetitive;
+
+            // 3. 賠率 = 1 / 勝率，但要扣除莊家抽水（15%）
+            const bookmakerMargin = 0.85; // 莊家返還率85%
+            const rawOdds = (1 / winProbability) * bookmakerMargin;
+
+            // 4. 限制賠率範圍：1.5-15倍（熱門馬2-4倍，冷門馬8-15倍）
+            const clampedOdds = Math.max(1.5, Math.min(15, rawOdds));
             horse.odds = parseFloat(clampedOdds.toFixed(2));
         });
 
@@ -426,7 +432,7 @@ class HorseRacingGame {
                         <span class="body-val">${horse.weight}kg</span>
                         <span class="weight-change ${weightChangeClass}">(${weightChangeText})</span>
                     </div>
-                    <div class="cell-weight">${horse.weightCarried}磅</div>
+                    <div class="cell-weight">${horse.weightCarried}kg</div>
                     <div class="cell-jockey">
                         <span class="jockey-flag">${horse.jockey.flag}</span>
                         <span class="jockey-name">${horse.jockey.name}</span>
