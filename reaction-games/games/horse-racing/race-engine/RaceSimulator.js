@@ -33,9 +33,10 @@ class RaceSimulator {
             const horse = this.horses[i];
 
             // 設定起跑位置（Frenet 座標）
-            horse.s = 0; // 起點
-            // **確保 8 條獨立跑道**：每條跑道間隔 1.5 米
-            horse.d = 0.8 + (i * 1.5);  // 0.8, 2.3, 3.8, 5.3, 6.8, 8.3, 9.8, 11.3米
+            // **錯開起跑位置**：外側馬稍微靠後，避免完全對齊造成碰撞
+            horse.s = -i * 0.5; // 每條跑道錯開 0.5m
+            // **確保 8 條獨立跑道**：增加間隔到 2.0 米（更安全）
+            horse.d = 1.0 + (i * 2.0);  // 1.0, 3.0, 5.0, 7.0, 9.0, 11.0, 13.0, 15.0米
             horse.speed = 0; // 起跑時速度為0
 
             // 基礎速度（根據 competitiveFactor，增強差異）
@@ -148,7 +149,7 @@ class RaceSimulator {
 
         // **關鍵：位置衝量修正**（避免重疊）
         // 需要多次迭代才能完全解決碰撞
-        for (let iteration = 0; iteration < 3; iteration++) {
+        for (let iteration = 0; iteration < 5; iteration++) {
             this.resolveCollisions();
         }
 
@@ -273,20 +274,42 @@ class RaceSimulator {
                     const ratioA = massB / totalMass;  // 質量大的馬移動少
                     const ratioB = massA / totalMass;
 
-                    // 橫向（d）修正：主要修正方向
-                    horseA.d -= pushDirD * overlap * ratioA;
-                    horseB.d += pushDirD * overlap * ratioB;
+                    // **橫向距離判斷**：如果橫向距離很近（在同一跑道）
+                    const isDirectCollision = Math.abs(deltaD) < 1.5;
 
-                    // 縱向（s）修正：輕微修正，避免穿透超車
-                    // 如果 B 在 A 後方但試圖穿透
-                    if (deltaS > 0 && deltaS < 2.0 && Math.abs(deltaD) < 1.0) {
-                        // B 無法穿透 A，強制減速
-                        horseB.s -= overlap * 0.5 * ratioB;
-                        horseB.speed *= 0.95;
-                    } else if (deltaS < 0 && deltaS > -2.0 && Math.abs(deltaD) < 1.0) {
-                        // A 無法穿透 B
-                        horseA.s -= overlap * 0.5 * ratioA;
-                        horseA.speed *= 0.95;
+                    if (isDirectCollision) {
+                        // **同跑道碰撞**：主要修正縱向，防止穿模
+
+                        // 縱向修正：強制分開
+                        horseA.s -= pushDirS * overlap * ratioA * 0.8;
+                        horseB.s += pushDirS * overlap * ratioB * 0.8;
+
+                        // 橫向修正：輕微推開
+                        horseA.d -= pushDirD * overlap * ratioA * 0.5;
+                        horseB.d += pushDirD * overlap * ratioB * 0.5;
+
+                        // **速度調整**：後方馬強制減速
+                        if (deltaS > 0) {
+                            // B 在 A 後方，B 減速
+                            horseB.speed *= 0.92;
+                        } else {
+                            // A 在 B 後方，A 減速
+                            horseA.speed *= 0.92;
+                        }
+                    } else {
+                        // **不同跑道側面碰撞**：主要修正橫向
+
+                        // 橫向修正：主要修正方向
+                        horseA.d -= pushDirD * overlap * ratioA;
+                        horseB.d += pushDirD * overlap * ratioB;
+
+                        // 縱向修正：輕微
+                        horseA.s -= pushDirS * overlap * ratioA * 0.3;
+                        horseB.s += pushDirS * overlap * ratioB * 0.3;
+
+                        // 輕微減速
+                        horseA.speed *= 0.97;
+                        horseB.speed *= 0.97;
                     }
 
                     // 限制在賽道範圍內

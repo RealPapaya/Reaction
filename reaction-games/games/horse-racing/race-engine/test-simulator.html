@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>賽馬物理引擎測試</title>
+    <title>賽馬物理引擎測試（修正版）</title>
     <style>
         body {
             margin: 0;
@@ -84,12 +84,35 @@
         .debug-item {
             margin: 5px 0;
         }
+
+        .info-box {
+            background: #2a2a2a;
+            padding: 15px;
+            margin-bottom: 20px;
+            border: 2px solid #8B5CF6;
+        }
+
+        .info-box h3 {
+            margin-top: 0;
+            color: #8B5CF6;
+        }
     </style>
 </head>
 
 <body>
     <div class="container">
-        <h1>🏇 真實賽馬物理引擎測試</h1>
+        <h1>🏇 真實賽馬物理引擎測試（修正版）</h1>
+
+        <div class="info-box">
+            <h3>📐 比例說明</h3>
+            <p>
+                <strong>賽道長度：</strong>約 1314 米（1.7 分鐘完賽）<br>
+                <strong>物理單位：</strong>1 米 = 2.2 像素<br>
+                <strong>跑道間隔：</strong>2.0 米 = 4.4 像素<br>
+                <strong>馬匹大小：</strong>長 2.0m × 寬 0.8m（視覺：8px × 4px）<br>
+                <strong>賽道充分利用畫布空間</strong>
+            </p>
+        </div>
 
         <div class="controls">
             <button id="startBtn">開始比賽</button>
@@ -110,7 +133,7 @@
         <div id="debugInfo"></div>
     </div>
 
-    <!-- 引入模組 -->
+    <!-- 引入模組（使用 core/ 和 ai/ 資料夾結構）-->
     <script src="core/FrenetCoordinates.js"></script>
     <script src="core/SteeringBehaviors.js"></script>
     <script src="core/PhysicsEngine.js"></script>
@@ -119,18 +142,43 @@
 
     <script>
         // ====================================
+        // 🎯 關鍵修正：物理-視覺比例轉換
+        // ====================================
+
+        // 物理單位：米
+        // 視覺單位：像素
+        const PIXELS_PER_METER = 2.2;  // 1 米 = 2.2 像素（放大賽道）
+
+        // 物理尺寸（米）
+        const HORSE_PHYSICAL_LENGTH = 2.0;   // 馬長 2.0 米
+        const HORSE_PHYSICAL_WIDTH = 0.8;    // 馬寬 0.8 米
+
+        // 視覺尺寸（像素）- 根據比例自動計算
+        const HORSE_VISUAL_LENGTH = Math.max(HORSE_PHYSICAL_LENGTH * PIXELS_PER_METER, 8);  // 最小 8px
+        const HORSE_VISUAL_WIDTH = Math.max(HORSE_PHYSICAL_WIDTH * PIXELS_PER_METER, 4);    // 最小 4px
+
+        console.log('視覺尺寸:', { length: HORSE_VISUAL_LENGTH, width: HORSE_VISUAL_WIDTH });
+
+        // ====================================
         // 測試設定
         // ====================================
 
-        // 建立測試賽道（**操場形**：兩條直線 + 兩個彎道）
+        // 建立測試賽道（**物理單位：米**）
         function createTestTrack() {
             const points = [];
-            const centerX = 600;
-            const centerY = 300;
-            const straightLength = 400;  // 直線段長度
-            const cornerRadius = 200;    // 彎道半徑
 
-            // 分成四個部分：上直線、右彎、下直線、左彎
+            // 賽道物理尺寸（米）
+            // 畫布：1200×600 px，比例 2.2 px/m，留 10% 邊界
+            // 可用：1080×540 px = 490×245 米
+            const straightLength = 280;   // 直線段 280 米（接近極限）
+            const cornerRadius = 120;     // 彎道半徑 120 米
+            // 賽道尺寸：長 (280+2×120=520m) × 寬 (2×120=240m)
+            // 視覺：1144×528 px（剛好填滿畫布）
+            // 總長 ≈ 2×280 + 2×(π×120) ≈ 560 + 754 = 1314米（約 1.7 分鐘）
+
+            const centerX = 0;
+            const centerY = 0;
+
             const numPointsPerSegment = 25;
 
             // 1. 上直線（向右）
@@ -145,7 +193,7 @@
             // 2. 右彎道（180度）
             for (let i = 0; i < numPointsPerSegment; i++) {
                 const t = i / numPointsPerSegment;
-                const angle = -Math.PI / 2 + t * Math.PI;  // -90度 到 +90度
+                const angle = -Math.PI / 2 + t * Math.PI;
                 points.push({
                     x: centerX + straightLength / 2 + Math.cos(angle) * cornerRadius,
                     y: centerY + Math.sin(angle) * cornerRadius
@@ -164,7 +212,7 @@
             // 4. 左彎道（180度）
             for (let i = 0; i < numPointsPerSegment; i++) {
                 const t = i / numPointsPerSegment;
-                const angle = Math.PI / 2 + t * Math.PI;  // +90度 到 +270度
+                const angle = Math.PI / 2 + t * Math.PI;
                 points.push({
                     x: centerX - straightLength / 2 + Math.cos(angle) * cornerRadius,
                     y: centerY + Math.sin(angle) * cornerRadius
@@ -172,6 +220,16 @@
             }
 
             return points;
+        }
+
+        // 物理座標 → 畫布座標
+        function physicsToCanvas(physicsX, physicsY) {
+            const canvasCenterX = 600;
+            const canvasCenterY = 300;
+            return {
+                x: canvasCenterX + physicsX * PIXELS_PER_METER,
+                y: canvasCenterY + physicsY * PIXELS_PER_METER
+            };
         }
 
         // 建立測試馬匹
@@ -198,7 +256,7 @@
 
         const canvas = document.getElementById('raceCanvas');
         const ctx = canvas.getContext('2d');
-        const trackPath = createTestTrack();
+        const trackPath = createTestTrack();  // 物理座標
         const horses = createTestHorses();
         const simulator = new RaceSimulator(trackPath, horses);
 
@@ -213,51 +271,84 @@
             ctx.fillStyle = '#7EC850';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // 繪製賽道
+            // 繪製賽道（轉換為畫布座標）
             ctx.strokeStyle = '#ffffff';
             ctx.lineWidth = 3;
             ctx.beginPath();
             trackPath.forEach((point, i) => {
+                const canvasPos = physicsToCanvas(point.x, point.y);
                 if (i === 0) {
-                    ctx.moveTo(point.x, point.y);
+                    ctx.moveTo(canvasPos.x, canvasPos.y);
                 } else {
-                    ctx.lineTo(point.x, point.y);
+                    ctx.lineTo(canvasPos.x, canvasPos.y);
                 }
             });
             ctx.closePath();
             ctx.stroke();
 
             // 繪製起跑/終點線
+            const startPos = physicsToCanvas(trackPath[0].x, trackPath[0].y);
             ctx.fillStyle = '#ffffff';
-            ctx.fillRect(trackPath[0].x - 2, trackPath[0].y - 100, 4, 200);
+            ctx.fillRect(startPos.x - 2, startPos.y - 100, 4, 200);
+
+            // 繪製跑道分隔線（8條跑道）
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.lineWidth = 1;
+            const trackWidth = 18; // 物理寬度 18 米
+            for (let lane = 1; lane < 8; lane++) {
+                const laneD = lane * 2.0; // 每條跑道間隔 2 米
+                ctx.beginPath();
+                trackPath.forEach((point, i) => {
+                    const worldPos = simulator.frenet.frenetToWorld(
+                        i * (simulator.frenet.pathLength / trackPath.length),
+                        laneD
+                    );
+                    const canvasPos = physicsToCanvas(worldPos.x, worldPos.y);
+                    if (i === 0) {
+                        ctx.moveTo(canvasPos.x, canvasPos.y);
+                    } else {
+                        ctx.lineTo(canvasPos.x, canvasPos.y);
+                    }
+                });
+                ctx.stroke();
+            }
 
             // 繪製馬匹（使用 Z-ordering）
             const horsePositions = simulator.getHorseWorldPositions();
-
-            // **畫家演算法**：按 Y 座標排序，先畫遠處（Y小），後畫近處（Y大）
             horsePositions.sort((a, b) => a.worldY - b.worldY);
 
             const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E2'];
 
             horsePositions.forEach((horse, index) => {
+                // 轉換為畫布座標
+                const canvasPos = physicsToCanvas(horse.worldX, horse.worldY);
+
                 ctx.save();
-                ctx.translate(horse.worldX, horse.worldY);
+                ctx.translate(canvasPos.x, canvasPos.y);
                 ctx.rotate(horse.heading);
 
-                // 馬匹長方形（轉 90 度：寬 28，高 16，像真實馬的形狀）
-                const horseWidth = 28;  // 馬的長度（沿著前進方向）
-                const horseHeight = 16; // 馬的寬度（橫向）
+                // 馬匹矩形（正確比例）
                 ctx.fillStyle = colors[index];
-                ctx.fillRect(-horseWidth / 2, -horseHeight / 2, horseWidth, horseHeight);
+                ctx.fillRect(
+                    -HORSE_VISUAL_LENGTH / 2,
+                    -HORSE_VISUAL_WIDTH / 2,
+                    HORSE_VISUAL_LENGTH,
+                    HORSE_VISUAL_WIDTH
+                );
 
-                // 外框（讓碰撞更明顯）
+                // 外框
                 ctx.strokeStyle = '#000';
-                ctx.lineWidth = 2;
-                ctx.strokeRect(-horseWidth / 2, -horseHeight / 2, horseWidth, horseHeight);
+                ctx.lineWidth = 1;
+                ctx.strokeRect(
+                    -HORSE_VISUAL_LENGTH / 2,
+                    -HORSE_VISUAL_WIDTH / 2,
+                    HORSE_VISUAL_LENGTH,
+                    HORSE_VISUAL_WIDTH
+                );
 
                 // 編號
                 ctx.fillStyle = '#fff';
-                ctx.font = 'bold 12px Arial';
+                ctx.font = 'bold 10px Arial';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText(horse.id, 0, 0);
@@ -265,22 +356,25 @@
                 // 被困標記
                 if (horse.isBoxedIn) {
                     ctx.fillStyle = '#EF4444';
-                    ctx.fillText('!', 10, -12);
+                    ctx.beginPath();
+                    ctx.arc(0, -8, 3, 0, Math.PI * 2);
+                    ctx.fill();
                 }
 
                 ctx.restore();
 
-                // 軌跡
+                // 軌跡（物理座標轉畫布座標）
                 if (horse.positionHistory && horse.positionHistory.length > 2) {
-                    ctx.strokeStyle = `rgba(${colors[index].substring(1, 3)}, ${colors[index].substring(3, 5)}, ${colors[index].substring(5, 7)}, 0.3)`;
-                    ctx.lineWidth = 2;
+                    ctx.strokeStyle = colors[index].replace(')', ', 0.3)').replace('rgb', 'rgba');
+                    ctx.lineWidth = 1;
                     ctx.beginPath();
                     horse.positionHistory.forEach((pos, i) => {
                         const worldPos = simulator.frenet.frenetToWorld(pos.s, pos.d);
+                        const canvasPos = physicsToCanvas(worldPos.x, worldPos.y);
                         if (i === 0) {
-                            ctx.moveTo(worldPos.x, worldPos.y);
+                            ctx.moveTo(canvasPos.x, canvasPos.y);
                         } else {
-                            ctx.lineTo(worldPos.x, worldPos.y);
+                            ctx.lineTo(canvasPos.x, canvasPos.y);
                         }
                     });
                     ctx.stroke();
@@ -301,7 +395,7 @@
                 </div>
             `).join('');
 
-            // 更新除錯面板（顯示第一匹馬的資訊）
+            // 更新除錯面板
             if (horses.length > 0) {
                 const debugInfo = simulator.getDebugInfo(1);
                 if (debugInfo) {
@@ -309,7 +403,7 @@
                         <div class="debug-item">S: ${debugInfo.frenet.s.toFixed(2)}m</div>
                         <div class="debug-item">D: ${debugInfo.frenet.d.toFixed(2)}m</div>
                         <div class="debug-item">Speed: ${debugInfo.speed.toFixed(2)}m/s</div>
-                        <div class="debug-item">Lateral Speed: ${debugInfo.lateralSpeed.toFixed(3)}m/s</div>
+                        <div class="debug-item">Lateral: ${debugInfo.lateralSpeed.toFixed(3)}m/s</div>
                         <div class="debug-item">Boxed: ${debugInfo.isBoxedIn ? 'YES ⚠️' : 'NO'}</div>
                         <div class="debug-item">Anxiety: ${debugInfo.anxiety.toFixed(2)}</div>
                         <div class="debug-item">Corner R: ${debugInfo.cornerRadius === Infinity ? '∞' : debugInfo.cornerRadius.toFixed(1)}m</div>

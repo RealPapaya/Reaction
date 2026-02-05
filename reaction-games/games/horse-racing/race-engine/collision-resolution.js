@@ -33,20 +33,42 @@ resolveCollisions() {
                 const ratioA = massB / totalMass;  // 質量大的馬移動少
                 const ratioB = massA / totalMass;
 
-                // 橫向（d）修正：主要修正方向
-                horseA.d -= pushDirD * overlap * ratioA;
-                horseB.d += pushDirD * overlap * ratioB;
+                // **橫向距離判斷**：如果橫向距離很近（在同一跑道）
+                const isDirectCollision = Math.abs(deltaD) < 1.5;
 
-                // 縱向（s）修正：輕微修正，避免穿透超車
-                // 如果 B 在 A 後方但試圖穿透
-                if (deltaS > 0 && deltaS < 2.0 && Math.abs(deltaD) < 1.0) {
-                    // B 無法穿透 A，強制減速
-                    horseB.s -= overlap * 0.5 * ratioB;
-                    horseB.speed *= 0.95;
-                } else if (deltaS < 0 && deltaS > -2.0 && Math.abs(deltaD) < 1.0) {
-                    // A 無法穿透 B
-                    horseA.s -= overlap * 0.5 * ratioA;
-                    horseA.speed *= 0.95;
+                if (isDirectCollision) {
+                    // **同跑道碰撞**：主要修正縱向，防止穿模
+
+                    // 縱向修正：強制分開
+                    horseA.s -= pushDirS * overlap * ratioA * 0.8;
+                    horseB.s += pushDirS * overlap * ratioB * 0.8;
+
+                    // 橫向修正：輕微推開
+                    horseA.d -= pushDirD * overlap * ratioA * 0.5;
+                    horseB.d += pushDirD * overlap * ratioB * 0.5;
+
+                    // **速度調整**：後方馬強制減速
+                    if (deltaS > 0) {
+                        // B 在 A 後方，B 減速
+                        horseB.speed *= 0.92;
+                    } else {
+                        // A 在 B 後方，A 減速
+                        horseA.speed *= 0.92;
+                    }
+                } else {
+                    // **不同跑道側面碰撞**：主要修正橫向
+
+                    // 橫向修正：主要修正方向
+                    horseA.d -= pushDirD * overlap * ratioA;
+                    horseB.d += pushDirD * overlap * ratioB;
+
+                    // 縱向修正：輕微
+                    horseA.s -= pushDirS * overlap * ratioA * 0.3;
+                    horseB.s += pushDirS * overlap * ratioB * 0.3;
+
+                    // 輕微減速
+                    horseA.speed *= 0.97;
+                    horseB.speed *= 0.97;
                 }
 
                 // 限制在賽道範圍內
@@ -57,4 +79,3 @@ resolveCollisions() {
         }
     }
 }
-

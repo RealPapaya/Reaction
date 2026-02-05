@@ -253,8 +253,8 @@ class FrenetCoordinate {
     // ====================================
 
     getTrackWidth() {
-        // 返回賽道寬度（暫定8個跑道 × 1.5米）
-        return 12;
+        // 返回賽道寬度（8個跑道 × 2.0米 + 兩側安全邊界）
+        return 18;
     }
 
     isValidPosition(s, d) {
