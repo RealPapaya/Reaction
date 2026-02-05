@@ -602,6 +602,84 @@ h4,
     color: var(--error);
 }
 
+/* Fullscreen Race Modal Styles */
+.race-modal-container.fullscreen .modal-content.race-modal {
+    width: 100vw;
+    height: 100vh;
+    max-width: none;
+    padding: 0;
+    margin: 0;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.race-modal-container.fullscreen .modal-header,
+.race-modal-container.fullscreen .race-status-bar {
+    display: none;
+}
+
+.race-modal-container.fullscreen .modal-body {
+    padding: 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: #000;
+    /* Black background for immersion */
+}
+
+.race-modal-container.fullscreen .race-track-view {
+    flex: 1;
+    margin: 0;
+    border: none;
+    box-shadow: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+}
+
+.race-modal-container.fullscreen #race-canvas {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #1a1a1a;
+}
+
+/* Floating Close Button for Fullscreen */
+.fullscreen-close-btn {
+    display: none;
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    width: 44px;
+    height: 44px;
+    background: rgba(0, 0, 0, 0.5);
+    color: white;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    font-size: 24px;
+    cursor: pointer;
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s, transform 0.2s;
+}
+
+.race-modal-container.fullscreen .fullscreen-close-btn {
+    display: flex;
+}
+
+.fullscreen-close-btn:hover {
+    background: rgba(239, 68, 68, 0.8);
+    transform: scale(1.1);
+}
+
 /* Bet Modal Specific */
 .horse-info-modal {
     margin-bottom: var(--space-6);

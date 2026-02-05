@@ -14,14 +14,34 @@ class RaceEngineAdapter {
         this.isPreparing = false; // 🎯 準備階段標記
         this.countdownText = "";  // 🎯 倒數文字
         this.animationId = null;
+        this.resizeObserver = null;
 
-        // 🎯 物理-視覺比例轉換 (與測試模擬器一致)
-        this.PIXELS_PER_METER = 2.2;
-        this.VISUAL_SCALE = 3.0;
+        // 🎯 基礎參考尺寸 (Response Design Base)
+        this.BASE_WIDTH = 1000;
+        this.BASE_HEIGHT = 600;
+        this.currentScale = 1.0; // 相對於 BASE_WIDTH 的縮放比例
+
+        // 🎯 物理-視覺比例轉換
+        // 基礎 PIXELS_PER_METER (對應 1000px 寬度)
+        // 降低比例以讓更寬的跑道能塞進畫面 (原本 2.2 -> 2.0)
+        this.BASE_PIXELS_PER_METER = 2.0;
+
+        // 當前實際使用的值 (會在 resize 中更新)
+        this.PIXELS_PER_METER = this.BASE_PIXELS_PER_METER;
+
+        this.VISUAL_SCALE = 3.0; // 馬匹視覺縮放 (保持不變，會隨 PIXELS_PER_METER 自動縮放)
         this.HORSE_PHYSICAL_LENGTH = 2.0;
         this.HORSE_PHYSICAL_WIDTH = 1.2;
-        this.HORSE_VISUAL_LENGTH = this.HORSE_PHYSICAL_LENGTH * this.PIXELS_PER_METER * this.VISUAL_SCALE;
-        this.HORSE_VISUAL_WIDTH = this.HORSE_PHYSICAL_WIDTH * this.PIXELS_PER_METER * this.VISUAL_SCALE;
+
+        // 視覺尺寸 (會在 resize 中更新)
+        this.HORSE_VISUAL_LENGTH = 0;
+        this.HORSE_VISUAL_WIDTH = 0;
+
+        // 初始化監聽
+        if (this.canvas) {
+            this.setupResizeListener();
+            this.handleResize(); // 初始 Force Resize
+        }
 
         // 如果提供了參數，直接啟動 (相容舊介面)
         if (canvas && horses && trackData) {
@@ -198,8 +218,55 @@ class RaceEngineAdapter {
             cancelAnimationFrame(this.animationId);
             this.animationId = null;
         }
+        if (this.resizeObserver) {
+            this.resizeObserver.disconnect();
+            this.resizeObserver = null;
+        }
         if (this.simulator) this.simulator.stopRace();
         this.isRunning = false;
+    }
+
+    // ====================================
+    // Canvas Resizing & DPI Handling
+    // ====================================
+
+    setupResizeListener() {
+        this.resizeObserver = new ResizeObserver(() => {
+            this.handleResize();
+        });
+        this.resizeObserver.observe(this.canvas);
+    }
+
+    handleResize() {
+        if (!this.canvas) return;
+
+        // 1. 獲取顯示尺寸 (CSS pixels)
+        const rect = this.canvas.getBoundingClientRect();
+
+        // 2. 處理 DPI (Retina Display support)
+        const dpr = window.devicePixelRatio || 1;
+
+        // 3. 設定 Canvas 內部緩衝區尺寸
+        this.canvas.width = rect.width * dpr;
+        this.canvas.height = rect.height * dpr;
+
+        // 4. 計算縮放比例 (以寬度為基準，讓視野保持一致)
+        // 為什麼用寬度？因為賽道是橫向的，我們希望寬度適配螢幕
+        // 這裡計算的是 "當前物理像素" 相對於 "設計稿物理像素 (1000px)" 的比例
+        // 注意：這裡不乘 DPR，因为 rect.width 是 CSS 像素，我們希望所有的繪製參數都根據這個 CSS 寬度來縮放
+        // 實際上應該是：實際物理寬度 / 基準物理寬度 ? 
+        // 簡單點：如果 CSS 寬度是 1000px，DPR=2，那 width=2000。
+        // 我們希望視覺上看起來和 1000px 一樣大 (只是更清晰)。
+        // 所以我們應該基於 CSS 寬度來決定物件的"相對大小"，然後乘上 DPR 得到物理像素大小。
+
+        const cssScale = rect.width / this.BASE_WIDTH; // 例如 1920 / 1000 = 1.92
+        this.currentScale = cssScale * dpr;            // 繪圖指令(像素單位)需要乘上 DPR
+
+        // 5. 更新依賴尺寸的參數
+        this.PIXELS_PER_METER = this.BASE_PIXELS_PER_METER * this.currentScale;
+
+        this.HORSE_VISUAL_LENGTH = this.HORSE_PHYSICAL_LENGTH * this.PIXELS_PER_METER * this.VISUAL_SCALE;
+        this.HORSE_VISUAL_WIDTH = this.HORSE_PHYSICAL_WIDTH * this.PIXELS_PER_METER * this.VISUAL_SCALE;
     }
 
     // ====================================
@@ -250,7 +317,7 @@ class RaceEngineAdapter {
         // 半透明背景
         this.ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
         this.ctx.beginPath();
-        this.ctx.arc(cx, cy, 80, 0, Math.PI * 2);
+        this.ctx.arc(cx, cy, 80 * (this.currentScale / window.devicePixelRatio), 0, Math.PI * 2);
         this.ctx.fill();
 
         // 文字發光效果
@@ -258,13 +325,15 @@ class RaceEngineAdapter {
         this.ctx.shadowColor = '#8B5CF6';
 
         this.ctx.fillStyle = '#ffffff';
-        this.ctx.font = 'bold 64px "Segoe UI", Arial';
+        const fontSizeBig = 64 * (this.currentScale / window.devicePixelRatio);
+        this.ctx.font = `bold ${fontSizeBig}px "Segoe UI", Arial`;
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'middle';
         this.ctx.fillText(this.countdownText, cx, cy);
 
-        this.ctx.font = 'bold 16px Arial';
-        this.ctx.fillText('距離開賽', cx, cy - 45);
+        const fontSizeSmall = 16 * (this.currentScale / window.devicePixelRatio);
+        this.ctx.font = `bold ${fontSizeSmall}px Arial`;
+        this.ctx.fillText('距離開賽', cx, cy - (45 * (this.currentScale / window.devicePixelRatio)));
 
         this.ctx.restore();
     }
@@ -272,16 +341,18 @@ class RaceEngineAdapter {
     drawTrackBase(trackPath) {
         if (!trackPath || trackPath.length === 0) return;
 
-        // 🎯 1:1 同步：白邊賽道
+        // 🎯 1:1 同步：白邊跑道底層 (Rails/Border)
+        // 增加寬度以產生 "白邊" 效果 (比上方土色跑道寬)
         this.ctx.strokeStyle = '#ffffff';
-        this.ctx.lineWidth = 40;
+        this.ctx.lineWidth = 100 * this.currentScale; // 擴大範圍以覆蓋外側跑道
         this.ctx.lineCap = 'round';
         this.ctx.lineJoin = 'round';
         this.ctx.beginPath();
         trackPath.forEach((p, i) => {
             const pos = this.physicsToCanvas(p.x, p.y);
-            if (i === 0) this.ctx.moveTo(pos.x, pos.y);
-            else this.ctx.lineTo(pos.x, pos.y);
+            // 像素取整，減少模糊
+            if (i === 0) this.ctx.moveTo(Math.round(pos.x), Math.round(pos.y));
+            else this.ctx.lineTo(Math.round(pos.x), Math.round(pos.y));
         });
         this.ctx.closePath();
         this.ctx.stroke();
@@ -291,18 +362,28 @@ class RaceEngineAdapter {
         this.ctx.fill();
 
         // 外圍土色（裝飾感）
-        this.ctx.strokeStyle = '#8B4513';
-        this.ctx.lineWidth = 44;
+        // 增加寬度以覆蓋所有跑道 (Lanes 1-8 分布在 d=2.1 ~ 16.8)
+        // 寬度 90px -> 半徑 45px -> 約 22公尺，足以覆蓋 16.8m
+        this.ctx.strokeStyle = '#925826'; // 對比度稍微調高
+        this.ctx.lineWidth = 92 * this.currentScale;
+        this.ctx.stroke();
+
+        // 內圈白線 (視覺輔助)
+        this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+        this.ctx.lineWidth = 2 * this.currentScale;
         this.ctx.stroke();
 
         // 起點線
         const startPos = this.physicsToCanvas(trackPath[0].x, trackPath[0].y);
         this.ctx.fillStyle = '#ffffff';
-        this.ctx.fillRect(startPos.x - 2, startPos.y - 45, 4, 90);
+        // 起點線尺寸
+        const startLineWidth = 4 * this.currentScale;
+        const startLineHeight = 90 * this.currentScale;
+        this.ctx.fillRect(startPos.x - (startLineWidth / 2), startPos.y - (startLineHeight / 2), startLineWidth, startLineHeight);
 
         // 🎯 1:1 同步：跑道間隔線 (Lane lines)
         this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-        this.ctx.lineWidth = 1;
+        this.ctx.lineWidth = Math.max(1, 1 * this.currentScale); // 最小 1px
         for (let lane = 1; lane < 8; lane++) {
             const laneD = lane * 2.1;
             this.ctx.beginPath();
@@ -310,8 +391,8 @@ class RaceEngineAdapter {
                 const s = i * (this.simulator.frenet.pathLength / trackPath.length);
                 const worldPos = this.simulator.frenet.frenetToWorld(s, laneD);
                 const pos = this.physicsToCanvas(worldPos.x, worldPos.y);
-                if (i === 0) this.ctx.moveTo(pos.x, pos.y);
-                else this.ctx.lineTo(pos.x, pos.y);
+                if (i === 0) this.ctx.moveTo(Math.round(pos.x), Math.round(pos.y));
+                else this.ctx.lineTo(Math.round(pos.x), Math.round(pos.y));
             });
             this.ctx.closePath();
             this.ctx.stroke();
@@ -330,7 +411,7 @@ class RaceEngineAdapter {
             // 1. 軌跡
             if (horse.history.length > 2) {
                 this.ctx.strokeStyle = mainColor + '44';
-                this.ctx.lineWidth = 1;
+                this.ctx.lineWidth = Math.max(1, 1 * this.currentScale);
                 this.ctx.beginPath();
                 horse.history.forEach((h, i) => {
                     const worldPos = this.simulator.frenet.frenetToWorld(h.s, h.d);
@@ -344,7 +425,13 @@ class RaceEngineAdapter {
             // 2. 陰影
             this.ctx.fillStyle = 'rgba(0,0,0,0.2)';
             this.ctx.beginPath();
-            this.ctx.ellipse(canvasPos.x + 3, canvasPos.y + 3, 10, 6, horse.heading || 0, 0, Math.PI * 2);
+            this.ctx.ellipse(
+                canvasPos.x + (3 * this.currentScale),
+                canvasPos.y + (3 * this.currentScale),
+                10 * this.currentScale,
+                6 * this.currentScale,
+                horse.heading || 0, 0, Math.PI * 2
+            );
             this.ctx.fill();
 
             // 3. 🎯 1:1 同步：馬匹矩形
@@ -352,12 +439,13 @@ class RaceEngineAdapter {
             this.ctx.translate(canvasPos.x, canvasPos.y);
             this.ctx.rotate(horse.heading || 0);
             this.ctx.fillStyle = mainColor;
+            this.ctx.fillStyle = mainColor;
             this.ctx.strokeStyle = '#000';
-            this.ctx.lineWidth = 1;
+            this.ctx.lineWidth = Math.max(1, 1 * this.currentScale);
             this.ctx.fillRect(-this.HORSE_VISUAL_LENGTH / 2, -this.HORSE_VISUAL_WIDTH / 2, this.HORSE_VISUAL_LENGTH, this.HORSE_VISUAL_WIDTH);
             this.ctx.strokeRect(-this.HORSE_VISUAL_LENGTH / 2, -this.HORSE_VISUAL_WIDTH / 2, this.HORSE_VISUAL_LENGTH, this.HORSE_VISUAL_WIDTH);
             this.ctx.fillStyle = '#fff';
-            this.ctx.font = 'bold 10px Arial';
+            this.ctx.font = `bold ${10 * this.currentScale}px Arial`;
             this.ctx.textAlign = 'center';
             this.ctx.textBaseline = 'middle';
             this.ctx.fillText(horse.id, 0, 0);
@@ -368,32 +456,53 @@ class RaceEngineAdapter {
             const rank = rankInfo ? rankInfo.position : '?';
 
             const centerCanvas = this.physicsToCanvas(0, 0);
-            const dx = centerCanvas.x - canvasPos.x;
-            const dy = centerCanvas.y - canvasPos.y;
+            const dx = Math.round(centerCanvas.x - canvasPos.x); // 取整
+            const dy = Math.round(centerCanvas.y - canvasPos.y); // 取整
             const distToCenter = Math.sqrt(dx * dx + dy * dy);
 
-            // 標籤定位 (1:1 同步 test-simulator)
-            const labelDistance = 85;
-            const lx = canvasPos.x + (dx / distToCenter) * labelDistance;
-            const ly = canvasPos.y + (dy / distToCenter) * labelDistance;
+            // 標籤定位
+            const labelDistance = 90 * this.currentScale; // 稍微拉長一點
+            const lx = Math.round(canvasPos.x + (dx / distToCenter) * labelDistance);
+            const ly = Math.round(canvasPos.y + (dy / distToCenter) * labelDistance);
 
             this.ctx.strokeStyle = mainColor;
-            this.ctx.lineWidth = 1.2;
+            this.ctx.lineWidth = 1.5 * this.currentScale; // 加粗引線
             this.ctx.beginPath();
-            this.ctx.moveTo(canvasPos.x, canvasPos.y);
+            this.ctx.moveTo(Math.round(canvasPos.x), Math.round(canvasPos.y));
             this.ctx.lineTo(lx, ly);
             this.ctx.stroke();
 
             const labelText = `${rank}. #${horse.id} ${horse.name}`;
-            this.ctx.font = 'bold 11px Arial';
-            const tw = this.ctx.measureText(labelText).width;
 
+            // 標籤字體優化
+            const fontSize = Math.max(12, 12 * this.currentScale); // 最小 12px
+            this.ctx.font = `bold ${fontSize}px "Segoe UI", Roboto, Helvetica, Arial, sans-serif`;
+
+            const tw = this.ctx.measureText(labelText).width;
+            const padding = 6 * this.currentScale;
+            const height = fontSize * 1.6;
+
+            // 標籤背景 (加陰影讓它浮起來)
+            this.ctx.save();
+            this.ctx.shadowColor = 'rgba(0,0,0,0.3)';
+            this.ctx.shadowBlur = 4;
             this.ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
-            this.ctx.fillRect(lx - tw / 2 - 4, ly - 8, tw + 8, 16);
+            // Rounded rect implementation simple
+            const rx = lx - tw / 2 - padding;
+            const ry = ly - height / 2;
+            const rw = tw + padding * 2;
+            const rh = height;
+
+            this.ctx.beginPath();
+            this.ctx.roundRect(rx, ry, rw, rh, 4);
+            this.ctx.fill();
+            this.ctx.restore();
+
             this.ctx.fillStyle = '#fff';
             this.ctx.textAlign = 'center';
             this.ctx.textBaseline = 'middle';
-            this.ctx.fillText(labelText, lx, ly);
+            // 稍微微調文字垂直位置
+            this.ctx.fillText(labelText, lx, ly + 1);
         });
     }
 

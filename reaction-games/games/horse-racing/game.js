@@ -104,6 +104,7 @@ class HorseRacingGame {
                 this.dom.quickBetModal?.classList.remove('show');
                 this.dom.successModal?.classList.remove('show');
                 this.dom.trackInfoModal?.classList.remove('show');
+                this.dom.raceModal?.classList.remove('fullscreen');
 
                 // Restore navigation bar
                 if (this.dom.navContainer) {
@@ -136,6 +137,21 @@ class HorseRacingGame {
 
         document.getElementById('confirm-quick-bet-btn')?.addEventListener('click', () => {
             this.confirmQuickBet();
+        });
+
+        // Fullscreen close button
+        document.getElementById('fullscreen-close')?.addEventListener('click', () => {
+            this.dom.raceModal?.classList.remove('show');
+            this.dom.raceModal?.classList.remove('fullscreen');
+
+            // Restore UI
+            if (this.dom.navContainer) this.dom.navContainer.style.display = 'flex';
+            if (this.dom.globalBackBtn) this.dom.globalBackBtn.style.display = 'block';
+
+            if (this.raceEngine) {
+                this.raceEngine.stopRace();
+                this.raceEngine = null;
+            }
         });
     }
 
@@ -647,10 +663,10 @@ class HorseRacingGame {
         const status = raceScheduler.getTrackStatus(trackId);
         const track = raceScheduler.getTrackData(trackId);
 
-        document.getElementById('race-modal-title').textContent = `${track.flagEmoji} ${track.name} - 第 ${status.raceNumber} 場`;
-        document.getElementById('race-modal-status').textContent = status.message;
         document.getElementById('race-modal-timer').textContent = this.formatTime(status.timeRemaining);
 
+        // Apply fullscreen immersion
+        this.dom.raceModal.classList.add('fullscreen');
         this.dom.raceModal.classList.add('show');
 
         // Hide navigation bar for full immersion
