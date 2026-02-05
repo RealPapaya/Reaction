@@ -1,14 +1,15 @@
 // ====================================
-// Physics Engine (V2 - 更快的速度響應)
+// Physics Engine (V3 - 修正彎道卡頓)
+// 關鍵修正：離心力使用速度而非直接改位置
 // ====================================
 
 class PhysicsEngine {
     constructor(settings = {}) {
         this.CORNER_SPEED_LIMIT = settings.cornerSpeedLimit || 14;
-        this.CENTRIFUGAL_STRENGTH = settings.centrifugalStrength || 0.1;
-        this.FRICTION = settings.friction || 0.998; // 進一步減少摩擦
-        this.MAX_LATERAL_SPEED = settings.maxLateralSpeed || 3.0; // 增加橫向速度上限
-        this.SPEED_SMOOTHING = settings.speedSmoothing || 0.2; // **關鍵修正**：0.08 -> 0.2（更快響應）
+        this.CENTRIFUGAL_STRENGTH = settings.centrifugalStrength || 0.15; // **增強** 0.1 -> 0.15
+        this.FRICTION = settings.friction || 0.998;
+        this.MAX_LATERAL_SPEED = settings.maxLateralSpeed || 3.0;
+        this.SPEED_SMOOTHING = settings.speedSmoothing || 0.2;
     }
 
     update(horse, frenetCoord, deltaTime, lateralForce) {
@@ -23,8 +24,8 @@ class PhysicsEngine {
         );
         horse.s += actualDistance;
 
-        // 2. 處理彎道物理
-        this.applyCentrifugalForce(horse, frenetCoord);
+        // 2. 處理彎道物理（**修正版**）
+        this.applyCentrifugalForce(horse, frenetCoord, deltaTime);
 
         // 3. 更新橫向位置
         this.updateLateralPosition(horse, lateralForce, deltaTime, frenetCoord);
@@ -38,15 +39,13 @@ class PhysicsEngine {
 
     applySpeedDamping(horse, deltaTime) {
         if (horse.speedDamping !== undefined) {
-            // **更激進的速度調整**
             const targetSpeed = horse.speed * horse.speedDamping;
             const speedDiff = targetSpeed - horse.speed;
-            horse.speed += speedDiff * this.SPEED_SMOOTHING; // 使用更大的平滑係數
+            horse.speed += speedDiff * this.SPEED_SMOOTHING;
 
-            // **更快恢復**
-            horse.speedDamping += (1.0 - horse.speedDamping) * 0.1; // 0.05 -> 0.1
+            horse.speedDamping += (1.0 - horse.speedDamping) * 0.1;
 
-            if (Math.abs(horse.speedDamping - 1.0) < 0.02) { // 0.98 -> 0.02
+            if (Math.abs(horse.speedDamping - 1.0) < 0.02) {
                 horse.speedDamping = 1.0;
             }
         } else {
@@ -66,23 +65,36 @@ class PhysicsEngine {
         return actualDist;
     }
 
-    applyCentrifugalForce(horse, frenetCoord) {
+    // ====================================
+    // **關鍵修正：彎道物理使用速度**
+    // ====================================
+    applyCentrifugalForce(horse, frenetCoord, deltaTime) {
         const cornerRadius = frenetCoord.getCornerRadiusAt(horse.s);
 
         if (cornerRadius < Infinity) {
+            // 計算離心力
             const centrifugal = (horse.speed * horse.speed) / cornerRadius;
-            const pushOutward = centrifugal * this.CENTRIFUGAL_STRENGTH;
-            horse.d += pushOutward * 0.016;
 
+            // **修正：不直接改位置，而是增加橫向速度**
+            const centrifugalForce = centrifugal * this.CENTRIFUGAL_STRENGTH;
+
+            // 將離心力轉換為橫向加速度
+            if (!horse.lateralSpeed) horse.lateralSpeed = 0;
+            horse.lateralSpeed += centrifugalForce * deltaTime * 10; // 轉換係數
+
+            // 限制橫向速度（避免過快）
+            horse.lateralSpeed = Math.min(horse.lateralSpeed, this.MAX_LATERAL_SPEED);
+
+            // 如果速度太快，減速
             if (horse.speed > this.CORNER_SPEED_LIMIT) {
                 if (!horse.speedDamping) horse.speedDamping = 1.0;
-                horse.speedDamping *= 0.97; // 稍微加強減速
+                horse.speedDamping *= 0.97;
             }
         }
     }
 
     updateLateralPosition(horse, lateralForce, deltaTime, frenetCoord) {
-        const lateralAcceleration = lateralForce * 3.0; // **增強**：2.0 -> 3.0
+        const lateralAcceleration = lateralForce * 3.0;
 
         if (!horse.lateralSpeed) {
             horse.lateralSpeed = 0;
@@ -100,7 +112,7 @@ class PhysicsEngine {
         horse.d += horse.lateralSpeed * deltaTime;
 
         // 阻尼
-        horse.lateralSpeed *= 0.90; // **增強阻尼**：0.92 -> 0.90
+        horse.lateralSpeed *= 0.90;
     }
 
     constrainToTrack(horse, frenetCoord) {
@@ -174,7 +186,6 @@ class PhysicsEngine {
             targetSpeed = baseSpeed;
         }
 
-        // 使用相同的平滑過渡
         const speedDiff = targetSpeed - horse.speed;
         horse.speed += speedDiff * this.SPEED_SMOOTHING;
     }
