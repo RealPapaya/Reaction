@@ -665,11 +665,19 @@ class HorseRacingGame {
 
         if (status.phase === 'RACING') {
             this.startRaceViewing(trackId);
-        } else {
-            // 🎯 在準備/投注階段也開啟 Canvas 預覽
+        } else if (status.phase === 'PRE_RACE') {
+            // 🎯 只有準備比賽的 15 秒才秀賽馬畫面
             document.getElementById('race-waiting').style.display = 'none';
             document.getElementById('race-canvas').style.display = 'block';
             this.startRacePreparation(trackId, status.timeRemaining);
+        } else {
+            // 投注階段或其他階段，秀等待畫面，隱藏畫布
+            document.getElementById('race-waiting').style.display = 'block';
+            document.getElementById('race-canvas').style.display = 'none';
+            if (this.raceEngine) {
+                this.raceEngine.stopRace();
+                this.raceEngine = null;
+            }
         }
     }
 
@@ -678,8 +686,13 @@ class HorseRacingGame {
      */
     startRacePreparation(trackId, timeRemaining) {
         const canvas = document.getElementById('race-canvas');
+        const waitingScreen = document.getElementById('race-waiting');
         const horses = raceScheduler.getOrGenerateHorses(trackId);
         const track = raceScheduler.getTrackData(trackId);
+
+        // 確保 UI 顯示正確
+        if (waitingScreen) waitingScreen.style.display = 'none';
+        if (canvas) canvas.style.display = 'block';
 
         if (!this.raceEngine || this.raceEngine.isPreparing === false) {
             if (this.raceEngine) this.raceEngine.stopRace();
@@ -817,9 +830,17 @@ class HorseRacingGame {
                     if (!this.raceEngine || this.raceEngine.isPreparing) {
                         this.startRaceViewing(this.selectedTrackId);
                     }
-                } else {
-                    // 在準備/投注階段，更新中央大型倒數
+                } else if (status.phase === 'PRE_RACE') {
+                    // 在 15 秒準備階段，更新中央大型倒數並顯示賽道
                     this.startRacePreparation(this.selectedTrackId, status.timeRemaining);
+                } else {
+                    // 在投注階段，確保顯示等待畫面並隱藏畫布
+                    document.getElementById('race-waiting').style.display = 'block';
+                    document.getElementById('race-canvas').style.display = 'none';
+                    if (this.raceEngine) {
+                        this.raceEngine.stopRace();
+                        this.raceEngine = null;
+                    }
                 }
             }
         }, 1000);
