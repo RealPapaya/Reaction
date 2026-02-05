@@ -75,10 +75,12 @@ class HorseRacingGame {
         this.dom.navBalance = document.getElementById('nav-balance');
         this.dom.racingFormList = document.getElementById('racing-form-list');
 
-        // Racing Form
-        this.dom.racingFormLocked = document.getElementById('racing-form-locked');
-        this.dom.racingFormUnlocked = document.getElementById('racing-form-unlocked');
-        this.dom.buyFormBtn = document.getElementById('buy-form-btn');
+        // Racing Form - Header Indicator
+        this.dom.newspaperIndicator = document.getElementById('newspaper-indicator');
+        this.dom.newspaperTooltip = document.getElementById('newspaper-tooltip');
+
+        // Racing Form - Table
+        this.dom.racingFormTableContainer = document.getElementById('racing-form-table-container');
         this.dom.formToggle = document.getElementById('form-toggle');
         this.dom.formContent = document.getElementById('form-content');
         this.dom.formTableBody = document.getElementById('form-table-body');
@@ -917,10 +919,11 @@ class HorseRacingGame {
         this.dom.racingFormList.innerHTML = bettingTracks.map(status => {
             const track = raceScheduler.getTrackData(status.trackId);
             const isPurchased = shopManager.isPurchased(status.trackId, status.raceNumber);
+            const cardClass = isPurchased ? 'product-card' : 'product-card unpurchased';
 
             return `
-                <div class="product-card">
-                    <div class="product-icon">📰</div>
+                <div class="${cardClass}">
+                    <img src="../../assets/News Paper.webp" alt="馬報" class="product-newspaper-img">
                     <div class="product-info">
                         <h4>${track.flagEmoji} ${track.name} - 第 ${status.raceNumber} 場</h4>
                         <p class="product-status">
@@ -970,10 +973,39 @@ class HorseRacingGame {
     updateRacingFormDisplay(trackId, raceNumber) {
         const isPurchased = shopManager.isPurchased(trackId, raceNumber);
 
+        // 更新 header 中的報紙指示器
+        if (this.dom.newspaperIndicator) {
+            if (isPurchased) {
+                this.dom.newspaperIndicator.classList.remove('unpurchased');
+                this.dom.newspaperIndicator.classList.add('purchased');
+                if (this.dom.newspaperTooltip) {
+                    this.dom.newspaperTooltip.textContent = '✅ 您已購買這場的馬報';
+                }
+            } else {
+                this.dom.newspaperIndicator.classList.remove('purchased');
+                this.dom.newspaperIndicator.classList.add('unpurchased');
+                if (this.dom.newspaperTooltip) {
+                    this.dom.newspaperTooltip.textContent = '您沒有購買這場的馬報 於情報商店購買';
+                }
+            }
+
+            // 點擊報紙圖示的行為
+            this.dom.newspaperIndicator.onclick = () => {
+                if (isPurchased) {
+                    // 已購買：切換表格顯示
+                    const isVisible = this.dom.racingFormTableContainer.style.display === 'block';
+                    this.dom.racingFormTableContainer.style.display = isVisible ? 'none' : 'block';
+                } else {
+                    // 未購買：跳轉到商店
+                    this.switchScreen('shop');
+                }
+            };
+        }
+
+        // 控制表格容器顯示
         if (isPurchased) {
-            // 顯示已購買的馬報
-            this.dom.racingFormLocked.style.display = 'none';
-            this.dom.racingFormUnlocked.style.display = 'block';
+            // 顯示表格容器（預設收起）
+            this.dom.racingFormTableContainer.style.display = 'none';
 
             // 綁定展開/收起按鈕
             if (this.dom.formToggle) {
@@ -988,16 +1020,8 @@ class HorseRacingGame {
             const horses = raceScheduler.getOrGenerateHorses(trackId);
             this.renderRacingFormTable(horses);
         } else {
-            // 顯示鎖定狀態
-            this.dom.racingFormLocked.style.display = 'flex';
-            this.dom.racingFormUnlocked.style.display = 'none';
-
-            // 綁定購買按鈕
-            if (this.dom.buyFormBtn) {
-                this.dom.buyFormBtn.onclick = () => {
-                    this.purchaseRacingForm(trackId, raceNumber, 50);
-                };
-            }
+            // 未購買：隱藏表格
+            this.dom.racingFormTableContainer.style.display = 'none';
         }
     }
 

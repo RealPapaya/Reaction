@@ -168,42 +168,37 @@
              Betting Detail Screen (投注詳情頁面)
              ======================================== -->
         <section id="betting-detail-screen" class="screen">
-            <div class="screen-header">
+            <div class="screen-header betting-detail-header">
                 <button class="btn btn-secondary" id="back-to-betting">← 返回</button>
                 <h2 id="betting-detail-title">雅士谷 - 第 1 場</h2>
+                <div class="newspaper-indicator" id="newspaper-indicator">
+                    <img src="../../assets/News Paper.webp" alt="馬報" class="newspaper-header-icon">
+                    <div class="newspaper-tooltip" id="newspaper-tooltip">您沒有購買這場的馬報 於情報商店購買</div>
+                </div>
             </div>
 
-            <!-- 馬報容器 -->
-            <div class="racing-form-container" id="racing-form-container">
-                <!-- 未購買時 -->
-                <div class="racing-form-locked" id="racing-form-locked">
-                    <div class="lock-icon">🔒</div>
-                    <p>購買馬報解鎖內幕消息</p>
-                    <button class="btn btn-primary" id="buy-form-btn">購買 $50</button>
-                </div>
 
-                <!-- 已購買時 -->
-                <div class="racing-form-unlocked" id="racing-form-unlocked" style="display: none;">
-                    <div class="form-header">
-                        <h3>📰 馬報</h3>
-                        <button class="form-toggle" id="form-toggle">展開</button>
-                    </div>
-                    <div class="form-content" id="form-content" style="display: none;">
-                        <table class="form-table">
-                            <thead>
-                                <tr>
-                                    <th>馬號</th>
-                                    <th>馬名</th>
-                                    <th>腳質</th>
-                                    <th>檔位</th>
-                                    <th>沙圈觀察</th>
-                                </tr>
-                            </thead>
-                            <tbody id="form-table-body">
-                                <!-- 動態生成 -->
-                            </tbody>
-                        </table>
-                    </div>
+            <!-- 馬報表格（已購買時顯示）-->
+            <div class="racing-form-table-container" id="racing-form-table-container" style="display: none;">
+                <div class="form-header">
+                    <h3>📰 馬報資訊</h3>
+                    <button class="form-toggle" id="form-toggle">展開</button>
+                </div>
+                <div class="form-content" id="form-content" style="display: none;">
+                    <table class="form-table">
+                        <thead>
+                            <tr>
+                                <th>馬號</th>
+                                <th>馬名</th>
+                                <th>腳質</th>
+                                <th>檔位</th>
+                                <th>沙圈觀察</th>
+                            </tr>
+                        </thead>
+                        <tbody id="form-table-body">
+                            <!-- 動態生成 -->
+                        </tbody>
+                    </table>
                 </div>
             </div>
 

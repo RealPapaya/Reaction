@@ -21,6 +21,58 @@
     margin: 0 auto;
 }
 
+/* 投注詳情頁面 Header 中的報紙指示器 */
+.betting-detail-header {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.newspaper-indicator {
+    position: relative;
+    cursor: pointer;
+    margin-left: auto;
+}
+
+.newspaper-header-icon {
+    width: 150px;
+    height: auto;
+    transition: transform 0.3s ease;
+}
+
+.newspaper-indicator.unpurchased .newspaper-header-icon {
+    filter: grayscale(100%);
+    opacity: 0.7;
+}
+
+.newspaper-indicator:hover .newspaper-header-icon {
+    transform: scale(1.1);
+}
+
+.newspaper-tooltip {
+    position: absolute;
+    bottom: -45px;
+    right: 0;
+    background: rgba(0, 0, 0, 0.9);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 0.85em;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+    z-index: 1000;
+}
+
+.newspaper-indicator:hover .newspaper-tooltip {
+    opacity: 1;
+}
+
+.newspaper-indicator.purchased .newspaper-tooltip {
+    background: rgba(76, 175, 80, 0.95);
+}
+
 .shop-category {
     margin-bottom: 40px;
     padding: 20px;
@@ -46,25 +98,39 @@
 
 /* 商品卡片 */
 .product-list {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
 }
 
 .product-card {
     display: flex;
-    align-items: center;
-    gap: 15px;
-    padding: 15px;
+    flex-direction: column;
+    padding: 20px;
     background: rgba(255, 255, 255, 0.05);
     border-radius: 12px;
     border: 1px solid rgba(255, 255, 255, 0.1);
     transition: all 0.3s ease;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
 .product-card:hover {
-    transform: translateY(-2px);
+    transform: translateY(-4px);
     border-color: var(--primary-color);
+    box-shadow: 0 8px 12px rgba(0, 0, 0, 0.2);
+}
+
+.product-newspaper-img {
+    width: 100%;
+    height: 180px;
+    object-fit: contain;
+    margin-bottom: 15px;
+    border-radius: 8px;
+}
+
+.product-card.unpurchased .product-newspaper-img {
+    filter: grayscale(100%);
+    opacity: 0.7;
 }
 
 .product-icon {
@@ -118,12 +184,12 @@
     padding: 40px;
 }
 
-/* 馬報容器 */
-.racing-form-container {
+/* 馬報表格容器 */
+.racing-form-table-container {
     margin: 20px 0;
     padding: 20px;
     background: rgba(255, 193, 7, 0.1);
-    border: 2px dashed #ffc107;
+    border: 2px solid #ffc107;
     border-radius: 12px;
 }
 
@@ -133,6 +199,20 @@
     align-items: center;
     padding: 40px;
     text-align: center;
+}
+
+.newspaper-icon {
+    width: 200px;
+    height: auto;
+    margin-bottom: 20px;
+    filter: grayscale(100%);
+    opacity: 0.7;
+}
+
+.newspaper-icon-small {
+    width: 50px;
+    height: auto;
+    margin-right: 12px;
 }
 
 .lock-icon {
@@ -149,6 +229,24 @@
     justify-content: space-between;
     align-items: center;
     margin-bottom: 15px;
+}
+
+.form-header-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.form-header-content h3 {
+    margin: 0 0 4px 0;
+    color: var(--text-primary);
+}
+
+.purchased-hint {
+    margin: 0;
+    font-size: 0.85em;
+    color: #4caf50;
+    font-weight: bold;
 }
 
 .form-header h3 {
