@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>賽馬引擎除錯</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #0f0;
+        }
+
+        #console {
+            background: #000;
+            padding: 10px;
+            border: 2px solid #0f0;
+            min-height: 400px;
+            white-space: pre;
+        }
+
+        button {
+            margin: 10px 5px;
+            padding: 10px 20px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>🔧 引擎測試與除錯</h1>
+    <div>
+        <button onclick="testFrenet()">測試 Frenet 座標</button>
+        <button onclick="testSteering()">測試轉向行為</button>
+        <button onclick="testPhysics()">測試物理引擎</button>
+        <button onclick="testAI()">測試 AI</button>
+        <button onclick="testFull()">完整測試</button>
+        <button onclick="clearConsole()">清空</button>
+    </div>
+    <div id="console"></div>
+    <div style="margin-top: 20px; background: #000; padding: 10px; border: 2px solid #0f0;">
+        <h3>馬匹狀態（即時）</h3>
+        <div id="horseStatus" style="font-size: 11px;"></div>
+    </div>
+
+    <script src="core/FrenetCoordinates.js"></script>
+    <script src="core/SteeringBehaviors.js"></script>
+    <script src="core/PhysicsEngine.js"></script>
+    <script src="ai/JockeyAI.js"></script>
+    <script src="RaceSimulator.js"></script>
+
+    <script>
+        const output = document.getElementById('console');
+
+        function log(msg) {
+            output.textContent += msg + '\n';
+        }
+
+        function clearConsole() {
+            output.textContent = '';
+        }
+
+        function testFrenet() {
+            log('=== 測試 Frenet 座標系統 ===');
+
+            try {
+                // 建立簡單的圓形賽道
+                const points = [];
+                for (let i = 0; i < 20; i++) {
+                    const angle = (i / 20) * Math.PI * 2;
+                    points.push({
+                        x: 100 + Math.cos(angle) * 50,
+                        y: 100 + Math.sin(angle) * 50
+                    });
+                }
+
+                const frenet = new FrenetCoordinate(points);
+                log(`✅ FrenetCoordinate 成功建立`);
+                log(`   賽道長度: ${frenet.pathLength.toFixed(2)}米`);
+
+                // 測試座標轉換
+                const world = frenet.frenetToWorld(50, 2);
+                log(`   Frenet(50, 2) → World(${world.x.toFixed(2)}, ${world.y.toFixed(2)})`);
+
+                const frenetBack = frenet.worldToFrenet(world.x, world.y);
+                log(`   World → Frenet(${frenetBack.s.toFixed(2)}, ${frenetBack.d.toFixed(2)})`);
+
+            } catch (e) {
+                log(`❌ 錯誤: ${e.message}`);
+                log(e.stack);
+            }
+        }
+
+        function testSteering() {
+            log('\n=== 測試轉向行為 ===');
+
+            try {
+                const steering = new SteeringBehavior();
+                log(`✅ SteeringBehavior 成功建立`);
+
+                // 建立測試馬匹
+                const horse = { s: 50, d: 3, speed: 15 };
+                const others = [
+                    { s: 55, d: 3.2, speed: 12 },  // 前方慢馬
+                    { s: 50, d: 5, speed: 15 }      // 右側馬
+                ];
+
+                const force = steering.compute(horse, others, 10);
+                log(`   橫向力: ${force.toFixed(3)}`);
+
+            } catch (e) {
+                log(`❌ 錯誤: ${e.message}`);
+            }
+        }
+
+        function testPhysics() {
+            log('\n=== 測試物理引擎 ===');
+
+            try {
+                const physics = new PhysicsEngine();
+                log(`✅ PhysicsEngine 成功建立`);
+
+                // 建立簡單賽道
+                const points = [];
+                for (let i = 0; i < 20; i++) {
+                    const angle = (i / 20) * Math.PI * 2;
+                    points.push({
+                        x: 100 + Math.cos(angle) * 50,
+                        y: 100 + Math.sin(angle) * 50
+                    });
+                }
+                const frenet = new FrenetCoordinate(points);
+
+                const horse = { s: 0, d: 2, speed: 16, lateralSpeed: 0, baseSpeed: 16, runningStyle: '前' };
+
+                // 更新一步
+                physics.update(horse, frenet, 0.016, 0);
+                log(`   更新後位置: s=${horse.s.toFixed(2)}, d=${horse.d.toFixed(2)}`);
+
+            } catch (e) {
+                log(`❌ 錯誤: ${e.message}`);
+                log(e.stack);
+            }
+        }
+
+        function testAI() {
+            log('\n=== 測試 AI 騎手 ===');
+
+            try {
+                const ai = new JockeyAI();
+                log(`✅ JockeyAI 成功建立`);
+
+                const horse = {
+                    s: 50,
+                    d: 2,
+                    speed: 15,
+                    runningStyle: '逃',
+                    baseSpeed: 16
+                };
+                const others = [];
+
+                // 建立簡單賽道
+                const points = [];
+                for (let i = 0; i < 20; i++) {
+                    const angle = (i / 20) * Math.PI * 2;
+                    points.push({
+                        x: 100 + Math.cos(angle) * 50,
+                        y: 100 + Math.sin(angle) * 50
+                    });
+                }
+                const frenet = new FrenetCoordinate(points);
+
+                const decision = ai.makeDecision(horse, others, frenet, 0.3);
+                log(`   決策: ${decision.action}`);
+                log(`   目標橫向: ${decision.targetD}`);
+
+            } catch (e) {
+                log(`❌ 錯誤: ${e.message}`);
+                log(e.stack);
+            }
+        }
+
+        function testFull() {
+            log('\n=== 完整引擎測試 ===');
+
+            try {
+                // 建立賽道
+                const points = [];
+                const numPoints = 50;
+                for (let i = 0; i < numPoints; i++) {
+                    const angle = (i / numPoints) * Math.PI * 2;
+                    points.push({
+                        x: 300 + Math.cos(angle) * 100,
+                        y: 300 + Math.sin(angle) * 100
+                    });
+                }
+
+                // 建立馬匹
+                const horses = [];
+                for (let i = 0; i < 4; i++) {
+                    horses.push({
+                        id: i + 1,
+                        name: `馬${i + 1}號`,
+                        runningStyle: ['逃', '前', '追', '殿'][i],
+                        competitiveFactor: 85 + i * 2,
+                        gateNumber: i + 1
+                    });
+                }
+
+                const simulator = new RaceSimulator(points, horses);
+                log(`✅ RaceSimulator 成功建立`);
+                log(`   馬匹數量: ${horses.length}`);
+                log(`   賽道長度: ${simulator.frenet.pathLength.toFixed(2)}米`);
+
+                // 開始比賽
+                simulator.startRace();
+                log(`   比賽開始！`);
+
+                // 模擬幾步
+                for (let i = 0; i < 5; i++) {
+                    simulator.update();
+                }
+
+                const state = simulator.getRaceState();
+                log(`   比賽時間: ${state.raceTime.toFixed(2)}秒`);
+                log(`   進度: ${(state.raceProgress * 100).toFixed(1)}%`);
+
+                log('\n   領先榜:');
+                state.leaderboard.slice(0, 3).forEach(item => {
+                    log(`   ${item.position}. ${item.horse.name} - ${item.distance.toFixed(1)}m`);
+                });
+
+                // 啟動即時顯示
+                const intervalId = setInterval(() => {
+                    if (!simulator.isRunning) {
+                        clearInterval(intervalId);
+                        return;
+                    }
+
+                    simulator.update();
+
+                    const statusDiv = document.getElementById('horseStatus');
+                    if (statusDiv) {
+                        const sorted = [...simulator.horses].sort((a, b) => b.s - a.s);
+                        statusDiv.innerHTML = sorted.map((h, i) =>
+                            `${i + 1}. ${h.name}: Speed=${h.speed.toFixed(2)}m/s, D=${h.d.toFixed(2)}m, S=${h.s.toFixed(1)}m ${h.isBoxedIn ? '☠️被困' : ''}`
+                        ).join('<br>');
+                    }
+                }, 100);
+
+                log('\n➡️ 比賽進行中，請查看下方馬匹狀態...');
+
+                log('\n✅ 所有測試通過！');
+
+            } catch (e) {
+                log(`❌ 錯誤: ${e.message}`);
+                log(e.stack);
+            }
+        }
+
+        // 自動執行完整測試
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                log('=== 自動執行完整測試 ===\n');
+                testFull();
+            }, 500);
+        });
+    </script>
+</body>
+
+</html>

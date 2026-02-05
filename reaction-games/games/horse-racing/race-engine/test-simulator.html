@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>賽馬物理引擎測試</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Inter', sans-serif;
+            background: #1a1a1a;
+            color: #fff;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        #raceCanvas {
+            display: block;
+            width: 100%;
+            height: 600px;
+            background: #2a2a2a;
+            border: 2px solid #444;
+            margin-bottom: 20px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            padding: 10px 20px;
+            background: #8B5CF6;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        button:hover {
+            background: #7C3AED;
+        }
+
+        .leaderboard {
+            background: #2a2a2a;
+            padding: 20px;
+            border: 2px solid #444;
+        }
+
+        .leaderboard-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px;
+            margin: 4px 0;
+            background: #333;
+        }
+
+        .leaderboard-item.boxed {
+            border-left: 4px solid #EF4444;
+        }
+
+        .debug-panel {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #2a2a2a;
+            padding: 15px;
+            border: 2px solid #444;
+            max-width: 300px;
+            font-size: 12px;
+        }
+
+        .debug-item {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🏇 真實賽馬物理引擎測試</h1>
+
+        <div class="controls">
+            <button id="startBtn">開始比賽</button>
+            <button id="pauseBtn">暫停</button>
+            <button id="resetBtn">重置</button>
+        </div>
+
+        <canvas id="raceCanvas" width="1200" height="600"></canvas>
+
+        <div class="leaderboard">
+            <h3>即時排名</h3>
+            <div id="leaderboardContainer"></div>
+        </div>
+    </div>
+
+    <div class="debug-panel" id="debugPanel">
+        <h4>除錯資訊</h4>
+        <div id="debugInfo"></div>
+    </div>
+
+    <!-- 引入模組 -->
+    <script src="core/FrenetCoordinates.js"></script>
+    <script src="core/SteeringBehaviors.js"></script>
+    <script src="core/PhysicsEngine.js"></script>
+    <script src="ai/JockeyAI.js"></script>
+    <script src="RaceSimulator.js"></script>
+
+    <script>
+        // ====================================
+        // 測試設定
+        // ====================================
+
+        // 建立測試賽道（**操場形**：兩條直線 + 兩個彎道）
+        function createTestTrack() {
+            const points = [];
+            const centerX = 600;
+            const centerY = 300;
+            const straightLength = 400;  // 直線段長度
+            const cornerRadius = 200;    // 彎道半徑
+
+            // 分成四個部分：上直線、右彎、下直線、左彎
+            const numPointsPerSegment = 25;
+
+            // 1. 上直線（向右）
+            for (let i = 0; i < numPointsPerSegment; i++) {
+                const t = i / numPointsPerSegment;
+                points.push({
+                    x: centerX - straightLength / 2 + t * straightLength,
+                    y: centerY - cornerRadius
+                });
+            }
+
+            // 2. 右彎道（180度）
+            for (let i = 0; i < numPointsPerSegment; i++) {
+                const t = i / numPointsPerSegment;
+                const angle = -Math.PI / 2 + t * Math.PI;  // -90度 到 +90度
+                points.push({
+                    x: centerX + straightLength / 2 + Math.cos(angle) * cornerRadius,
+                    y: centerY + Math.sin(angle) * cornerRadius
+                });
+            }
+
+            // 3. 下直線（向左）
+            for (let i = 0; i < numPointsPerSegment; i++) {
+                const t = i / numPointsPerSegment;
+                points.push({
+                    x: centerX + straightLength / 2 - t * straightLength,
+                    y: centerY + cornerRadius
+                });
+            }
+
+            // 4. 左彎道（180度）
+            for (let i = 0; i < numPointsPerSegment; i++) {
+                const t = i / numPointsPerSegment;
+                const angle = Math.PI / 2 + t * Math.PI;  // +90度 到 +270度
+                points.push({
+                    x: centerX - straightLength / 2 + Math.cos(angle) * cornerRadius,
+                    y: centerY + Math.sin(angle) * cornerRadius
+                });
+            }
+
+            return points;
+        }
+
+        // 建立測試馬匹
+        function createTestHorses() {
+            const runningStyles = ['逃', '前', '追', '殿'];
+            const horses = [];
+
+            for (let i = 0; i < 8; i++) {
+                horses.push({
+                    id: i + 1,
+                    name: `馬${i + 1}號`,
+                    runningStyle: runningStyles[i % 4],
+                    competitiveFactor: 80 + Math.random() * 20,
+                    gateNumber: i + 1
+                });
+            }
+
+            return horses;
+        }
+
+        // ====================================
+        // 初始化
+        // ====================================
+
+        const canvas = document.getElementById('raceCanvas');
+        const ctx = canvas.getContext('2d');
+        const trackPath = createTestTrack();
+        const horses = createTestHorses();
+        const simulator = new RaceSimulator(trackPath, horses);
+
+        let animationId = null;
+
+        // ====================================
+        // 渲染
+        // ====================================
+
+        function render() {
+            // 清空畫布
+            ctx.fillStyle = '#7EC850';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 繪製賽道
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            trackPath.forEach((point, i) => {
+                if (i === 0) {
+                    ctx.moveTo(point.x, point.y);
+                } else {
+                    ctx.lineTo(point.x, point.y);
+                }
+            });
+            ctx.closePath();
+            ctx.stroke();
+
+            // 繪製起跑/終點線
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(trackPath[0].x - 2, trackPath[0].y - 100, 4, 200);
+
+            // 繪製馬匹（使用 Z-ordering）
+            const horsePositions = simulator.getHorseWorldPositions();
+
+            // **畫家演算法**：按 Y 座標排序，先畫遠處（Y小），後畫近處（Y大）
+            horsePositions.sort((a, b) => a.worldY - b.worldY);
+
+            const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E2'];
+
+            horsePositions.forEach((horse, index) => {
+                ctx.save();
+                ctx.translate(horse.worldX, horse.worldY);
+                ctx.rotate(horse.heading);
+
+                // 馬匹長方形（轉 90 度：寬 28，高 16，像真實馬的形狀）
+                const horseWidth = 28;  // 馬的長度（沿著前進方向）
+                const horseHeight = 16; // 馬的寬度（橫向）
+                ctx.fillStyle = colors[index];
+                ctx.fillRect(-horseWidth / 2, -horseHeight / 2, horseWidth, horseHeight);
+
+                // 外框（讓碰撞更明顯）
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(-horseWidth / 2, -horseHeight / 2, horseWidth, horseHeight);
+
+                // 編號
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 12px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(horse.id, 0, 0);
+
+                // 被困標記
+                if (horse.isBoxedIn) {
+                    ctx.fillStyle = '#EF4444';
+                    ctx.fillText('!', 10, -12);
+                }
+
+                ctx.restore();
+
+                // 軌跡
+                if (horse.positionHistory && horse.positionHistory.length > 2) {
+                    ctx.strokeStyle = `rgba(${colors[index].substring(1, 3)}, ${colors[index].substring(3, 5)}, ${colors[index].substring(5, 7)}, 0.3)`;
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    horse.positionHistory.forEach((pos, i) => {
+                        const worldPos = simulator.frenet.frenetToWorld(pos.s, pos.d);
+                        if (i === 0) {
+                            ctx.moveTo(worldPos.x, worldPos.y);
+                        } else {
+                            ctx.lineTo(worldPos.x, worldPos.y);
+                        }
+                    });
+                    ctx.stroke();
+                }
+            });
+        }
+
+        function updateUI() {
+            // 更新排行榜
+            const state = simulator.getRaceState();
+            const leaderboard = state.leaderboard;
+            const container = document.getElementById('leaderboardContainer');
+
+            container.innerHTML = leaderboard.map(item => `
+                <div class="leaderboard-item ${item.isBoxedIn ? 'boxed' : ''}">
+                    <span>${item.position}. ${item.horse.name} (${item.horse.runningStyle})</span>
+                    <span>${item.distance.toFixed(1)}m ${item.isBoxedIn ? '🔒' : ''}</span>
+                </div>
+            `).join('');
+
+            // 更新除錯面板（顯示第一匹馬的資訊）
+            if (horses.length > 0) {
+                const debugInfo = simulator.getDebugInfo(1);
+                if (debugInfo) {
+                    document.getElementById('debugInfo').innerHTML = `
+                        <div class="debug-item">S: ${debugInfo.frenet.s.toFixed(2)}m</div>
+                        <div class="debug-item">D: ${debugInfo.frenet.d.toFixed(2)}m</div>
+                        <div class="debug-item">Speed: ${debugInfo.speed.toFixed(2)}m/s</div>
+                        <div class="debug-item">Lateral Speed: ${debugInfo.lateralSpeed.toFixed(3)}m/s</div>
+                        <div class="debug-item">Boxed: ${debugInfo.isBoxedIn ? 'YES ⚠️' : 'NO'}</div>
+                        <div class="debug-item">Anxiety: ${debugInfo.anxiety.toFixed(2)}</div>
+                        <div class="debug-item">Corner R: ${debugInfo.cornerRadius === Infinity ? '∞' : debugInfo.cornerRadius.toFixed(1)}m</div>
+                    `;
+                }
+            }
+        }
+
+        // ====================================
+        // 主循環
+        // ====================================
+
+        function gameLoop() {
+            simulator.update();
+            render();
+            updateUI();
+
+            if (simulator.isRunning) {
+                animationId = requestAnimationFrame(gameLoop);
+            } else {
+                // 比賽結束
+                const results = simulator.getResults();
+                console.log('比賽結果:', results);
+                alert('比賽結束！\n' + results.map(r =>
+                    `${r.position}. ${r.horse.name} - ${r.finishTime.toFixed(2)}秒`
+                ).join('\n'));
+            }
+        }
+
+        // ====================================
+        // 控制
+        // ====================================
+
+        document.getElementById('startBtn').addEventListener('click', () => {
+            simulator.startRace();
+            gameLoop();
+        });
+
+        document.getElementById('pauseBtn').addEventListener('click', () => {
+            simulator.stopRace();
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+            }
+        });
+
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            simulator.stopRace();
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+            }
+            simulator.initializeHorses();
+            render();
+            updateUI();
+        });
+
+        // 初始渲染
+        simulator.initializeHorses();
+        render();
+        updateUI();
+    </script>
+</body>
+
+</html>
