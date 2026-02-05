@@ -14,6 +14,7 @@
     <link rel="stylesheet" href="navigation-styles.css">
     <link rel="stylesheet" href="success-modal-styles.css">
     <link rel="stylesheet" href="screen-transitions.css">
+    <link rel="stylesheet" href="shop-styles.css">
 </head>
 
 <body>
@@ -34,9 +35,9 @@
                 <span class="nav-icon">📝</span>
                 <span class="nav-label">投注機</span>
             </button>
-            <button class="nav-btn-bottom" data-screen="balance">
-                <span class="nav-icon">💰</span>
-                <span class="nav-label">餘額</span>
+            <button class="nav-btn-bottom" data-screen="shop">
+                <span class="nav-icon">🛒</span>
+                <span class="nav-label">商店 <span class="balance-chip">$<span id="nav-balance">10000</span></span></span>
             </button>
             <button class="nav-btn-bottom" data-screen="my-bets">
                 <span class="nav-icon">📋</span>
@@ -72,9 +73,39 @@
         </section>
 
         <!-- ========================================
-             Screen 3: Balance (餘額)
+             Screen 3: Shop (商店)
              ======================================== -->
-        <section id="balance-screen" class="screen">
+        <section id="shop-screen" class="screen">
+            <div class="screen-header">
+                <h1>🛒 情報商店</h1>
+            </div>
+
+            <div class="shop-content">
+                <div class="shop-category">
+                    <h3>📰 馬報 (Racing Form)</h3>
+                    <p class="category-desc">包含：沙圈觀察、腳質、檔位等內幕消息</p>
+
+                    <div class="product-list" id="racing-form-list">
+                        <!-- 動態生成各賽道的馬報 -->
+                    </div>
+                </div>
+
+                <div class="shop-category disabled">
+                    <h3>💡 小道消息 (Insider Tips)</h3>
+                    <p class="category-desc">🔒 即將推出</p>
+                </div>
+
+                <div class="shop-category disabled">
+                    <h3>🌤️ 天氣預報 (Weather Report)</h3>
+                    <p class="category-desc">🔒 即將推出</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========================================
+             Screen 4 (was 3): Balance (餘額) - Hidden
+             ======================================== -->
+        <section id="balance-screen" class="screen" style="display: none;">
             <div class="screen-header">
                 <h1>💰 餘額資訊</h1>
             </div>
@@ -101,7 +132,7 @@
         </section>
 
         <!-- ========================================
-             Screen 4: My Bets (我的投注)
+             Screen 5 (was 4): My Bets (我的投注)
              ======================================== -->
         <section id="my-bets-screen" class="screen">
             <div class="screen-header">
@@ -141,6 +172,41 @@
                 <button class="btn btn-secondary" id="back-to-betting">← 返回</button>
                 <h2 id="betting-detail-title">雅士谷 - 第 1 場</h2>
             </div>
+
+            <!-- 馬報容器 -->
+            <div class="racing-form-container" id="racing-form-container">
+                <!-- 未購買時 -->
+                <div class="racing-form-locked" id="racing-form-locked">
+                    <div class="lock-icon">🔒</div>
+                    <p>購買馬報解鎖內幕消息</p>
+                    <button class="btn btn-primary" id="buy-form-btn">購買 $50</button>
+                </div>
+
+                <!-- 已購買時 -->
+                <div class="racing-form-unlocked" id="racing-form-unlocked" style="display: none;">
+                    <div class="form-header">
+                        <h3>📰 馬報</h3>
+                        <button class="form-toggle" id="form-toggle">展開</button>
+                    </div>
+                    <div class="form-content" id="form-content" style="display: none;">
+                        <table class="form-table">
+                            <thead>
+                                <tr>
+                                    <th>馬號</th>
+                                    <th>馬名</th>
+                                    <th>腳質</th>
+                                    <th>檔位</th>
+                                    <th>沙圈觀察</th>
+                                </tr>
+                            </thead>
+                            <tbody id="form-table-body">
+                                <!-- 動態生成 -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
             <div id="betting-horses-container" class="betting-detail-container">
                 <!-- Horses table will be rendered here -->
             </div>
@@ -280,6 +346,7 @@
     <script src="data-generator.js"></script>
     <script src="race-result-generator.js"></script>
     <script src="race-scheduler.js"></script>
+    <script src="shop-manager.js"></script>
     <script src="betting-machine.js"></script>
     <script src="redemption-machine.js"></script>
     <script src="race-engine.js"></script>

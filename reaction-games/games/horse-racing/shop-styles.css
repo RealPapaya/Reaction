@@ -1,0 +1,209 @@
+/* ====================================
+   商店系統樣式
+   ==================================== */
+
+/* 商店按鈕樣式 */
+.balance-chip {
+    display: inline-block;
+    background: rgba(255, 215, 0, 0.2);
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.9em;
+    margin-left: 4px;
+    font-weight: bold;
+    color: #ffd700;
+}
+
+/* 商店畫面 */
+.shop-content {
+    padding: 20px;
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.shop-category {
+    margin-bottom: 40px;
+    padding: 20px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+}
+
+.shop-category.disabled {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+.shop-category h3 {
+    margin: 0 0 10px 0;
+    color: var(--text-primary);
+}
+
+.category-desc {
+    color: var(--text-secondary);
+    margin: 0 0 20px 0;
+    font-size: 0.9em;
+}
+
+/* 商品卡片 */
+.product-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.product-card {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.3s ease;
+}
+
+.product-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--primary-color);
+}
+
+.product-icon {
+    font-size: 2.5em;
+    flex-shrink: 0;
+}
+
+.product-info {
+    flex: 1;
+}
+
+.product-info h4 {
+    margin: 0 0 8px 0;
+    color: var(--text-primary);
+}
+
+.product-status {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    font-size: 0.85em;
+}
+
+.status-betting {
+    background: var(--primary-color);
+    color: white;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-weight: bold;
+}
+
+.time-remaining {
+    color: var(--text-secondary);
+}
+
+.product-action {
+    flex-shrink: 0;
+}
+
+.purchased-badge {
+    color: #4caf50;
+    font-weight: bold;
+    padding: 8px 16px;
+    background: rgba(76, 175, 80, 0.2);
+    border-radius: 8px;
+}
+
+.no-products {
+    text-align: center;
+    color: var(--text-secondary);
+    padding: 40px;
+}
+
+/* 馬報容器 */
+.racing-form-container {
+    margin: 20px 0;
+    padding: 20px;
+    background: rgba(255, 193, 7, 0.1);
+    border: 2px dashed #ffc107;
+    border-radius: 12px;
+}
+
+.racing-form-locked {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px;
+    text-align: center;
+}
+
+.lock-icon {
+    font-size: 3em;
+    margin-bottom: 15px;
+}
+
+.racing-form-unlocked {
+    display: none;
+}
+
+.form-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.form-header h3 {
+    margin: 0;
+    color: var(--text-primary);
+}
+
+.form-toggle {
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: all 0.3s ease;
+}
+
+.form-toggle:hover {
+    opacity: 0.8;
+}
+
+.form-content {
+    display: none;
+}
+
+.form-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.form-table th,
+.form-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.form-table th {
+    background: rgba(255, 255, 255, 0.05);
+    font-weight: bold;
+    color: var(--text-primary);
+}
+
+.running-style-badge {
+    display: inline-block;
+    background: var(--primary-color);
+    color: white;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.85em;
+    font-weight: bold;
+}
+
+.paddock-cell {
+    font-style: italic;
+    color: #ffc107;
+}

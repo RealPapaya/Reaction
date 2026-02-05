@@ -12,6 +12,9 @@ class RaceScheduler {
         this.postRaceDuration = 15 * 1000; // 15 seconds post-race
         this.closedDuration = 75 * 1000; // 1 minute 15 seconds prep
 
+        this.raceSeeds = {}; // 儲存每場比賽的種子碼
+        this.loadRaceSeeds();
+
         this.schedule = null;
         this.loadOrInitializeSchedule();
     }
@@ -163,13 +166,43 @@ class RaceScheduler {
     }
 
     // ====================================
-    // Seed Generation
+    // Seed Generation & Management
     // ====================================
 
     generateRaceSeed(trackId, raceNumber) {
-        // Create deterministic seed based on track and race number
-        const timestamp = Math.floor(Date.now() / 100000); // Changes every ~100 seconds
-        return `${trackId}-R${raceNumber}-${timestamp}`;
+        const seedKey = `${trackId}_${raceNumber}`;
+        if (!this.raceSeeds[seedKey]) {
+            // 只在第一次生成，之後都重複使用
+            this.raceSeeds[seedKey] = `${trackId}_R${raceNumber}_${Date.now()}_${Math.random()}`;
+            this.saveRaceSeeds(); // 立即存入 localStorage
+        }
+        return this.raceSeeds[seedKey];
+    }
+
+    saveRaceSeeds() {
+        localStorage.setItem('raceSeeds', JSON.stringify(this.raceSeeds));
+    }
+
+    loadRaceSeeds() {
+        const saved = localStorage.getItem('raceSeeds');
+        if (saved) {
+            try {
+                this.raceSeeds = JSON.parse(saved);
+            } catch (e) {
+                console.error('種子碼載入失敗', e);
+                this.raceSeeds = {};
+            }
+        }
+    }
+
+    // 簡單的字串雜湊函數
+    hashString(str) {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            hash = ((hash << 5) - hash) + str.charCodeAt(i);
+            hash |= 0;
+        }
+        return Math.abs(hash);
     }
 
     // ====================================
@@ -182,7 +215,31 @@ class RaceScheduler {
 
         // Generate horses if not yet generated
         if (!trackSchedule.horses) {
-            trackSchedule.horses = generateHorses();
+            const horses = generateHorses();
+
+            // 獲取這場比賽的種子碼
+            const raceSeed = trackSchedule.raceSeed;
+
+            // 隨機分配檔位（避免強馬總是在好檔位）
+            const gates = [1, 2, 3, 4, 5, 6, 7, 8];
+            // 使用種子打亂檔位
+            const shuffleSeed = this.hashString(raceSeed + '_gates');
+            for (let i = gates.length - 1; i > 0; i--) {
+                const j = Math.floor((Math.sin(shuffleSeed + i) * 10000) % (i + 1));
+                [gates[i], gates[Math.abs(j)]] = [gates[Math.abs(j)], gates[i]];
+            }
+
+            horses.forEach((horse, index) => {
+                horse.gateNumber = gates[index];
+                // 使用種子生成當日狀態（確保多設備同步）
+                const seedValue = this.hashString(raceSeed + horse.id);
+                horse.todayCondition = horse.generateTodayCondition(seedValue);
+            });
+
+            // 儲存種子碼供比賽結果使用
+            horses.raceSeed = raceSeed;
+
+            trackSchedule.horses = horses;
             this.saveSchedule();
         }
 

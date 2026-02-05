@@ -70,6 +70,18 @@ class HorseRacingGame {
         this.dom.scanningOverlay = document.getElementById('scanning-overlay');
         this.dom.scanningMessage = document.getElementById('scanning-message');
         this.dom.scanningProgressBar = document.getElementById('scanning-progress-bar');
+
+        // Shop
+        this.dom.navBalance = document.getElementById('nav-balance');
+        this.dom.racingFormList = document.getElementById('racing-form-list');
+
+        // Racing Form
+        this.dom.racingFormLocked = document.getElementById('racing-form-locked');
+        this.dom.racingFormUnlocked = document.getElementById('racing-form-unlocked');
+        this.dom.buyFormBtn = document.getElementById('buy-form-btn');
+        this.dom.formToggle = document.getElementById('form-toggle');
+        this.dom.formContent = document.getElementById('form-content');
+        this.dom.formTableBody = document.getElementById('form-table-body');
     }
 
     setupEventListeners() {
@@ -161,6 +173,8 @@ class HorseRacingGame {
             this.renderVenuesScreen();
         } else if (screenName === 'betting') {
             this.renderBettingMachineScreen();
+        } else if (screenName === 'shop') {
+            this.renderShopScreen();
         } else if (screenName === 'balance') {
             this.renderBalanceScreen();
         } else if (screenName === 'my-bets') {
@@ -307,27 +321,50 @@ class HorseRacingGame {
         const track = raceScheduler.getTrackData(trackId);
         const horses = raceScheduler.getOrGenerateHorses(trackId);
 
-        // Calculate odds - 專業賠率計算系統
-        // 1. 計算所有馬匹的競爭力總和
-        const totalCompetitive = horses.reduce((sum, h) => sum + h.competitiveFactor, 0);
+        // Calculate odds - 賠率與實力脫鉤系統
+        // 賠率基於：歷史評分 + 走勢 + 騎手名氣 + 檔位，而非當日狀態
+
+        // 計算每匹馬的賠率評分（用於生成賠率，與實際比賽結果無關）
+        const calculateOddsRating = (horse) => {
+            // 綜合評分 40%
+            const ratingScore = horse.competitiveFactor * 0.40;
+
+            // 近五場走勢 25%
+            const formScore = (horse.trendScore / 10) * 0.25;
+
+            // 騎手名氣 15%（騎手經驗越高，人氣越高）
+            const jockeyScore = (horse.jockey.experience / 20) * 0.15;
+
+            // 檔位 10%（1-4檔視為有利）
+            const gateScore = (horse.gateNumber <= 4 ? 0.10 : 0.05);
+
+            // 路程適性 10%（簡化為隨機）
+            const distanceScore = Math.random() * 0.10;
+
+            return ratingScore + formScore + jockeyScore + gateScore + distanceScore;
+        };
+
+        const totalOddsRating = horses.reduce((sum, h) => sum + calculateOddsRating(h), 0);
 
         horses.forEach(horse => {
             // Store previous odds for change indicator
             horse.previousOdds = horse.odds || 0;
 
-            // 2. 計算每匹馬的勝率（確保總和=100%）
-            const winProbability = horse.competitiveFactor / totalCompetitive;
+            const oddsRating = calculateOddsRating(horse);
+            const impliedProbability = oddsRating / totalOddsRating;
 
-            // 3. 賠率 = 1 / 勝率，但要扣除莊家抽水（15%）
             const bookmakerMargin = 0.85; // 莊家返還率85%
-            const rawOdds = (1 / winProbability) * bookmakerMargin;
+            const rawOdds = (1 / impliedProbability) * bookmakerMargin;
 
-            // 4. 限制賠率範圍：1.5-15倍（熱門馬2-4倍，冷門馬8-15倍）
-            const clampedOdds = Math.max(1.5, Math.min(15, rawOdds));
+            // 限制賠率範圍：1.5-25倍
+            const clampedOdds = Math.max(1.5, Math.min(25, rawOdds));
             horse.odds = parseFloat(clampedOdds.toFixed(2));
         });
 
         this.dom.bettingDetailTitle.textContent = `${track.flagEmoji} ${track.name} - 第 ${status.raceNumber} 場 · ${this.formatTime(status.timeRemaining)} `;
+
+        // 更新馬報顯示
+        this.updateRacingFormDisplay(trackId, status.raceNumber);
 
         // Track current screen state - FIXED
         this.currentScreen = 'betting-detail';
@@ -765,6 +802,7 @@ class HorseRacingGame {
     loadBalance() {
         const saved = localStorage.getItem('playerBalance');
         if (saved) this.balance = parseInt(saved);
+        this.updateBalanceDisplay();
     }
 
     saveBalance() {
@@ -790,6 +828,134 @@ class HorseRacingGame {
             totalBets: this.totalBets
         };
         localStorage.setItem('playerStats', JSON.stringify(stats));
+    }
+
+    // ====================================
+    // Shop System
+    // ====================================
+
+    renderShopScreen() {
+        const statuses = raceScheduler.getAllTrackStatuses();
+
+        // 只顯示投注中的賽道
+        const bettingTracks = statuses.filter(s => s.phase === 'BETTING');
+
+        if (bettingTracks.length === 0) {
+            this.dom.racingFormList.innerHTML = `
+                <p class="no-products">目前沒有可購買的馬報</p>
+            `;
+            return;
+        }
+
+        this.dom.racingFormList.innerHTML = bettingTracks.map(status => {
+            const track = raceScheduler.getTrackData(status.trackId);
+            const isPurchased = shopManager.isPurchased(status.trackId, status.raceNumber);
+
+            return `
+                <div class="product-card">
+                    <div class="product-icon">📰</div>
+                    <div class="product-info">
+                        <h4>${track.flagEmoji} ${track.name} - 第 ${status.raceNumber} 場</h4>
+                        <p class="product-status">
+                            <span class="status-betting">投注中</span>
+                            <span class="time-remaining">還剩 ${this.formatTime(status.timeRemaining)}</span>
+                        </p>
+                    </div>
+                    <div class="product-action">
+                        ${isPurchased ?
+                    '<span class="purchased-badge">✅ 已購買</span>' :
+                    `<button class="btn btn-primary buy-btn" data-track-id="${status.trackId}" data-race-number="${status.raceNumber}" data-price="50">購買 $50</button>`
+                }
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        // 綁定購買按鈕事件
+        document.querySelectorAll('.buy-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const trackId = e.target.dataset.trackId;
+                const raceNumber = parseInt(e.target.dataset.raceNumber);
+                const price = parseInt(e.target.dataset.price);
+                this.purchaseRacingForm(trackId, raceNumber, price);
+            });
+        });
+    }
+
+    purchaseRacingForm(trackId, raceNumber, price) {
+        const result = shopManager.purchaseRacingForm(trackId, raceNumber, this.balance, price);
+
+        if (result.success) {
+            // 扣款
+            this.balance = result.newBalance;
+            this.saveBalance();
+            this.updateBalanceDisplay();
+
+            // 重新渲染商店
+            this.renderShopScreen();
+
+            alert(`✅ ${result.message}！\n返回投注頁面查看馬報`);
+        } else {
+            alert(`❌ ${result.message}`);
+        }
+    }
+
+    updateRacingFormDisplay(trackId, raceNumber) {
+        const isPurchased = shopManager.isPurchased(trackId, raceNumber);
+
+        if (isPurchased) {
+            // 顯示已購買的馬報
+            this.dom.racingFormLocked.style.display = 'none';
+            this.dom.racingFormUnlocked.style.display = 'block';
+
+            // 綁定展開/收起按鈕
+            if (this.dom.formToggle) {
+                this.dom.formToggle.onclick = () => {
+                    const isExpanded = this.dom.formContent.style.display === 'block';
+                    this.dom.formContent.style.display = isExpanded ? 'none' : 'block';
+                    this.dom.formToggle.textContent = isExpanded ? '展開' : '收起';
+                };
+            }
+
+            // 填充馬報數據
+            const horses = raceScheduler.getOrGenerateHorses(trackId);
+            this.renderRacingFormTable(horses);
+        } else {
+            // 顯示鎖定狀態
+            this.dom.racingFormLocked.style.display = 'flex';
+            this.dom.racingFormUnlocked.style.display = 'none';
+
+            // 綁定購買按鈕
+            if (this.dom.buyFormBtn) {
+                this.dom.buyFormBtn.onclick = () => {
+                    this.purchaseRacingForm(trackId, raceNumber, 50);
+                };
+            }
+        }
+    }
+
+    renderRacingFormTable(horses) {
+        const formData = shopManager.getRacingFormData(horses);
+
+        this.dom.formTableBody.innerHTML = formData.map(horse => `
+            <tr>
+                <td>${horse.id}</td>
+                <td>${horse.name}</td>
+                <td><span class="running-style-badge">${horse.runningStyle}</span></td>
+                <td>第${horse.gateNumber}檔</td>
+                <td class="paddock-cell">${horse.paddockObservation}</td>
+            </tr>
+        `).join('');
+    }
+
+    updateBalanceDisplay() {
+        // 更新所有餘額顯示位置
+        if (this.dom.balanceAmount) {
+            this.dom.balanceAmount.textContent = `$${this.balance.toLocaleString()}`;
+        }
+        if (this.dom.navBalance) {
+            this.dom.navBalance.textContent = this.balance.toLocaleString();
+        }
     }
 
     // ====================================

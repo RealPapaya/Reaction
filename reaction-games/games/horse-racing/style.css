@@ -82,7 +82,7 @@ h4,
 }
 
 .global-back-btn {
-    position: fixed;
+    position: absolute;
     top: var(--space-4);
     left: var(--space-4);
     padding: var(--space-2) var(--space-4);

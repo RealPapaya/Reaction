@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>爆冷機制測試</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            background: #1a1a1a;
+            color: #00ff00;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        h1 {
+            color: #00ffff;
+        }
+
+        pre {
+            background: #000;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>爆冷機制測試結果</h1>
+    <pre id="output">載入中...</pre>
+
+    <script src="data-generator.js"></script>
+    <script src="race-result-generator.js"></script>
+    <script src="test-upset-rate.js"></script>
+    <script>
+        // 將 console.log 輸出到頁面
+        const output = document.getElementById('output');
+        const originalLog = console.log;
+        output.textContent = '';
+        console.log = function (...args) {
+            output.textContent += args.join(' ') + '\n';
+            originalLog.apply(console, args);
+        };
+    </script>
+</body>
+
+</html>

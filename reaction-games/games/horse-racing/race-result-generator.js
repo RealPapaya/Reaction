@@ -10,7 +10,7 @@ class RaceResultGenerator {
         return x - Math.floor(x);
     }
 
-    // Generate deterministic race results
+    // Generate deterministic race results with upsets
     generateResults(horses, raceSeed) {
         // Convert seed string to number
         let seedNum = 0;
@@ -18,27 +18,59 @@ class RaceResultGenerator {
             seedNum += raceSeed.charCodeAt(i) * (i + 1);
         }
 
-        // Create a copy of horses with seeded performance
-        const horsesWithPerformance = horses.map((horse, index) => {
-            // Each horse gets a unique random value based on seed
-            const random1 = this.seededRandom(seedNum + index * 7);
-            const random2 = this.seededRandom(seedNum + index * 13);
-            const random3 = this.seededRandom(seedNum + index * 19);
+        // Create seeded RNG function
+        const createRNG = (seed) => {
+            let currentSeed = seed;
+            return () => {
+                currentSeed = (currentSeed * 9301 + 49297) % 233280;
+                return currentSeed / 233280;
+            };
+        };
 
-            // Calculate performance (weighted by competitive factor)
-            const basePerformance = horse.competitiveFactor || 0.5;
-            const variance = (random1 * 0.3 + random2 * 0.3 + random3 * 0.4);
-            const performance = basePerformance * (0.7 + variance * 0.6);
+        const rng = createRNG(seedNum);
+
+        // Create a copy of horses with performance calculation
+        const horsesWithPerformance = horses.map((horse, index) => {
+            // 1️⃣ 表現常態分佈（0.85-1.15）- 能力90的馬可能只發揮76.5，能力80的馬可能超常發揮到92
+            const performanceVariance = 0.85 + (rng() * 0.30);
+
+            // 2️⃣ 當日狀態影響（±10%）
+            const conditionMultiplier = horse.todayCondition ? horse.todayCondition.multiplier : 1.0;
+
+            // 3️⃣ 比賽事故判定（與腳質聯動）
+            const incidents = this.determineIncidents(horse, rng);
+
+            // 4️⃣ 計算最終表現分數
+            let finalPerformance = horse.competitiveFactor *
+                performanceVariance *
+                conditionMultiplier;
+
+            // 應用事故懲罰（根據腳質調整）
+            if (incidents.slowStart) {
+                // 逃馬漏閘是致命傷
+                const penalty = horse.runningStyle === '逃' ? 0.70 : 0.80;
+                finalPerformance *= penalty;
+            }
+            if (incidents.blocked) {
+                // 追馬受困影響最大
+                const penalty = (horse.runningStyle === '追' || horse.runningStyle === '殿') ? 0.65 : 0.75;
+                finalPerformance *= penalty;
+            }
+            if (incidents.wideTrip) {
+                finalPerformance *= 0.90; // 走外疊 -10%
+            }
 
             return {
                 ...horse,
-                performance: performance,
-                finalTime: 30 - (performance * 3) // Simulated finishing time
+                performanceVariance,
+                incidents,
+                finalPerformance,
+                finalTime: 30 - (finalPerformance * 3)
             };
         });
 
         // Sort by performance (descending = better)
-        horsesWithPerformance.sort((a, b) => b.performance - a.performance);
+        horsesWithPerformance.sort((a, b) => b.finalPerformance - a.finalPerformance);
 
         // Return results with positions
         return horsesWithPerformance.map((horse, index) => ({
@@ -46,6 +78,29 @@ class RaceResultGenerator {
             horse: horse,
             time: horse.finalTime.toFixed(2)
         }));
+    }
+
+    // 比賽事故判定邏輯（與腳質聯動）
+    determineIncidents(horse, rng) {
+        // 漏閘機率：逃馬風險較高
+        const slowStartChance = horse.runningStyle === '逃' ? 0.08 : 0.05;
+
+        // 受困機率：追/殿馬 + 內欄 = 高風險
+        let blockedChance = 0.15;
+        if (horse.runningStyle === '追' || horse.runningStyle === '殿') {
+            blockedChance = horse.gateNumber <= 4 ? 0.35 : 0.20; // 內欄追馬容易被關廁所
+        } else if (horse.gateNumber <= 3) {
+            blockedChance = 0.25; // 其他馬內欄也有風險
+        }
+
+        // 走外疊機率：外檔馬風險高
+        const wideTripChance = horse.gateNumber >= 6 ? 0.20 : 0.10;
+
+        return {
+            slowStart: rng() < slowStartChance,
+            blocked: rng() < blockedChance,
+            wideTrip: rng() < wideTripChance
+        };
     }
 
     // Quick check: get winner without full results

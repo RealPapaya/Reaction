@@ -252,6 +252,15 @@ class Horse {
         this.progress = 0;
         this.speed = 0;
         this.position = 0;
+
+        // 比賽相關屬性（爆冷機制）
+        this.gateNumber = id;                   // 檔位（1-8），稍後會被重新分配
+        this.todayCondition = null;             // 當日狀態（在 race-scheduler 中生成）
+        this.raceIncidents = [];                // 比賽事故記錄
+
+        // 隱藏屬性（影響特殊場地表現）
+        this.trackPreference = randomChoice(['泥地專家', '快地專家', '全能型']);
+        this.runningStyle = randomChoice(['逃', '前', '追', '殿']); // 戰術風格
     }
 
     // Calculate optimal performance factor based on age
@@ -307,6 +316,26 @@ class Horse {
 
         // 整合所有因素
         return this.baseWinRate * trendFactor * ageFactor * jockeyFactor * weightPenalty * conditionFactor;
+    }
+
+    // 當日狀態生成（±10%變化）
+    // 注意：這個方法在 race-scheduler 中被調用，使用種子確保多設備同步
+    generateTodayCondition(seedValue) {
+        // 使用種子確保多設備同步
+        const random = Math.sin(seedValue) * 10000;
+        const roll = random - Math.floor(random);
+
+        if (roll < 0.15) return { status: '極佳', multiplier: 1.10, description: '步伐輕盈，眼神銳利' };
+        if (roll < 0.30) return { status: '良好', multiplier: 1.05, description: '精神飽滿，狀態穩定' };
+        if (roll < 0.70) return { status: '普通', multiplier: 1.00, description: '狀態正常，無異常' };
+        if (roll < 0.85) return { status: '焦躁', multiplier: 0.95, description: '略顯焦躁，需留意' };
+        return { status: '狀態差', multiplier: 0.90, description: '頻頻出汗，不受控制' };
+    }
+
+    // 獲取當日狀態的沙圈描述（給玩家看的提示）
+    get paddockObservation() {
+        if (!this.todayCondition) return '資料未載入';
+        return this.todayCondition.description;
     }
 }
 
