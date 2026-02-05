@@ -87,11 +87,11 @@
 
 .shop-category h3 {
     margin: 0 0 10px 0;
-    color: var(--text-primary);
+    color: var(--text);
 }
 
 .category-desc {
-    color: var(--text-secondary);
+    color: var(--text-light);
     margin: 0 0 20px 0;
     font-size: 0.9em;
 }
@@ -116,7 +116,7 @@
 
 .product-card:hover {
     transform: translateY(-4px);
-    border-color: var(--primary-color);
+    border-color: var(--primary);
     box-shadow: 0 8px 12px rgba(0, 0, 0, 0.2);
 }
 
@@ -144,7 +144,7 @@
 
 .product-info h4 {
     margin: 0 0 8px 0;
-    color: var(--text-primary);
+    color: var(--text);
 }
 
 .product-status {
@@ -155,7 +155,7 @@
 }
 
 .status-betting {
-    background: var(--primary-color);
+    background: var(--primary);
     color: white;
     padding: 3px 10px;
     border-radius: 12px;
@@ -163,7 +163,7 @@
 }
 
 .time-remaining {
-    color: var(--text-secondary);
+    color: var(--text-light);
 }
 
 .product-action {
@@ -180,7 +180,7 @@
 
 .no-products {
     text-align: center;
-    color: var(--text-secondary);
+    color: var(--text-light);
     padding: 40px;
 }
 
@@ -239,7 +239,7 @@
 
 .form-header-content h3 {
     margin: 0 0 4px 0;
-    color: var(--text-primary);
+    color: var(--text);
 }
 
 .purchased-hint {
@@ -251,11 +251,11 @@
 
 .form-header h3 {
     margin: 0;
-    color: var(--text-primary);
+    color: var(--text);
 }
 
 .form-toggle {
-    background: var(--primary-color);
+    background: var(--primary);
     color: white;
     border: none;
     padding: 6px 12px;
@@ -288,13 +288,14 @@
 .form-table th {
     background: rgba(255, 255, 255, 0.05);
     font-weight: bold;
-    color: var(--text-primary);
+    color: var(--text);
 }
 
 .running-style-badge {
     display: inline-block;
-    background: var(--primary-color);
+    background: var(--primary);
     color: white;
+    /* Fixed text color for visibility */
     padding: 4px 12px;
     border-radius: 12px;
     font-size: 0.85em;

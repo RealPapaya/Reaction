@@ -15,6 +15,13 @@
     <link rel="stylesheet" href="success-modal-styles.css">
     <link rel="stylesheet" href="screen-transitions.css">
     <link rel="stylesheet" href="shop-styles.css">
+    <style>
+        #racing-form-modal .modal-content {
+            max-width: 800px;
+            /* Wider modal */
+            width: 90%;
+        }
+    </style>
 </head>
 
 <body>
@@ -178,30 +185,6 @@
             </div>
 
 
-            <!-- 馬報表格（已購買時顯示）-->
-            <div class="racing-form-table-container" id="racing-form-table-container" style="display: none;">
-                <div class="form-header">
-                    <h3>📰 馬報資訊</h3>
-                    <button class="form-toggle" id="form-toggle">展開</button>
-                </div>
-                <div class="form-content" id="form-content" style="display: none;">
-                    <table class="form-table">
-                        <thead>
-                            <tr>
-                                <th>馬號</th>
-                                <th>馬名</th>
-                                <th>腳質</th>
-                                <th>檔位</th>
-                                <th>沙圈觀察</th>
-                            </tr>
-                        </thead>
-                        <tbody id="form-table-body">
-                            <!-- 動態生成 -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
             <div id="betting-horses-container" class="betting-detail-container">
                 <!-- Horses table will be rendered here -->
             </div>
@@ -333,6 +316,32 @@
                     <div class="modal-actions">
                         <button class="btn btn-primary close-modal">關閉</button>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Racing Form Modal -->
+        <div id="racing-form-modal" class="modal">
+            <div class="modal-content card">
+                <div class="modal-header">
+                    <h2>📰 馬報資訊</h2>
+                    <button class="close-modal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <table class="form-table">
+                        <thead>
+                            <tr>
+                                <th>馬號</th>
+                                <th>馬名</th>
+                                <th>腳質</th>
+                                <th>檔位</th>
+                                <th>沙圈觀察</th>
+                            </tr>
+                        </thead>
+                        <tbody id="racing-form-modal-body">
+                            <!-- 動態生成 -->
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>

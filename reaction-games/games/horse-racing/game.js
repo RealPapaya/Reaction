@@ -79,6 +79,10 @@ class HorseRacingGame {
         this.dom.newspaperIndicator = document.getElementById('newspaper-indicator');
         this.dom.newspaperTooltip = document.getElementById('newspaper-tooltip');
 
+        // Racing Form - Modal
+        this.dom.racingFormModal = document.getElementById('racing-form-modal');
+        this.dom.racingFormModalBody = document.getElementById('racing-form-modal-body');
+
         // Racing Form - Table
         this.dom.racingFormTableContainer = document.getElementById('racing-form-table-container');
         this.dom.formToggle = document.getElementById('form-toggle');
@@ -106,6 +110,7 @@ class HorseRacingGame {
                 this.dom.quickBetModal?.classList.remove('show');
                 this.dom.successModal?.classList.remove('show');
                 this.dom.trackInfoModal?.classList.remove('show');
+                this.dom.racingFormModal?.classList.remove('show');
                 this.dom.raceModal?.classList.remove('fullscreen');
 
                 // Restore navigation bar
@@ -832,6 +837,8 @@ class HorseRacingGame {
                 this.renderVenuesScreen();
             } else if (this.currentScreen === 'betting') {
                 this.renderBettingMachineScreen();
+            } else if (this.currentScreen === 'shop') {
+                this.renderShopScreen();
             } else if (this.currentScreen === 'betting-detail' && this.selectedTrackId) {
                 const status = raceScheduler.getTrackStatus(this.selectedTrackId);
                 const track = raceScheduler.getTrackData(this.selectedTrackId);
@@ -979,7 +986,7 @@ class HorseRacingGame {
                 this.dom.newspaperIndicator.classList.remove('unpurchased');
                 this.dom.newspaperIndicator.classList.add('purchased');
                 if (this.dom.newspaperTooltip) {
-                    this.dom.newspaperTooltip.textContent = '✅ 您已購買這場的馬報';
+                    this.dom.newspaperTooltip.textContent = '✅ 點擊查看馬報資訊';
                 }
             } else {
                 this.dom.newspaperIndicator.classList.remove('purchased');
@@ -992,37 +999,31 @@ class HorseRacingGame {
             // 點擊報紙圖示的行為
             this.dom.newspaperIndicator.onclick = () => {
                 if (isPurchased) {
-                    // 已購買：切換表格顯示
-                    const isVisible = this.dom.racingFormTableContainer.style.display === 'block';
-                    this.dom.racingFormTableContainer.style.display = isVisible ? 'none' : 'block';
+                    // 已購買：開啟馬報彈窗
+                    const horses = raceScheduler.getOrGenerateHorses(trackId);
+                    this.showRacingFormModal(horses);
                 } else {
                     // 未購買：跳轉到商店
                     this.switchScreen('shop');
                 }
             };
         }
+    }
 
-        // 控制表格容器顯示
-        if (isPurchased) {
-            // 顯示表格容器（預設收起）
-            this.dom.racingFormTableContainer.style.display = 'none';
+    showRacingFormModal(horses) {
+        const formData = shopManager.getRacingFormData(horses);
 
-            // 綁定展開/收起按鈕
-            if (this.dom.formToggle) {
-                this.dom.formToggle.onclick = () => {
-                    const isExpanded = this.dom.formContent.style.display === 'block';
-                    this.dom.formContent.style.display = isExpanded ? 'none' : 'block';
-                    this.dom.formToggle.textContent = isExpanded ? '展開' : '收起';
-                };
-            }
+        this.dom.racingFormModalBody.innerHTML = formData.map(horse => `
+            <tr>
+                <td>${horse.id}</td>
+                <td>${horse.name}</td>
+                <td><span class="running-style-badge">${horse.runningStyle}</span></td>
+                <td>第${horse.gateNumber}檔</td>
+                <td class="paddock-cell">${horse.paddockObservation}</td>
+            </tr>
+        `).join('');
 
-            // 填充馬報數據
-            const horses = raceScheduler.getOrGenerateHorses(trackId);
-            this.renderRacingFormTable(horses);
-        } else {
-            // 未購買：隱藏表格
-            this.dom.racingFormTableContainer.style.display = 'none';
-        }
+        this.dom.racingFormModal.classList.add('show');
     }
 
     renderRacingFormTable(horses) {

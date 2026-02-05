@@ -128,34 +128,44 @@
             position: fixed;
             bottom: var(--space-8);
             right: var(--space-8);
-            text-align: right;
             z-index: 10;
             text-decoration: none;
-            color: inherit;
-            background: var(--surface);
-            border: 3px solid var(--border-color);
-            box-shadow: 6px 6px 0 var(--shadow-color);
-            padding: var(--space-4);
-            transition: all 200ms ease;
-            max-width: 200px;
+            transition: transform 200ms ease;
+            /* Removed box styles */
+            background: transparent;
+            border: none;
+            box-shadow: none;
+            padding: 0;
         }
 
         .hub-corner:hover {
-            transform: translate(-3px, -3px);
-            box-shadow: 9px 9px 0 var(--shadow-color);
-            border-color: var(--accent);
+            transform: scale(1.1);
         }
 
-        .hub-corner h3 {
-            font-size: var(--text-lg);
-            margin-bottom: var(--space-1);
-            color: var(--text);
+        .arcade-icon {
+            width: 180px;
+            height: auto;
+            display: block;
+            filter: drop-shadow(4px 4px 0 var(--shadow-color));
+            margin-bottom: -15px;
+            /* Pull text closer */
         }
 
-        .hub-corner p {
-            font-size: var(--text-xs);
-            margin-bottom: 0;
-            opacity: 0.7;
+        .arcade-text {
+            font-size: 2rem;
+            font-weight: 900;
+            color: var(--primary);
+            text-align: center;
+            text-transform: uppercase;
+            text-shadow:
+                2px 2px 0 #fff,
+                4px 4px 0 var(--shadow-color);
+            transform: rotate(-3deg);
+            background: var(--surface);
+            padding: 5px 15px;
+            border: 3px solid var(--border-color);
+            display: inline-block;
+            margin-left: 20px;
         }
 
         .game-tag {
@@ -213,9 +223,8 @@
 
         <!-- Hub Corner (Bottom Right) -->
         <a href="hub.html" class="hub-corner">
-            <span class="game-tag">🕹️ MINI GAMES</span>
-            <h3>進入小遊戲區</h3>
-            <p>挑戰反應極限</p>
+            <img src="assets/Arcade.webp" alt="進入小遊戲區" class="arcade-icon">
+            <div class="arcade-text">小遊戲區</div>
         </a>
 
 
