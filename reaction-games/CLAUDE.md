@@ -105,139 +105,108 @@ Test at breakpoints:
 - Desktop: 1024px
 - Large: 1440px
 
-## File Structure
+## Project Structure & File Metadata
 
-```
+### English Version: Detailed File Tree
+
+```text
 reaction-games/
-├── CLAUDE.md
-├── .gitignore
-├── .claude/
-│   ├── package-manager.json
-│   └── skills/
-│       └── ui-ux-pro-max/
-├── design-system/
-│   └── MASTER.md
-├── index.html              # Homepage - game selection
+├── index.html              # Entry point: Main landing page for game selection
+├── hub.html                # Game hub screen for navigating between mini-games
+├── .gitignore              # Git exclusion rules
+├── CLAUDE.md               # Project guide, architecture, and file documentation
 ├── css/
-│   └── style.css           # Global styles
-└── games/
-    └── reaction-test/
-        ├── index.html
-        ├── game.js
-        └── style.css
+│   └── style.css           # Global typography, layout, and theme styles
+├── js/
+│   └── hub.js              # Logic for handling hub navigation and animations
+├── games/
+│   ├── reaction-test/      # Classic Red Light, Green Light game
+│   │   ├── index.html      # Reaction test UI
+│   │   ├── game.js         # Core reaction logic and timing
+│   │   └── style.css       # Game-specific styling (Neubrutalism)
+│   └── horse-racing/       # Modular Horse Racing Simulator
+│       ├── index.html      # Main horse racing game UI
+│       ├── game.js         # Main controller: Modal management & screen switching
+│       ├── style.css       # Core game layout and primary Neubrutalism styles
+│       ├── race-scheduler.js # Real-time state machine for betting/racing cycles
+│       ├── betting-machine.js # Logic for issuing tickets and calculating dynamic odds
+│       ├── redemption-machine.js # Validates race results and handles balance payouts
+│       ├── shop-manager.js # Manages purchasing and persistence of Racing Forms
+│       ├── racetracks.js   # Static data for different track surfaces/lengths
+│       ├── data-generator.js # Utilities for generating realistic horse/jockey names
+│       ├── ticket-styles.css # Specialized CSS for the betting ticket rendering
+│       ├── machine-styles.css # UI styles for betting and redemption machines
+│       ├── track-selection-styles.css # Layout for the venue selection screen
+│       └── race-engine/    # Core Physics & Simulation Engine
+│           ├── README.md   # Documentation for the physical simulation logic
+│           ├── RaceEngineAdapter.js # Renderer: Transforms physics to Canvas visuals
+│           ├── RaceSimulator.js # Physics world manager and high-frequency updater
+│           ├── ai/
+│           │   └── JockeyAI.js  # Intelligent behavior: Lane choosing & stamina
+│           └── core/
+│               ├── FrenetCoordinates.js # Math: Track-relative (s, d) system
+│               ├── PhysicsEngine.js # Base movement: Velocity & acceleration
+│               └── SteeringBehaviors.js # Natural movement: Avoidance & seeking
 ```
 
-## Design System Integration
+---
 
-This project uses UI UX Pro Max skill for design intelligence.
+### 中文版本：詳細資料夾與檔案說明
 
-To search for design recommendations:
-```bash
-python .claude/skills/ui-ux-pro-max/scripts/search.py "query" --domain <domain>
+```text
+reaction-games/ (專案根目錄)
+├── index.html              # 入口網頁：遊戲選擇的主登陸頁面
+├── hub.html                # 遊戲大廳頁面：切換不同小遊戲的中繼站
+├── .gitignore              # Git 排除規則
+├── CLAUDE.md               # 專案指引、架構說明與檔案用途文檔
+├── css/
+│   └── style.css           # 全域樣式：字體、基本佈局與佈景主題
+├── js/
+│   └── hub.js              # 大廳邏輯：處理導航與過渡動畫
+├── games/ (遊戲套件目錄)
+│   ├── reaction-test/      # 經典紅綠燈反應測試遊戲
+│   │   ├── index.html      # 反應測試介面
+│   │   ├── game.js         # 核心邏輯：計時與判定
+│   │   └── style.css       # 遊戲專屬樣式 (新布魯托風格)
+│   └── horse-racing/       # 模組化賽馬模擬遊戲
+│       ├── index.html      # 賽馬遊戲主介面
+│       ├── game.js         # 主控制器：負責 UI 彈窗管理與畫面切換
+│       ├── style.css       # 核心遊戲佈局與基礎新布魯托風格樣式
+│       ├── race-scheduler.js # 排程引擎：管理投注/比賽週期的狀態機
+│       ├── betting-machine.js # 投注裝置：開出注單與計算動態賠率
+│       ├── redemption-machine.js # 兌獎裝置：比對賽果並發放獎金
+│       ├── shop-manager.js # 商店管理：負責馬報等道具的購買與持久化
+│       ├── racetracks.js   # 賽道數據：定義不同場地的地面材質與長度
+│       ├── data-generator.js # 資料生成：產生真實感的馬匹與騎師名稱
+│       ├── ticket-styles.css # 注單專用樣式表
+│       ├── machine-styles.css # 投注機與兌獎機的 UI 樣式
+│       ├── track-selection-styles.css # 場地選擇畫面的佈局樣式
+│       └── race-engine/    # 核心物理與模擬引擎 (獨立組件)
+│           ├── README.md   # 物理模擬邏輯的技術開發文檔
+│           ├── RaceEngineAdapter.js # 渲染適配器：將物理數據繪製到 Canvas
+│           ├── RaceSimulator.js # 物理世界模擬器：負責高頻更新與距離追蹤
+│           ├── ai/
+│           │   └── JockeyAI.js  # 智能行為：跑道選擇、體力分配策略
+│           └── core/
+│               ├── FrenetCoordinates.js # 數學核心：Frenet (s, d) 賽道座標系統
+│               ├── PhysicsEngine.js # 基礎物理：處理速度與加速度公式
+│               └── SteeringBehaviors.js # 舵向行為：實現自然避障與追蹤
 ```
 
-Design system is persisted in `design-system/MASTER.md`.
-
-## Game Development Guidelines
+## Development & Testing Guidelines
 
 ### Adding a New Game
-
 1. Create folder: `games/<game-name>/`
 2. Create files: `index.html`, `game.js`, `style.css`
 3. Follow Neubrutalism design system
 4. Update homepage to link new game
-5. Test across all breakpoints
 
-### Game State Management
-
-Use localStorage for:
-- High scores
-- Game history
-- User preferences
-
-```javascript
-// Save
-localStorage.setItem('reactionTimes', JSON.stringify(times));
-
-// Load
-const times = JSON.parse(localStorage.getItem('reactionTimes') || '[]');
-```
-
-### Performance
-
-- Keep JavaScript vanilla (no frameworks)
-- Minimize reflows/repaints
-- Use CSS transforms for animations
-- Optimize event listeners
-
-## Common Patterns
-
-### Button Style
-
-```html
-<button class="btn-primary">Click Me</button>
-```
-
-```css
-.btn-primary {
-  background: var(--accent);
-  color: white;
-  border: 3px solid #000;
-  box-shadow: 4px 4px 0 #000;
-  padding: 1rem 2rem;
-  font-family: var(--font-display);
-  font-weight: 700;
-  cursor: pointer;
-  transition: transform 150ms ease;
-}
-
-.btn-primary:hover {
-  transform: translate(2px, 2px);
-  box-shadow: 2px 2px 0 #000;
-}
-
-.btn-primary:active {
-  transform: translate(4px, 4px);
-  box-shadow: 0 0 0 #000;
-}
-```
-
-### Card Component
-
-```html
-<div class="card">
-  <h2>Title</h2>
-  <p>Content</p>
-</div>
-```
-
-```css
-.card {
-  background: white;
-  border: 3px solid #000;
-  box-shadow: 8px 8px 0 #000;
-  padding: 2rem;
-}
-```
-
-## Git Workflow
-
+### Git Workflow
 - Conventional commits: `feat:`, `fix:`, `style:`, `docs:`
-- Never commit to main directly (if using git)
 - Test before committing
 
-## Testing
-
-Manual testing checklist:
-- [ ] Visual style matches Neubrutalism
-- [ ] All borders are 3px solid black
-- [ ] Shadows are hard (no blur)
-- [ ] No gradients used
-- [ ] Typography is bold and clear
-- [ ] Responsive at all breakpoints
-- [ ] Interactive elements have cursor-pointer
-- [ ] Hover states work smoothly
-- [ ] Game logic works correctly
-- [ ] localStorage persists data
-- [ ] Accessibility: keyboard navigation works
-- [ ] Accessibility: contrast ratio ≥ 4.5:1
+### Testing Checklist
+- [ ] Visual style matches Neubrutalism (3px borders, hard shadows)
+- [ ] Responsive at all breakpoints (375px to 1440px)
+- [ ] Game logic and localStorage persistence work correctly
+- [ ] Accessibility: Keyboard navigation & Contrast ratio ≥ 4.5:1

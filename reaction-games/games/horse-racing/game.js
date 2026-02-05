@@ -666,8 +666,30 @@ class HorseRacingGame {
         if (status.phase === 'RACING') {
             this.startRaceViewing(trackId);
         } else {
-            document.getElementById('race-waiting').style.display = 'block';
-            document.getElementById('race-canvas').style.display = 'none';
+            // 🎯 在準備/投注階段也開啟 Canvas 預覽
+            document.getElementById('race-waiting').style.display = 'none';
+            document.getElementById('race-canvas').style.display = 'block';
+            this.startRacePreparation(trackId, status.timeRemaining);
+        }
+    }
+
+    /**
+     * 🎯 啟動比賽準備畫面
+     */
+    startRacePreparation(trackId, timeRemaining) {
+        const canvas = document.getElementById('race-canvas');
+        const horses = raceScheduler.getOrGenerateHorses(trackId);
+        const track = raceScheduler.getTrackData(trackId);
+
+        if (!this.raceEngine || this.raceEngine.isPreparing === false) {
+            if (this.raceEngine) this.raceEngine.stopRace();
+            this.raceEngine = new RaceEngineAdapter(canvas, horses, track);
+            this.raceEngine.startPreparation(horses, track);
+        }
+
+        // 更新倒數文字
+        if (this.raceEngine) {
+            this.raceEngine.countdownText = this.formatTime(timeRemaining);
         }
     }
 
@@ -679,12 +701,14 @@ class HorseRacingGame {
         document.getElementById('race-waiting').style.display = 'none';
         canvas.style.display = 'block';
 
-        if (this.raceEngine) {
-            this.raceEngine.stopRace();
+        // 如果引擎已經在準備狀態，直接啟動即可
+        if (this.raceEngine && this.raceEngine.isPreparing) {
+            this.raceEngine.startRace(horses, track);
+        } else {
+            if (this.raceEngine) this.raceEngine.stopRace();
+            this.raceEngine = new RaceEngineAdapter(canvas, horses, track);
+            this.raceEngine.startRace(horses, track);
         }
-
-        this.raceEngine = new RaceEngine(canvas, horses, track);
-        this.raceEngine.startRace();
     }
 
     // ====================================
@@ -788,8 +812,14 @@ class HorseRacingGame {
                 document.getElementById('race-modal-timer').textContent = this.formatTime(status.timeRemaining);
                 document.getElementById('race-modal-status').textContent = status.message;
 
-                if (status.phase === 'RACING' && !this.raceEngine) {
-                    this.startRaceViewing(this.selectedTrackId);
+                if (status.phase === 'RACING') {
+                    // 如果尚未啟動或還在準備模式，則切換為正式比賽
+                    if (!this.raceEngine || this.raceEngine.isPreparing) {
+                        this.startRaceViewing(this.selectedTrackId);
+                    }
+                } else {
+                    // 在準備/投注階段，更新中央大型倒數
+                    this.startRacePreparation(this.selectedTrackId, status.timeRemaining);
                 }
             }
         }, 1000);
