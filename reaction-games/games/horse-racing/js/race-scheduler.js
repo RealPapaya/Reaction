@@ -101,7 +101,7 @@ class RaceScheduler {
             return {
                 phase: 'POST_RACE',
                 timeRemaining: Math.floor((postRaceEndTime - now) / 1000),
-                message: '正在審議賽果...',
+                message: '正在審議比賽結果...',
                 raceNumber: trackSchedule.raceNumber,
                 raceSeed: trackSchedule.raceSeed
             };

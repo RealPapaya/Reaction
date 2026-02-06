@@ -341,49 +341,83 @@ class RaceEngineAdapter {
     drawTrackBase(trackPath) {
         if (!trackPath || trackPath.length === 0) return;
 
-        // 🎯 1:1 同步：白邊跑道底層 (Rails/Border)
-        // 增加寬度以產生 "白邊" 效果 (比上方土色跑道寬)
-        this.ctx.strokeStyle = '#ffffff';
-        this.ctx.lineWidth = 100 * this.currentScale; // 擴大範圍以覆蓋外側跑道
-        this.ctx.lineCap = 'round';
-        this.ctx.lineJoin = 'round';
-        this.ctx.beginPath();
-        trackPath.forEach((p, i) => {
-            const pos = this.physicsToCanvas(p.x, p.y);
-            // 像素取整，減少模糊
-            if (i === 0) this.ctx.moveTo(Math.round(pos.x), Math.round(pos.y));
-            else this.ctx.lineTo(Math.round(pos.x), Math.round(pos.y));
-        });
-        this.ctx.closePath();
-        this.ctx.stroke();
+        // 參數設為與 createStadiumPath 一致
+        const straightLen = 230 * this.PIXELS_PER_METER;
+        const radiusOuter = 100 * this.PIXELS_PER_METER;
 
-        // 內場草地
-        this.ctx.fillStyle = '#7EC850';
+        // 跑道寬度：8條跑道 * 2.1m = 16.8m => 取 17.5m 寬鬆一點
+        const trackWidthM = 17.5;
+        const trackWidthPx = trackWidthM * this.PIXELS_PER_METER;
+        const radiusInner = radiusOuter - trackWidthPx;
+
+        const centerX = this.canvas.width / 2;
+        const centerY = this.canvas.height / 2;
+
+        // 輔助函式：繪製體育場形狀路徑
+        const traceStadium = (r) => {
+            this.ctx.beginPath();
+            // 上直線 (左到右) 
+            this.ctx.moveTo(centerX - straightLen / 2, centerY - r);
+            this.ctx.lineTo(centerX + straightLen / 2, centerY - r);
+            // 右彎
+            this.ctx.arc(centerX + straightLen / 2, centerY, r, -Math.PI / 2, Math.PI / 2);
+            // 下直線 (右到左)
+            this.ctx.lineTo(centerX - straightLen / 2, centerY + r);
+            // 左彎
+            this.ctx.arc(centerX - straightLen / 2, centerY, r, Math.PI / 2, Math.PI * 1.5);
+            this.ctx.closePath();
+        };
+
+        // 1. 繪製最底層：全場白邊 (Outer Border)
+        // 用稍大一點的半徑畫白底
+        this.ctx.fillStyle = '#ffffff';
+        traceStadium(radiusOuter + 4 * this.currentScale);
         this.ctx.fill();
 
-        // 外圍土色（裝飾感）
-        // 增加寬度以覆蓋所有跑道 (Lanes 1-8 分布在 d=2.1 ~ 16.8)
-        // 寬度 90px -> 半徑 45px -> 約 22公尺，足以覆蓋 16.8m
-        this.ctx.strokeStyle = '#925826'; // 對比度稍微調高
-        this.ctx.lineWidth = 92 * this.currentScale;
-        this.ctx.stroke();
+        // 2. 繪製咖啡色跑道 (Outer Radius)
+        this.ctx.fillStyle = '#925826';
+        traceStadium(radiusOuter);
+        this.ctx.fill();
 
-        // 內圈白線 (視覺輔助)
-        this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-        this.ctx.lineWidth = 2 * this.currentScale;
-        this.ctx.stroke();
-
-        // 起點線
+        // 3. 繪製起點線 (Start Line)
+        // 使用物理座標轉換確保位置精確，但方向要正確 (向內延伸)
         const startPos = this.physicsToCanvas(trackPath[0].x, trackPath[0].y);
-        this.ctx.fillStyle = '#ffffff';
-        // 起點線尺寸
-        const startLineWidth = 4 * this.currentScale;
-        const startLineHeight = 90 * this.currentScale;
-        this.ctx.fillRect(startPos.x - (startLineWidth / 2), startPos.y - (startLineHeight / 2), startLineWidth, startLineHeight);
 
-        // 🎯 1:1 同步：跑道間隔線 (Lane lines)
+        this.ctx.fillStyle = '#ffffff';
+        const startLineWidth = 4 * this.currentScale;
+        // 向內延伸，剛好填滿跑道寬度
+        const startLineHeight = trackWidthPx;
+
+        // 畫矩形：X置中，Y從外緣 (startPos.y) 向下 (正向) 延伸
+        // 注意：這裡 startPos.y 是上直線的外緣 (y = -cornerRadius)
+        // 向下延伸 (y增加) 是正確的方向 (向內)
+        this.ctx.fillRect(
+            startPos.x - (startLineWidth / 2),
+            startPos.y,
+            startLineWidth,
+            startLineHeight
+        );
+
+        // 4. 繪製內場草地 (Inner Radius) - 這會遮住內側的咖啡色和起點線多餘部分 (如果有)
+        this.ctx.fillStyle = '#7EC850';
+        traceStadium(radiusInner);
+        this.ctx.fill();
+
+        // 5. 繪製內外圍欄線 (Rails)
+        this.ctx.lineWidth = 2 * this.currentScale;
+        this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+
+        // 內圈
+        traceStadium(radiusInner);
+        this.ctx.stroke();
+
+        // 外圈
+        traceStadium(radiusOuter);
+        this.ctx.stroke();
+
+        // 6. 跑道間隔線 (Lane Lines)
         this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-        this.ctx.lineWidth = Math.max(1, 1 * this.currentScale); // 最小 1px
+        this.ctx.lineWidth = Math.max(1, 1 * this.currentScale);
         for (let lane = 1; lane < 8; lane++) {
             const laneD = lane * 2.1;
             this.ctx.beginPath();
@@ -394,7 +428,6 @@ class RaceEngineAdapter {
                 if (i === 0) this.ctx.moveTo(Math.round(pos.x), Math.round(pos.y));
                 else this.ctx.lineTo(Math.round(pos.x), Math.round(pos.y));
             });
-            this.ctx.closePath();
             this.ctx.stroke();
         }
     }
