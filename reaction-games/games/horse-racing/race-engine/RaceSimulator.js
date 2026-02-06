@@ -294,7 +294,11 @@ class RaceSimulator {
     }
 
     getCurrentLeaderboard() {
-        const sorted = [...this.horses].sort((a, b) => b.s - a.s);
+        // Fix: Sort by finish order for finished horses, then by distance for racing horses
+        const finished = this.finishOrder;
+        const racing = this.horses.filter(h => !h.finished).sort((a, b) => b.s - a.s);
+        const sorted = [...finished, ...racing];
+
         return sorted.map((horse, index) => ({
             position: index + 1,
             horse: horse,

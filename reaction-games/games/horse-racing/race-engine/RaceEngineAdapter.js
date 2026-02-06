@@ -470,8 +470,16 @@ class RaceEngineAdapter {
         // B. Draw Static Rank Numbers
         for (let i = 0; i < leaderboard.length; i++) {
             const itemY = y + padding + i * rowHeight;
+            const rank = i + 1;
+
+            // Medal Colors logic
+            let rankColor = '#000000'; // Default black
+            if (rank === 1) rankColor = '#FFD700'; // Gold
+            else if (rank === 2) rankColor = '#C0C0C0'; // Silver
+            else if (rank === 3) rankColor = '#CD7F32'; // Bronze
+
             this.ctx.font = `bold ${12 * this.currentScale}px "Segoe UI", Arial`;
-            this.ctx.fillStyle = '#000000'; // Static numbers are black
+            this.ctx.fillStyle = rankColor;
             this.ctx.fillText(`${i + 1}.`, x + 12 * this.currentScale, itemY + rowHeight / 2);
         }
 
