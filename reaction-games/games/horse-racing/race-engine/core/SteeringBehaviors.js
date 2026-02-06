@@ -1,14 +1,14 @@
-// ====================================
-// Steering Behaviors (V2 - 超車優先)
-// 策略：降低內欄吸引，增強超車意願
+﻿// ====================================
+// Steering Behaviors (V2 - 內側偏好)
+// 策略：提高內欄吸引，超車仍保留
 // ====================================
 
 class SteeringBehavior {
     constructor(settings = {}) {
-        this.RAIL_ATTRACTION = settings.railAttraction || 0.1;  // **降低**：0.2 -> 0.1
+        this.RAIL_ATTRACTION = settings.railAttraction || 0.3;   // **提高**：內欄吸引
         this.AVOIDANCE_FORCE = settings.avoidanceForce || 0.5;   // **降低**：0.65 -> 0.5
         this.SEPARATION_FORCE = settings.separationForce || 0.8; // **增強**：0.6 -> 0.8
-        this.OVERTAKE_FORCE = settings.overtakeForce || 2.5;     // **大幅增強**：1.5 -> 2.5
+        this.OVERTAKE_FORCE = settings.overtakeForce || 2.0;     // **收斂**：避免過度外移
         this.SAFE_DISTANCE = settings.safeDistance || 2.5;
         this.SENSOR_RANGE = settings.sensorRange || 12.0;        // **增加**：10.0 -> 12.0
         this.SPEED_DIFF_THRESHOLD = settings.speedDiffThreshold || 0.8; // **降低**：1.5 -> 0.8
@@ -16,19 +16,19 @@ class SteeringBehavior {
 
     compute(horse, allHorses, trackWidth) {
         const seekForce = this.seekInnerRail(horse, trackWidth);
-        const avoidForce = this.avoidObstacle(horse, allHorses);
+        const avoidForce = this.avoidObstacle(horse, allHorses, trackWidth);
         const separateForce = this.separateWithPhysics(horse, allHorses);
-        const overtakeForce = this.overtakeSlowerHorse(horse, allHorses);
+        const overtakeForce = this.overtakeSlowerHorse(horse, allHorses, trackWidth);
 
-        // **關鍵修正**：超車時幾乎忽略其他力
+        // **內側偏好**：超車時仍保留部分內欄吸引
         let railWeight = this.RAIL_ATTRACTION;
         let avoidWeight = this.AVOIDANCE_FORCE;
         let separateWeight = this.SEPARATION_FORCE;
 
         if (horse.isOvertaking) {
-            railWeight *= 0.05;  // **極低**：內欄吸引降低 95%
-            avoidWeight *= 0.3;  // 避障力降低 70%
-            separateWeight *= 0.5; // 分離力降低 50%
+            railWeight *= 0.5;     // 仍保留內欄吸引
+            avoidWeight *= 0.6;    // 避障力降低
+            separateWeight *= 0.7; // 分離力降低
         }
 
         const totalForce =
@@ -41,18 +41,18 @@ class SteeringBehavior {
     }
 
     seekInnerRail(horse, trackWidth) {
-        // **降低內欄吸引力**
+        // **內欄吸引**
         const idealD = horse.preferredD || 1.0;
-        const error = -(idealD - horse.d);
+        const error = idealD - horse.d;
 
         // 只有偏離很遠時才施力
         if (Math.abs(horse.d - idealD) > 1.0) {
-            return error * 0.3;
+            return error * 0.45;
         }
-        return error * 0.1;
+        return error * 0.2;
     }
 
-    avoidObstacle(horse, allHorses) {
+    avoidObstacle(horse, allHorses, trackWidth) {
         const sensors = this.castSensors(horse, allHorses);
 
         if (sensors.front.hit) {
@@ -70,7 +70,12 @@ class SteeringBehavior {
                 } else if (!leftClear && rightClear) {
                     return +avoidStrength * 1.2;
                 } else if (leftClear && rightClear) {
-                    return +avoidStrength;
+                    if (typeof trackWidth === 'number' && horse.d <= 0.8) {
+                        return +Math.abs(avoidStrength);
+                    }
+
+                    const targetD = horse.preferredD ?? 1.0;
+                    return (horse.d < targetD) ? +avoidStrength : 0;
                 } else {
                     horse.isBoxedIn = true;
                     if (horse.speed > sensors.front.horse.speed) {
@@ -156,7 +161,7 @@ class SteeringBehavior {
     // **超車邏輯（增強版）**
     // ====================================
 
-    overtakeSlowerHorse(horse, allHorses) {
+    overtakeSlowerHorse(horse, allHorses, trackWidth) {
         const frontHorses = this.getHorsesInFront(horse, allHorses, 10.0); // **增加範圍**：8.0 -> 10.0
 
         if (frontHorses.length === 0) {
@@ -192,25 +197,34 @@ class SteeringBehavior {
 
         // **更激進的判斷**：降低閾值，增加距離範圍
         if (speedDiff > this.SPEED_DIFF_THRESHOLD && minDistance < 8.0) { // 6.0 -> 8.0
+            const preferredD = horse.preferredD ?? 1.0;
+            const safeDistance = 2.5;
+            const canRightBoundary = (typeof trackWidth === 'number')
+                ? (horse.d + safeDistance <= trackWidth - 0.8)
+                : true;
+            const canLeftBoundary = horse.d - safeDistance >= 0.8;
 
-            // **優先檢查外側**
-            const hasRightSpace = this.checkSpaceOnRight(horse, allHorses, 2.5); // **放寬**：3.0 -> 2.5
+            const canRight = this.checkSpaceOnRight(horse, allHorses, safeDistance) && canRightBoundary;
+            const canLeft = this.checkSpaceOnLeft(horse, allHorses, safeDistance) && canLeftBoundary && horse.d > 1.5;
 
-            if (hasRightSpace) {
-                const urgency = Math.min(speedDiff / 2.0, 1.5); // **增強**：/3.0 -> /2.0, 1.0 -> 1.5
-                const overtakeStrength = 3.5 * urgency; // **大幅增強**：2.5 -> 3.5
+            const directionOrder = horse.d > preferredD
+                ? ['left', 'right']
+                : (horse.d < preferredD ? ['right', 'left'] : ['left', 'right']);
 
-                horse.isOvertaking = true;
-                horse.overtakeTarget = closestFront.id;
+            for (const dir of directionOrder) {
+                if (dir === 'right' && canRight) {
+                    const urgency = Math.min(speedDiff / 2.0, 1.5);
+                    const overtakeStrength = 3.5 * urgency;
 
-                return overtakeStrength;
-            } else {
-                // 外側沒空間，檢查內側
-                const hasLeftSpace = this.checkSpaceOnLeft(horse, allHorses, 2.5);
+                    horse.isOvertaking = true;
+                    horse.overtakeTarget = closestFront.id;
 
-                if (hasLeftSpace && horse.d > 1.5) { // **放寬**：2.0 -> 1.5
+                    return overtakeStrength;
+                }
+
+                if (dir === 'left' && canLeft) {
                     const urgency = Math.min(speedDiff / 2.0, 1.0);
-                    const overtakeStrength = 1.5 * urgency; // **增強**：0.8 -> 1.5
+                    const overtakeStrength = 1.5 * urgency;
 
                     horse.isOvertaking = true;
                     horse.overtakeTarget = closestFront.id;
@@ -230,9 +244,10 @@ class SteeringBehavior {
                     horse.isOvertaking = false;
                     horse.overtakeTarget = null;
                 } else {
-                    // 持續施加超車力
-                    const currentDirection = (horse.d > target.d) ? 1 : -1;
-                    return currentDirection * 1.5; // 持續向外
+                    // 持續施加超車力（朝向偏好內側）
+                    const preferredD = horse.preferredD ?? 1.0;
+                    const currentDirection = (horse.d < preferredD) ? 1 : (horse.d > preferredD ? -1 : 0);
+                    return currentDirection * 1.0;
                 }
             } else {
                 // 目標消失，結束超車

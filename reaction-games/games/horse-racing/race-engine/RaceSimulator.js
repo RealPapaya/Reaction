@@ -1,4 +1,4 @@
-// ====================================
+﻿// ====================================
 // Race Simulator (V6 - 終極平滑版)
 // 關鍵修正：
 // 1. 完全移除碰撞位置修正（只用速度）
@@ -37,7 +37,7 @@ class RaceSimulator {
             horse.d = laneSpacing * (i + 0.5);
             horse.speed = 0;
 
-            const baseFactor = 4 + (horse.competitiveFactor * 0.1);
+            const baseFactor = 5.2 + (horse.competitiveFactor * 0.1);
             horse.baseSpeed = baseFactor * (0.97 + Math.random() * 0.06);
 
             horse.startDelay = Math.random() * 0.3;
@@ -53,15 +53,33 @@ class RaceSimulator {
 
             horse.bodyRadius = 1.0;
 
-            if (horse.runningStyle === '逃') {
-                horse.preferredD = 0.6 + Math.random() * 0.8;
-            } else if (horse.runningStyle === '前') {
-                horse.preferredD = 1.2 + Math.random() * 1.2;
-            } else if (horse.runningStyle === '追' || horse.runningStyle === '殿') {
-                horse.preferredD = 2.0 + Math.random() * 2.0;
+            const distributionRoll = Math.random();
+            const randomInRange = (min, max) => {
+                const hi = Math.max(min, max);
+                return min + Math.random() * (hi - min);
+            };
+
+            let preferredD = 1.0;
+            if (distributionRoll < 0.7) {
+                preferredD = randomInRange(
+                    Math.max(0.6, trackWidth - 2.0),
+                    Math.max(0.6, trackWidth - 0.6)
+                );
+            } else if (distributionRoll < 0.9) {
+                preferredD = randomInRange(
+                    Math.max(0.6, trackWidth - 4.0),
+                    Math.max(0.6, trackWidth - 2.0)
+                );
             } else {
-                horse.preferredD = 1.0 + Math.random() * 2.5;
+                preferredD = randomInRange(
+                    Math.max(0.6, trackWidth - 6.0),
+                    Math.max(0.6, trackWidth - 4.0)
+                );
             }
+
+            const minPreferredD = 0.6;
+            const maxPreferredD = Math.max(minPreferredD, trackWidth - 0.6);
+            horse.preferredD = Math.max(minPreferredD, Math.min(preferredD, maxPreferredD));
 
             horse.mass = 440 + Math.random() * 60;
 

@@ -407,6 +407,14 @@ class RaceEngineAdapter {
         const leaderboard = this.getLeaderboard();
         if (!leaderboard || leaderboard.length === 0) return;
 
+        // Init visual ranks map if needed
+        if (!this.visualRanks) {
+            this.visualRanks = new Map();
+            leaderboard.forEach((entry, index) => {
+                this.visualRanks.set(entry.horseId, index);
+            });
+        }
+
         // 固定顏色映射 (需與 drawHorses 一致)
         const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E2'];
 
@@ -448,15 +456,56 @@ class RaceEngineAdapter {
         this.ctx.textAlign = 'left';
         this.ctx.textBaseline = 'middle';
 
+        // Update Visual Ranks & Render Mobile Rows
+        // Logic:
+        // 1. Draw static Rank Numbers (1, 2, 3...) at fixed slots.
+        // 2. Draw Horse Rows at interpolated Y positions.
+
+        // A. Create map of Target Ranks
+        const targetRankMap = new Map();
         leaderboard.forEach((entry, index) => {
-            const itemY = y + padding + index * rowHeight;
+            targetRankMap.set(entry.horseId, index);
+        });
 
-            // 1. 名次 (黑色文字)
-            this.ctx.font = `bold ${12 * this.currentScale}px "Segoe UI", Arial`; // 加粗
-            this.ctx.fillStyle = '#000000';
-            this.ctx.fillText(`${index + 1}.`, x + 12 * this.currentScale, itemY + rowHeight / 2);
+        // B. Draw Static Rank Numbers
+        for (let i = 0; i < leaderboard.length; i++) {
+            const itemY = y + padding + i * rowHeight;
+            this.ctx.font = `bold ${12 * this.currentScale}px "Segoe UI", Arial`;
+            this.ctx.fillStyle = '#000000'; // Static numbers are black
+            this.ctx.fillText(`${i + 1}.`, x + 12 * this.currentScale, itemY + rowHeight / 2);
+        }
 
-            // 2. 馬號色塊 (保持顏色，增加細黑邊)
+        // C. Update & Draw Dynamic Horse Rows
+        // Iterate through all horses in the leaderboard data (which contains all horses)
+        // But the order of iteration doesn't matter for logic, but might matter for Z-order overlap.
+        // It's better to iterate by visual rank to keep z-order ?? No.
+        // Just iterate the data array.
+
+        leaderboard.forEach(entry => {
+            const horseId = entry.horseId;
+            const targetRank = targetRankMap.get(horseId);
+            let visualRank = this.visualRanks.get(horseId);
+
+            if (typeof visualRank !== 'number') {
+                visualRank = targetRank;
+                this.visualRanks.set(horseId, visualRank);
+            }
+
+            // Lerp (Smoothing)
+            // Adjust speed here. 0.1 is standard smooth. 0.2 is faster.
+            const diff = targetRank - visualRank;
+            if (Math.abs(diff) > 0.01) {
+                visualRank += diff * 0.15;
+            } else {
+                visualRank = targetRank;
+            }
+            this.visualRanks.set(horseId, visualRank);
+
+            // Calculate Y based on visual rank
+            const itemY = y + padding + visualRank * rowHeight;
+
+            // Draw Horse Info Row
+            // 馬號色塊 (保持顏色，增加細黑邊)
             const colorIdx = (entry.horseId - 1) % colors.length;
             const color = colors[colorIdx];
 
@@ -464,6 +513,7 @@ class RaceEngineAdapter {
             const boxSize = 16 * this.currentScale; // 稍微大一點
             // 調整 X 位置
             const boxX = x + 35 * this.currentScale;
+            // Center box vertically in the calculated row
             const boxY = itemY + (rowHeight - boxSize) / 2;
 
             this.ctx.fillRect(boxX, boxY, boxSize, boxSize);
@@ -473,11 +523,8 @@ class RaceEngineAdapter {
             this.ctx.lineWidth = 1.5 * this.currentScale;
             this.ctx.strokeRect(boxX, boxY, boxSize, boxSize);
 
-            // 馬號 (白色或黑色？淺色底配黑色，深色底配白色。這裡色塊通常是亮色，用黑色或白色皆可，白色比較明顯)
+            // 馬號 (文字)
             this.ctx.fillStyle = '#FFFFFF';
-            // 如果顏色太亮，改用黑色？暫時統一用白色加個黑邊？或者直接白色
-            // 為了風格，用黑色字可能更有型，但白色對比度對深色塊較好。
-            // 讓字體加個黑邊效果
             this.ctx.font = `bold ${11 * this.currentScale}px Arial`;
             this.ctx.textAlign = 'center';
             this.ctx.lineWidth = 2 * this.currentScale;
@@ -485,11 +532,10 @@ class RaceEngineAdapter {
             this.ctx.fillStyle = '#FFFFFF';
             this.ctx.fillText(entry.horseId, boxX + boxSize / 2, boxY + boxSize / 2 + 1);
 
-            // 3. 馬名 (黑色文字，加粗)
+            // 馬名 (文字)
             this.ctx.textAlign = 'left';
             this.ctx.font = `bold ${12 * this.currentScale}px "Segoe UI", Arial`;
             this.ctx.fillStyle = '#000000';
-
             this.ctx.fillText(entry.horseName, boxX + boxSize + 10 * this.currentScale, itemY + rowHeight / 2);
         });
 
