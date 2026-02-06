@@ -76,6 +76,20 @@ class PhysicsEngine {
     }
 
     applyStrategySpeed(horse, raceProgress) {
+        // ** Deterministic Mode Protection **
+        // If rank is assigned, DO NOT let strategy override the strict speed hierarchy.
+        if (horse.visualRank !== undefined) {
+            // For Rank 1 (Winner), purely consistent speed.
+            if (horse.visualRank === 1) return;
+
+            // For others, add very minor noise just for visual variety, 
+            // but NOT enough to overcome the 0.15 speed gap.
+            // Max variance +/- 0.05
+            const noise = Math.sin(this.raceTime * 3 + horse.id) * 0.05;
+            horse.speed += noise * 0.01;
+            return;
+        }
+
         const baseSpeed = horse.baseSpeed || 16;
 
         // 簡化策略
