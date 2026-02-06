@@ -267,8 +267,9 @@
 
         let animationId = null;
 
-        // ====================================
-        // 渲染
+        /// ====================================
+        // HTML 渲染修正 - 完整代碼片段
+        // 替換 test-simulator.html 中的 render() 函數
         // ====================================
 
         function render() {
@@ -296,12 +297,12 @@
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(startPos.x - 2, startPos.y - 100, 4, 200);
 
-            // 繪製跑道分隔線（8條跑道）
+            // 繪製跑道分隔線
             ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
             ctx.lineWidth = 1;
-            const trackWidth = 18; // 物理寬度 18 米
+            const trackWidth = 18;
             for (let lane = 1; lane < 8; lane++) {
-                const laneD = lane * 2.0; // 每條跑道間隔 2 米
+                const laneD = lane * 2.0;
                 ctx.beginPath();
                 trackPath.forEach((point, i) => {
                     const worldPos = simulator.frenet.frenetToWorld(
@@ -318,22 +319,43 @@
                 ctx.stroke();
             }
 
-            // 繪製馬匹（使用 Z-ordering）
-            const horsePositions = simulator.getHorseWorldPositions();
-            horsePositions.sort((a, b) => a.worldY - b.worldY);
-
+            // ====================================
+            // ✅ 關鍵修正：固定顏色映射
+            // ====================================
             const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E2'];
 
-            horsePositions.forEach((horse, index) => {
-                // 轉換為畫布座標
+            const colorMap = {};
+            simulator.horses.forEach((horse, i) => {
+                colorMap[horse.id] = colors[i];
+            });
+
+            // ====================================
+            // ✅ 關鍵修正：穩定排序
+            // ====================================
+            const horsePositions = simulator.getHorseWorldPositions();
+
+            // 使用 s 座標排序（沿賽道距離），更穩定
+            horsePositions.sort((a, b) => {
+                const sDiff = a.s - b.s;
+                if (Math.abs(sDiff) > 0.5) {
+                    return sDiff;
+                }
+                // s 相近時，按 d 排序
+                return a.d - b.d;
+            });
+
+            // ====================================
+            // 繪製馬匹
+            // ====================================
+            horsePositions.forEach((horse) => {
                 const canvasPos = physicsToCanvas(horse.worldX, horse.worldY);
 
                 ctx.save();
                 ctx.translate(canvasPos.x, canvasPos.y);
                 ctx.rotate(horse.heading);
 
-                // 馬匹矩形（正確比例）
-                ctx.fillStyle = colors[index];
+                // ✅ 使用固定顏色映射
+                ctx.fillStyle = colorMap[horse.id];
                 ctx.fillRect(
                     -HORSE_VISUAL_LENGTH / 2,
                     -HORSE_VISUAL_WIDTH / 2,
@@ -368,48 +390,10 @@
 
                 ctx.restore();
 
-                // 拉線號碼標示（像賽馬轉播）
-                const leaderboard = simulator.getCurrentLeaderboard();
-                const position = leaderboard.findIndex(item => item.horse.id === horse.id) + 1;
-
-                // **關鍵修正**：標籤放在操場內側，不擋到賽道
-                // 1. 計算賽道中心點（物理座標 0,0）
-                const centerCanvas = physicsToCanvas(0, 0);
-
-                // 2. 計算馬匹到中心的方向向量
-                const toCenterX = centerCanvas.x - canvasPos.x;
-                const toCenterY = centerCanvas.y - canvasPos.y;
-                const distToCenter = Math.sqrt(toCenterX * toCenterX + toCenterY * toCenterY);
-
-                // 3. 標籤位置：在馬匹與中心之間，距離馬匹 100px
-                const labelDistance = Math.min(100, distToCenter * 0.5); // **拉長** 60->100px
-                const labelX = canvasPos.x + (toCenterX / distToCenter) * labelDistance;
-                const labelY = canvasPos.y + (toCenterY / distToCenter) * labelDistance;
-
-                // 拉線
-                ctx.strokeStyle = colors[index];
-                ctx.lineWidth = 1.5;
-                ctx.beginPath();
-                ctx.moveTo(canvasPos.x, canvasPos.y);
-                ctx.lineTo(labelX, labelY);
-                ctx.stroke();
-
-                // 標籤背景
-                const labelText = `${position}. #${horse.id} ${horse.name}`;
-                ctx.font = 'bold 11px Arial';
-                const textWidth = ctx.measureText(labelText).width;
-                ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-                ctx.fillRect(labelX - textWidth / 2 - 4, labelY - 8, textWidth + 8, 16);
-
-                // 標籤文字
-                ctx.fillStyle = '#fff';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(labelText, labelX, labelY);
-
-                // 軌跡（物理座標轉畫布座標）
+                // 軌跡（可選）
                 if (horse.positionHistory && horse.positionHistory.length > 2) {
-                    ctx.strokeStyle = colors[index].replace(')', ', 0.3)').replace('rgb', 'rgba');
+                    const baseColor = colorMap[horse.id];
+                    ctx.strokeStyle = baseColor.replace(')', ', 0.3)').replace('rgb', 'rgba');
                     ctx.lineWidth = 1;
                     ctx.beginPath();
                     horse.positionHistory.forEach((pos, i) => {
@@ -425,6 +409,27 @@
                 }
             });
         }
+
+        // ====================================
+        // 除錯輸出（可選）
+        // ====================================
+        function debugPhysics() {
+            console.log('=== Physics Debug ===');
+            simulator.horses.forEach(horse => {
+                const cornerR = simulator.frenet.getCornerRadiusAt(horse.s);
+                console.log(`Horse ${horse.id}:`, {
+                    s: horse.s.toFixed(1),
+                    d: horse.d.toFixed(2),
+                    lateralSpeed: (horse.lateralSpeed || 0).toFixed(3),
+                    cornerRadius: cornerRadius === Infinity ? '∞' : cornerR.toFixed(1),
+                    lastCornerRadius: horse.lastCornerRadius === Infinity ? '∞' :
+                        (horse.lastCornerRadius || 0).toFixed(1)
+                });
+            });
+        }
+
+        // 在 gameLoop() 中每 60 幀調用一次
+        // if (frameCount % 60 === 0) debugPhysics();
 
         function updateUI() {
             // 更新排行榜

@@ -69,7 +69,7 @@ class PhysicsEngine {
     }
 
     // ====================================
-    // **關鍵修正：平滑曲率變化**
+    // **關鍵修正：平滑曲率變化 + 離心力衰減**
     // ====================================
     applyCentrifugalForceSmooth(horse, frenetCoord, deltaTime) {
         const cornerRadius = frenetCoord.getCornerRadiusAt(horse.s);
@@ -79,30 +79,30 @@ class PhysicsEngine {
             horse.lastCornerRadius = cornerRadius;
         }
 
-        // **限制曲率變化率** (每幀最多變化 15%)
+        // **平滑曲率過渡**（關鍵修正）
+        const SMOOTH_FACTOR = 0.1; // 每幀只改變 10%
         let smoothRadius;
-        if (cornerRadius === Infinity || horse.lastCornerRadius === Infinity) {
-            // 直線 <-> 彎道的過渡
-            if (cornerRadius === Infinity && horse.lastCornerRadius !== Infinity) {
-                // 離開彎道：逐漸過渡
-                smoothRadius = horse.lastCornerRadius * 1.15;
-                if (smoothRadius > 500) smoothRadius = Infinity;
-            } else if (cornerRadius !== Infinity && horse.lastCornerRadius === Infinity) {
-                // 進入彎道：從大半徑開始
-                smoothRadius = Math.max(cornerRadius * 1.5, 200);
-            } else {
-                // 都是直線
+
+        if (cornerRadius === Infinity) {
+            // 目標是直線
+            if (horse.lastCornerRadius === Infinity) {
                 smoothRadius = Infinity;
+            } else {
+                // 離開彎道：逐漸增大半徑直到無限
+                smoothRadius = horse.lastCornerRadius * (1 + SMOOTH_FACTOR * 2);
+                if (smoothRadius > 1000) {
+                    smoothRadius = Infinity;
+                }
             }
         } else {
-            // 彎道內：限制變化率
-            const maxChange = horse.lastCornerRadius * 0.15;
-            const radiusDiff = cornerRadius - horse.lastCornerRadius;
-
-            if (Math.abs(radiusDiff) > maxChange) {
-                smoothRadius = horse.lastCornerRadius + Math.sign(radiusDiff) * maxChange;
+            // 目標是彎道
+            if (horse.lastCornerRadius === Infinity) {
+                // 進入彎道：從大半徑開始
+                smoothRadius = Math.max(cornerRadius * 3, 300);
             } else {
-                smoothRadius = cornerRadius;
+                // 彎道內：平滑過渡
+                const diff = cornerRadius - horse.lastCornerRadius;
+                smoothRadius = horse.lastCornerRadius + diff * SMOOTH_FACTOR;
             }
         }
 
@@ -111,21 +111,28 @@ class PhysicsEngine {
 
         // **計算離心力**
         if (smoothRadius < Infinity) {
+            // 在彎道中
             const centrifugal = (horse.speed * horse.speed) / smoothRadius;
-            const centrifugalForce = centrifugal * this.CENTRIFUGAL_STRENGTH;
+            const targetLateralSpeed = centrifugal * this.CENTRIFUGAL_STRENGTH * 4;
 
-            // **降低離心力係數**: 10 -> 4
+            // **平滑過渡到目標橫向速度**（而非累積）
             if (!horse.lateralSpeed) horse.lateralSpeed = 0;
-            horse.lateralSpeed += centrifugalForce * deltaTime * 4;
+
+            const lateralDiff = targetLateralSpeed - horse.lateralSpeed;
+            horse.lateralSpeed += lateralDiff * 0.3; // 30% 混合
 
             // 限制橫向速度
             horse.lateralSpeed = Math.min(horse.lateralSpeed, this.MAX_LATERAL_SPEED);
 
-            // 彎道減速 (**降低強度**: 0.97 -> 0.98)
+            // 彎道減速
             if (horse.speed > this.CORNER_SPEED_LIMIT) {
                 if (!horse.speedDamping) horse.speedDamping = 1.0;
                 horse.speedDamping *= 0.98;
             }
+        } else {
+            // **離開彎道：快速衰減橫向速度**（關鍵修正）
+            if (!horse.lateralSpeed) horse.lateralSpeed = 0;
+            horse.lateralSpeed *= 0.85; // 每幀衰減 15%
         }
     }
 

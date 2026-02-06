@@ -184,22 +184,17 @@ class FrenetCoordinate {
     }
 
     // ====================================
-    // 彎道計算
+    // 彎道計算（優化版 - 平滑插值）
     // ====================================
 
     getCornerRadiusAt(s) {
-        // 計算該位置的曲率半徑
-        // 如果是直線，返回 Infinity
-        // 如果是彎道，返回半徑值
-
         const segment = this.findSegment(s);
         if (!segment) return Infinity;
 
-        // 簡化版本：檢查前後線段的角度變化
         const segmentIndex = this.segments.indexOf(segment);
 
         if (segmentIndex === 0 || segmentIndex === this.segments.length - 1) {
-            return Infinity; // 起點和終點視為直線
+            return Infinity;
         }
 
         const prevSegment = this.segments[segmentIndex - 1];
@@ -212,17 +207,30 @@ class FrenetCoordinate {
 
         const deltaAngle = Math.abs(angle3 - angle1);
 
-        if (deltaAngle < 0.05) {
-            // 接近直線（角度變化小於3度）
+        // **提高閾值**：減少直線/彎道的頻繁切換
+        if (deltaAngle < 0.1) { // 從 0.05 增加到 0.1（約 5.7 度）
             return Infinity;
         }
 
         // 簡化的曲率半徑估算
-        // 實際應該用三點計算圓的半徑，這裡用角度變化近似
         const avgSegmentLength = (prevSegment.length + segment.length + nextSegment.length) / 3;
-        const radius = avgSegmentLength / deltaAngle;
+        let radius = avgSegmentLength / deltaAngle;
 
-        return Math.max(20, radius); // 最小半徑20米
+        // **插值平滑**：在線段內根據位置插值
+        const segmentProgress = (s - segment.startDistance) / segment.length;
+
+        // 線段開始和結束處使用更大的半徑（更平滑的過渡）
+        if (segmentProgress < 0.2) {
+            // 進入彎道：從大半徑過渡
+            const t = segmentProgress / 0.2; // 0-1
+            radius = radius + (radius * 2) * (1 - t);
+        } else if (segmentProgress > 0.8) {
+            // 離開彎道：過渡到大半徑
+            const t = (segmentProgress - 0.8) / 0.2; // 0-1
+            radius = radius + (radius * 2) * t;
+        }
+
+        return Math.max(20, radius);
     }
 
     getActualDistance(s1, s2, d) {
