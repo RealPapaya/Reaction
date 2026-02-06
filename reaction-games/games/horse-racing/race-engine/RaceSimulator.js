@@ -37,43 +37,10 @@ class RaceSimulator {
             horse.d = laneSpacing * (i + 0.5);
             horse.speed = 0;
 
-            if (horse.visualRank !== undefined) {
-                // ** Deterministic Mode (Strict Ranking) **
-                // Enforce hierarchy: Rank 1 is fastest, Rank 8 is slowest.
-                // 6.0 is very fast. 0.15 gap is significant.
-                // Rank 1: 6.00
-                // Rank 2: 5.85
-                // ...
-                // Rank 8: 4.95
-                horse.baseSpeed = 6.0 - ((horse.visualRank - 1) * 0.15);
+            const baseFactor = 5.2 + (horse.competitiveFactor * 0.1);
+            horse.baseSpeed = baseFactor * (0.97 + Math.random() * 0.06);
 
-                // Rank 1 gets perfect start. Others stick to incident logic.
-                if (horse.visualRank === 1) {
-                    horse.startDelay = 0;
-                } else {
-                    if (horse.incidents && horse.incidents.slowStart) {
-                        horse.startDelay = 1.0 + Math.random() * 0.5;
-                    } else {
-                        horse.startDelay = Math.random() * 0.1;
-                    }
-                }
-            } else if (horse.finalPerformance !== undefined) {
-                // Semi-Deterministic Fallback (Performance based)
-                horse.baseSpeed = 5.0 + (horse.finalPerformance * 2.5);
-
-                horse.startDelay = 0;
-                if (horse.incidents && horse.incidents.slowStart) {
-                    horse.startDelay = 1.0 + Math.random() * 0.5;
-                } else {
-                    horse.startDelay = Math.random() * 0.1;
-                }
-
-            } else {
-                // Legacy / Fallback Random Mode
-                const baseFactor = 5.2 + (horse.competitiveFactor * 0.1);
-                horse.baseSpeed = baseFactor * (0.97 + Math.random() * 0.06);
-                horse.startDelay = Math.random() * 0.3;
-            }
+            horse.startDelay = Math.random() * 0.3;
             horse.hasStarted = false;
 
             horse.anxiety = 0;

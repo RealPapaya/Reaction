@@ -820,41 +820,14 @@ class RaceEngineAdapter {
     }
 
     convertHorsesToSimulatorFormat(gameHorses) {
-        // 1. Calculate deterministic results first (if seed exists)
-        const performanceMap = new Map();
-        if (gameHorses.raceSeed && window.raceResultGenerator) {
-            // Use the generator to get the exact same physics parameters used for betting results
-            const results = raceResultGenerator.generateResults(gameHorses, gameHorses.raceSeed);
-
-            // ** CRITICAL FIX: Sort results to assign visual rank **
-            results.sort((a, b) => b.finalPerformance - a.finalPerformance);
-
-            results.forEach((res, index) => {
-                // Assign rank 1-8 based on sorted performance
-                res.horse.visualRank = index + 1;
-                performanceMap.set(res.horse.id, res.horse);
-            });
-        }
-
         return gameHorses.map(horse => {
             const form = horse.form || 50;
-            const perfData = performanceMap.get(horse.id);
-
             return {
                 id: horse.id,
                 name: horse.name,
-                competitiveFactor: form, // This is actually 'form' property which might be legacy?
-                // Wait, in game.js logic, horse object HAS competitiveFactor property?
-                // Let's check originalData instead.
-
-                // Keep existing fields
+                competitiveFactor: form,
                 runningStyle: horse.runningStyle || this.inferRunningStyle(form),
-                originalData: horse,
-
-                // Inject deterministic data
-                finalPerformance: perfData ? perfData.finalPerformance : undefined,
-                incidents: perfData ? perfData.incidents : undefined,
-                visualRank: perfData ? perfData.visualRank : undefined
+                originalData: horse
             };
         });
     }
