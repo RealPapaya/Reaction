@@ -29,15 +29,38 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 12px;
-    padding-bottom: 10px;
-    border-bottom: 2px solid var(--border-color);
+    padding: 10px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    border-radius: 4px;
+    /* Slight roundness for hover state */
+}
+
+.history-record-header:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+    /* Light hover effect */
 }
 
 .history-record-header h4 {
     margin: 0;
     font-size: 1.2rem;
     color: var(--primary-color);
+    display: flex;
+    align-items: center;
+}
+
+/* Toggle Arrow */
+.history-record-header h4::before {
+    content: '▶';
+    display: inline-block;
+    font-size: 0.8rem;
+    margin-right: 8px;
+    transition: transform 0.2s;
+    color: var(--text-muted);
+}
+
+.history-record-header.expanded h4::before {
+    transform: rotate(90deg);
 }
 
 .history-record-time {
@@ -46,9 +69,17 @@
 }
 
 .history-record-results {
-    display: flex;
+    display: none;
+    /* Hidden by default */
     flex-direction: column;
     gap: 8px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 2px solid var(--border-color);
+}
+
+.history-record-results.show {
+    display: flex;
 }
 
 .result-row {

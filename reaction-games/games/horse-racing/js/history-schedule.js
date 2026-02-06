@@ -14,7 +14,7 @@ HorseRacingGame.prototype.showTrackHistory = function (trackId) {
     if (history.length === 0) {
         historyContainer.innerHTML = '<p class="no-history">暫無歷史紀錄</p>';
     } else {
-        historyContainer.innerHTML = history.map(record => {
+        historyContainer.innerHTML = history.map((record, index) => {
             const date = new Date(record.timestamp);
             const dateStr = date.toLocaleString('zh-TW', {
                 month: '2-digit',
@@ -24,8 +24,8 @@ HorseRacingGame.prototype.showTrackHistory = function (trackId) {
             });
 
             const medals = ['🥇', '🥈', '🥉'];
-            const resultsHTML = record.results.map((r, index) => {
-                const medal = index < 3 ? medals[index] : '';
+            const resultsHTML = record.results.map((r, i) => {
+                const medal = i < 3 ? medals[i] : '';
                 return `
                     <div class="result-row">
                         <span class="result-rank">${medal} ${r.position}.</span>
@@ -35,13 +35,18 @@ HorseRacingGame.prototype.showTrackHistory = function (trackId) {
                 `;
             }).join('');
 
+            // 第一筆資料預設展開
+            const isFirst = index === 0;
+            const headerClass = isFirst ? 'history-record-header expanded' : 'history-record-header';
+            const resultsClass = isFirst ? 'history-record-results show' : 'history-record-results';
+
             return `
                 <div class="history-record-card">
-                    <div class="history-record-header">
+                    <div class="${headerClass}" onclick="this.classList.toggle('expanded'); this.nextElementSibling.classList.toggle('show');">
                         <h4>第 ${record.raceNumber} 場</h4>
                         <span class="history-record-time">${dateStr}</span>
                     </div>
-                    <div class="history-record-results">
+                    <div class="${resultsClass}">
                         ${resultsHTML}
                     </div>
                 </div>

@@ -227,30 +227,76 @@ class RaceScheduler {
 
     getTrackHistory(trackId, limit = 10) {
         const history = [];
+        const trackSchedule = this.schedule.find(s => s.trackId === trackId);
+        if (!trackSchedule) return [];
 
-        // 從 raceHistory 中篩選該賽道的紀錄
-        for (const key in this.raceHistory) {
-            if (key.startsWith(`${trackId}_`)) {
-                const raceNumber = parseInt(key.split('_')[1]);
-                const results = this.raceHistory[key];
+        let currentRaceNum = trackSchedule.raceNumber;
 
-                // 取得該場比賽的馬匹資料（含賠率）
-                // 注意：這裡我們需要從某處取得賠率，但 raceHistory 沒有儲存賠率
-                // 暫時先不顯示賠率，或者之後補充
+        // Look back 'limit' races
+        for (let i = 1; i <= limit; i++) {
+            const lookBackRaceNum = currentRaceNum - i;
+            if (lookBackRaceNum < 1) break;
 
+            const key = `${trackId}_${lookBackRaceNum}`;
+            let results = this.raceHistory[key];
+
+            // If missing, auto-generate (backfill)
+            if (!results) {
+                // Warning: This implies we are generating history for a race the user NEVER saw.
+                // But it's better than showing nothing.
+                // Only generate if we have the tools available (global scope check)
+                if (typeof generateHorses === 'function' && typeof raceResultGenerator !== 'undefined') {
+                    // console.log(`📜 自動補齊歷史紀錄：${trackId} 第 ${lookBackRaceNum} 場`);
+                    results = this.generatePastRaceResults(trackId, lookBackRaceNum);
+                    this.raceHistory[key] = results;
+                    this.saveRaceHistory();
+                }
+            }
+
+            if (results) {
                 history.push({
-                    raceNumber: raceNumber,
+                    raceNumber: lookBackRaceNum,
                     results: results,
-                    // 計算比賽時間（根據 raceInterval）
-                    timestamp: this.estimateRaceTime(trackId, raceNumber)
+                    timestamp: this.estimateRaceTime(trackId, lookBackRaceNum)
                 });
             }
         }
 
-        // 按場次降序排序（最新的在前）
-        history.sort((a, b) => b.raceNumber - a.raceNumber);
+        return history;
+    }
 
-        return history.slice(0, limit);
+    generatePastRaceResults(trackId, raceNumber) {
+        // 1. Get seed
+        const raceSeed = this.generateRaceSeed(trackId, raceNumber);
+
+        // 2. Generate horses
+        const horses = generateHorses();
+
+        // 3. Assign gates and conditions
+        const gates = [1, 2, 3, 4, 5, 6, 7, 8];
+        const shuffleSeed = this.hashString(raceSeed + '_gates');
+        for (let i = gates.length - 1; i > 0; i--) {
+            const j = Math.floor((Math.sin(shuffleSeed + i) * 10000) % (i + 1));
+            [gates[i], gates[Math.abs(j)]] = [gates[Math.abs(j)], gates[i]];
+        }
+        horses.forEach((horse, index) => {
+            horse.gateNumber = gates[index];
+            const seedValue = this.hashString(raceSeed + horse.id);
+            horse.todayCondition = horse.generateTodayCondition(seedValue);
+        });
+
+        // 4. Generate results
+        const rawResults = raceResultGenerator.generateResults(horses, raceSeed);
+
+        // 5. Format results
+        return rawResults.map(r => ({
+            position: r.position,
+            horse: {
+                id: r.horse.id,
+                name: r.horse.name
+            },
+            finishTime: parseFloat(r.time)
+        }));
     }
 
     getTrackSchedule(trackId, futureRaces = 5) {
