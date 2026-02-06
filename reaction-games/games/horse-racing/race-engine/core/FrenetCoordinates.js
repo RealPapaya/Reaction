@@ -11,7 +11,6 @@ class FrenetCoordinate {
         this.path = this.resamplePath(trackPath, 0.5);
         this.pathLength = this.calculatePathLength();
         this.segments = this.buildSegments();
-        this.isClosedPath = this.checkClosedPath();
     }
 
     calculatePathLength() {
@@ -80,6 +79,7 @@ class FrenetCoordinate {
         const centerY = segment.startPoint.y +
             (segment.endPoint.y - segment.startPoint.y) * segmentProgress;
 
+        // 計算法線方向
         const centerNormal = {
             x: -Math.sin(segment.heading),
             y: Math.cos(segment.heading)
@@ -89,111 +89,45 @@ class FrenetCoordinate {
         const worldX = centerX + centerNormal.x * d;
         const worldY = centerY + centerNormal.y * d;
 
+        // ====================================
+        // **關鍵：計算實際位置的切線方向**
+        // 使用數值微分：看前後一小段距離的方向
+        // ====================================
+
+        const delta = 0.5; // 前後 0.5 米
+
+        // 前一點
+        const s1 = Math.max(0, s - delta);
+        const seg1 = this.findSegment(s1);
+        const prog1 = (s1 - seg1.startDistance) / seg1.length;
+        const c1x = seg1.startPoint.x + (seg1.endPoint.x - seg1.startPoint.x) * prog1;
+        const c1y = seg1.startPoint.y + (seg1.endPoint.y - seg1.startPoint.y) * prog1;
+        const n1x = -Math.sin(seg1.heading);
+        const n1y = Math.cos(seg1.heading);
+        const p1x = c1x + n1x * d;
+        const p1y = c1y + n1y * d;
+
+        // 後一點
+        const s2 = Math.min(this.pathLength, s + delta);
+        const seg2 = this.findSegment(s2);
+        const prog2 = (s2 - seg2.startDistance) / seg2.length;
+        const c2x = seg2.startPoint.x + (seg2.endPoint.x - seg2.startPoint.x) * prog2;
+        const c2y = seg2.startPoint.y + (seg2.endPoint.y - seg2.startPoint.y) * prog2;
+        const n2x = -Math.sin(seg2.heading);
+        const n2y = Math.cos(seg2.heading);
+        const p2x = c2x + n2x * d;
+        const p2y = c2y + n2y * d;
+
+        // 計算實際切線方向
+        const dx = p2x - p1x;
+        const dy = p2y - p1y;
+        const actualHeading = Math.atan2(dy, dx);
+
         return {
             x: worldX,
             y: worldY,
-            heading: smoothHeading
+            heading: actualHeading
         };
-    }
-
-    resamplePath(path, spacing) {
-        if (!path || path.length < 2 || spacing <= 0) return path || [];
-
-        const resampled = [path[0]];
-        const eps = 1e-6;
-
-        for (let i = 1; i < path.length; i++) {
-            const p1 = path[i - 1];
-            const p2 = path[i];
-            const dx = p2.x - p1.x;
-            const dy = p2.y - p1.y;
-            const segLen = Math.sqrt(dx * dx + dy * dy);
-
-            if (segLen < eps) {
-                continue;
-            }
-
-            const steps = Math.max(1, Math.ceil(segLen / spacing));
-            for (let s = 1; s <= steps; s++) {
-                const t = s / steps;
-                const x = p1.x + dx * t;
-                const y = p1.y + dy * t;
-                const last = resampled[resampled.length - 1];
-                const ddx = x - last.x;
-                const ddy = y - last.y;
-                if ((ddx * ddx + ddy * ddy) > eps * eps) {
-                    resampled.push({ x, y });
-                }
-            }
-        }
-
-        return resampled;
-    }
-
-    checkClosedPath() {
-        if (!this.path || this.path.length < 2) return false;
-        const first = this.path[0];
-        const last = this.path[this.path.length - 1];
-        const dx = first.x - last.x;
-        const dy = first.y - last.y;
-        return (dx * dx + dy * dy) < 1e-6;
-    }
-
-    getSmoothHeading(segment, segmentProgress) {
-        if (!segment) return 0;
-
-        const segmentIndex = segment.index;
-        const lastIndex = this.segments.length - 1;
-
-        const hasPrev = segmentIndex > 0 || this.isClosedPath;
-        const hasNext = segmentIndex < lastIndex || this.isClosedPath;
-
-        if (!hasPrev && !hasNext) return segment.heading;
-
-        const prevIndex = segmentIndex > 0 ? segmentIndex - 1 : lastIndex;
-        const nextIndex = segmentIndex < lastIndex ? segmentIndex + 1 : 0;
-
-        const prevSegment = hasPrev ? this.segments[prevIndex] : null;
-        const nextSegment = hasNext ? this.segments[nextIndex] : null;
-
-        // Blend heading across segment boundaries to avoid visual jitter.
-        const blendWidth = 0.5;
-        const distToStart = segmentProgress;
-        const distToEnd = 1.0 - segmentProgress;
-
-        let prevWeight = (hasPrev && distToStart < blendWidth)
-            ? (blendWidth - distToStart) / blendWidth
-            : 0;
-
-        let nextWeight = (hasNext && distToEnd < blendWidth)
-            ? (blendWidth - distToEnd) / blendWidth
-            : 0;
-
-        let currentWeight = Math.max(0, 1 - prevWeight - nextWeight);
-        const totalWeight = prevWeight + currentWeight + nextWeight;
-
-        if (totalWeight > 0) {
-            prevWeight /= totalWeight;
-            currentWeight /= totalWeight;
-            nextWeight /= totalWeight;
-        }
-
-        const h0 = prevSegment ? prevSegment.heading : segment.heading;
-        const h1 = segment.heading;
-        const h2 = nextSegment ? nextSegment.heading : segment.heading;
-
-        const diff1 = this.normalizeAngle(h1 - h0);
-        const diff2 = this.normalizeAngle(h2 - h1);
-
-        const normalizedH0 = h0;
-        const normalizedH1 = h0 + diff1;
-        const normalizedH2 = normalizedH1 + diff2;
-
-        const smoothHeading = normalizedH0 * prevWeight +
-            normalizedH1 * currentWeight +
-            normalizedH2 * nextWeight;
-
-        return this.normalizeAngle(smoothHeading);
     }
 
     normalizeAngle(angle) {
