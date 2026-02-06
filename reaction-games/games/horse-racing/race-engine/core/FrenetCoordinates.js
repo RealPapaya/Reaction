@@ -1,6 +1,9 @@
 // ====================================
-// Frenet Coordinate System (V5 - 修正視覺跳變)
-// 關鍵修正：線段邊界平滑插值
+// Frenet Coordinate System (V7 - 徹底修正半徑跳動)
+// 關鍵修正：
+// 1. 移除錯誤的半徑平滑邏輯
+// 2. 使用移動平均計算半徑
+// 3. 在 PhysicsEngine 中平滑，不在這裡
 // ====================================
 
 class FrenetCoordinate {
@@ -44,7 +47,7 @@ class FrenetCoordinate {
                     x: -Math.sin(heading),
                     y: Math.cos(heading)
                 },
-                index: i - 1 // **新增：線段索引**
+                index: i - 1
             });
 
             accumulatedDistance += length;
@@ -54,7 +57,7 @@ class FrenetCoordinate {
     }
 
     // ====================================
-    // **關鍵修正：平滑的座標轉換**
+    // 座標轉換（保持平滑插值）
     // ====================================
     frenetToWorld(s, d) {
         s = Math.max(0, Math.min(s, this.pathLength));
@@ -65,40 +68,34 @@ class FrenetCoordinate {
             return { x: last.x, y: last.y, heading: 0 };
         }
 
-        // 計算在線段內的進度
         const segmentProgress = (s - segment.startDistance) / segment.length;
 
-        // **修正 1：線性插值中心點**
+        // 線性插值中心點
         const centerX = segment.startPoint.x +
             (segment.endPoint.x - segment.startPoint.x) * segmentProgress;
         const centerY = segment.startPoint.y +
             (segment.endPoint.y - segment.startPoint.y) * segmentProgress;
 
-        // **修正 2：平滑 heading（在線段邊界處插值）**
+        // 平滑 heading（在線段邊界處插值）
         let smoothHeading = segment.heading;
 
-        // 如果接近線段邊界，與鄰近線段的 heading 插值
         const segmentIndex = segment.index;
 
         if (segmentProgress < 0.15 && segmentIndex > 0) {
-            // 接近起點，與前一個線段插值
             const prevSegment = this.segments[segmentIndex - 1];
-            const t = segmentProgress / 0.15; // 0-1
+            const t = segmentProgress / 0.15;
             smoothHeading = this.interpolateAngle(prevSegment.heading, segment.heading, t);
         } else if (segmentProgress > 0.85 && segmentIndex < this.segments.length - 1) {
-            // 接近終點，與下一個線段插值
             const nextSegment = this.segments[segmentIndex + 1];
-            const t = (segmentProgress - 0.85) / 0.15; // 0-1
+            const t = (segmentProgress - 0.85) / 0.15;
             smoothHeading = this.interpolateAngle(segment.heading, nextSegment.heading, t);
         }
 
-        // **修正 3：使用平滑 heading 計算法向量**
         const smoothNormal = {
             x: -Math.sin(smoothHeading),
             y: Math.cos(smoothHeading)
         };
 
-        // 加上橫向偏移
         const worldX = centerX + smoothNormal.x * d;
         const worldY = centerY + smoothNormal.y * d;
 
@@ -109,14 +106,9 @@ class FrenetCoordinate {
         };
     }
 
-    // ====================================
-    // **新增：角度插值方法**
-    // ====================================
     interpolateAngle(angle1, angle2, t) {
-        // 處理角度環繞（-π 到 π）
         let diff = angle2 - angle1;
 
-        // 選擇最短路徑
         if (diff > Math.PI) {
             diff -= 2 * Math.PI;
         } else if (diff < -Math.PI) {
@@ -125,7 +117,6 @@ class FrenetCoordinate {
 
         let result = angle1 + diff * t;
 
-        // 正規化到 -π 到 π
         while (result > Math.PI) result -= 2 * Math.PI;
         while (result < -Math.PI) result += 2 * Math.PI;
 
@@ -199,6 +190,9 @@ class FrenetCoordinate {
         return this.segments[Math.min(left, this.segments.length - 1)];
     }
 
+    // ====================================
+    // **關鍵修正：移除錯誤的平滑邏輯，使用移動平均**
+    // ====================================
     getCornerRadiusAt(s) {
         const segment = this.findSegment(s);
         if (!segment) return Infinity;
@@ -212,54 +206,87 @@ class FrenetCoordinate {
         const prevSegment = this.segments[segmentIndex - 1];
         const nextSegment = this.segments[segmentIndex + 1];
 
+        // **方法 1：計算當前線段的曲率**
         const angle1 = prevSegment.heading;
         const angle2 = segment.heading;
         const angle3 = nextSegment.heading;
 
-        const deltaAngle = Math.abs(angle3 - angle1);
+        // 正規化角度差
+        let delta1 = this.normalizeAngle(angle2 - angle1);
+        let delta2 = this.normalizeAngle(angle3 - angle2);
 
-        if (deltaAngle < 0.1) {
+        const avgDelta = Math.abs((delta1 + delta2) / 2);
+
+        if (avgDelta < 0.05) { // 接近直線
             return Infinity;
         }
 
         const avgSegmentLength = (prevSegment.length + segment.length + nextSegment.length) / 3;
-        let radius = avgSegmentLength / deltaAngle;
+        let radius = avgSegmentLength / avgDelta;
 
-        const segmentProgress = (s - segment.startDistance) / segment.length;
+        // **方法 2：與前後線段的曲率做移動平均**
+        // 這樣可以避免線段邊界的突變
+        const radiuses = [radius];
 
-        if (segmentProgress < 0.2) {
-            const t = segmentProgress / 0.2;
-            radius = radius + (radius * 2) * (1 - t);
-        } else if (segmentProgress > 0.8) {
-            const t = (segmentProgress - 0.8) / 0.2;
-            radius = radius + (radius * 2) * t;
-        }
+        // 前一個線段的曲率
+        if (segmentIndex > 1) {
+            const prevPrevSeg = this.segments[segmentIndex - 2];
+            const prevDelta1 = this.normalizeAngle(prevSegment.heading - prevPrevSeg.heading);
+            const prevDelta2 = this.normalizeAngle(segment.heading - prevSegment.heading);
+            const prevAvgDelta = Math.abs((prevDelta1 + prevDelta2) / 2);
 
-        return Math.max(20, radius);
-    }
-
-    getActualDistance(s1, s2, d) {
-        const nominalDistance = Math.abs(s2 - s1);
-
-        const samples = 5;
-        let totalRatio = 0;
-
-        for (let i = 0; i < samples; i++) {
-            const t = i / (samples - 1);
-            const sampleS = s1 + (s2 - s1) * t;
-            const cornerRadius = this.getCornerRadiusAt(sampleS);
-
-            if (cornerRadius === Infinity) {
-                totalRatio += 1.0;
-            } else {
-                const actualRadius = cornerRadius + d;
-                const ratio = actualRadius / cornerRadius;
-                totalRatio += ratio;
+            if (prevAvgDelta > 0.05) {
+                const prevRadius = avgSegmentLength / prevAvgDelta;
+                radiuses.push(prevRadius);
             }
         }
 
-        const avgRatio = totalRatio / samples;
-        const clampedRatio = Math.min(avgRatio, 1.5);
+        // 後一個線段的曲率
+        if (segmentIndex < this.segments.length - 2) {
+            const nextNextSeg = this.segments[segmentIndex + 2];
+            const nextDelta1 = this.normalizeAngle(nextSegment.heading - segment.heading);
+            const nextDelta2 = this.normalizeAngle(nextNextSeg.heading - nextSegment.heading);
+            const nextAvgDelta = Math.abs((nextDelta1 + nextDelta2) / 2);
+
+            if (nextAvgDelta > 0.05) {
+                const nextRadius = avgSegmentLength / nextAvgDelta;
+                radiuses.push(nextRadius);
+            }
+        }
+
+        // **移動平均**
+        const avgRadius = radiuses.reduce((a, b) => a + b, 0) / radiuses.length;
+
+        return Math.max(20, Math.min(avgRadius, 500)); // 限制在 20-500m
+    }
+
+    normalizeAngle(angle) {
+        while (angle > Math.PI) angle -= 2 * Math.PI;
+        while (angle < -Math.PI) angle += 2 * Math.PI;
+        return angle;
+    }
+
+    // ====================================
+    // **簡化 getActualDistance**
+    // ====================================
+    getActualDistance(s1, s2, d) {
+        const nominalDistance = Math.abs(s2 - s1);
+
+        // **簡化策略：只在明顯彎道時考慮差異**
+        const midS = (s1 + s2) / 2;
+        const cornerRadius = this.getCornerRadiusAt(midS);
+
+        if (cornerRadius === Infinity || cornerRadius > 300) {
+            // 直線或大彎道
+            return nominalDistance;
+        }
+
+        // 彎道：外側稍微多跑
+        const actualRadius = cornerRadius + d;
+        const ratio = actualRadius / cornerRadius;
+
+        // **限制影響在 ±3% 以內**
+        const clampedRatio = Math.max(0.97, Math.min(1.03, ratio));
 
         return nominalDistance * clampedRatio;
     }

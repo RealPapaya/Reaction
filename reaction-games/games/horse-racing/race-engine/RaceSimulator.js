@@ -1,9 +1,8 @@
 // ====================================
-// Race Simulator (V4 - 修正卡頓 + 增加隨機性)
+// Race Simulator (V6 - 終極平滑版)
 // 關鍵修正：
-// 1. 降低碰撞縱向修正強度
-// 2. 添加初始化隨機性
-// 3. 添加起跑延遲
+// 1. 完全移除碰撞位置修正（只用速度）
+// 2. 優化速度過渡（消除停頓感）
 // ====================================
 
 class RaceSimulator {
@@ -23,26 +22,17 @@ class RaceSimulator {
         this.initializeHorses();
     }
 
-    // ====================================
-    // **修正：增加隨機性**
-    // ====================================
     initializeHorses() {
         for (let i = 0; i < this.horses.length; i++) {
             const horse = this.horses[i];
 
-            // **1. 隨機起始位置** (±0.5米)
             horse.s = -i * 0.5 + (Math.random() - 0.5) * 1.0;
-
-            // **2. 隨機起跑道** (±0.3米)
             horse.d = 1.0 + (i * 2.0) + (Math.random() - 0.5) * 0.6;
-
             horse.speed = 0;
 
-            // **3. baseSpeed 添加隨機波動** (±3%)
             const baseFactor = 8 + (horse.competitiveFactor * 0.1);
             horse.baseSpeed = baseFactor * (0.97 + Math.random() * 0.06);
 
-            // **4. 隨機起跑反應時間** (0-0.3秒)
             horse.startDelay = Math.random() * 0.3;
             horse.hasStarted = false;
 
@@ -56,25 +46,22 @@ class RaceSimulator {
 
             horse.bodyRadius = 1.0;
 
-            // **5. preferredD 添加更多隨機性**
             if (horse.runningStyle === '逃') {
-                horse.preferredD = 0.6 + Math.random() * 0.8; // 0.6-1.4
+                horse.preferredD = 0.6 + Math.random() * 0.8;
             } else if (horse.runningStyle === '前') {
-                horse.preferredD = 1.2 + Math.random() * 1.2; // 1.2-2.4
+                horse.preferredD = 1.2 + Math.random() * 1.2;
             } else if (horse.runningStyle === '追' || horse.runningStyle === '殿') {
-                horse.preferredD = 2.0 + Math.random() * 2.0; // 2.0-4.0
+                horse.preferredD = 2.0 + Math.random() * 2.0;
             } else {
-                horse.preferredD = 1.0 + Math.random() * 2.5; // 1.0-3.5
+                horse.preferredD = 1.0 + Math.random() * 2.5;
             }
 
-            // **6. 隨機質量** (增大範圍)
-            horse.mass = 440 + Math.random() * 60; // 440-500kg
+            horse.mass = 440 + Math.random() * 60;
 
             horse.finished = false;
             horse.finishTime = null;
             horse.positionHistory = [];
 
-            // **7. 清空上一場比賽的狀態**
             horse.lastCornerRadius = undefined;
             horse.stamina = undefined;
         }
@@ -88,7 +75,7 @@ class RaceSimulator {
 
         this.horses.forEach(horse => {
             horse.speed = horse.baseSpeed * 0.8;
-            horse.hasStarted = false; // 重置起跑狀態
+            horse.hasStarted = false;
         });
     }
 
@@ -109,12 +96,11 @@ class RaceSimulator {
         for (const horse of this.horses) {
             if (horse.finished) continue;
 
-            // **起跑延遲處理**
             if (!horse.hasStarted) {
                 if (this.raceTime >= horse.startDelay) {
                     horse.hasStarted = true;
                 } else {
-                    continue; // 還沒起跑,跳過這匹馬
+                    continue;
                 }
             }
 
@@ -156,7 +142,7 @@ class RaceSimulator {
             }
         }
 
-        // **碰撞解決（降低強度）**
+        // **碰撞解決（V6 - 純速度版）**
         this.resolveCollisions();
 
         if (this.finishOrder.length === this.horses.length) {
@@ -175,7 +161,7 @@ class RaceSimulator {
     }
 
     // ====================================
-    // **碰撞解決（V4 - 降低強度）**
+    // **碰撞解決（V6 - 純速度調整，零位置修正）**
     // ====================================
 
     resolveCollisions() {
@@ -185,7 +171,7 @@ class RaceSimulator {
                 const horseB = this.horses[j];
 
                 if (horseA.finished || horseB.finished) continue;
-                if (!horseA.hasStarted || !horseB.hasStarted) continue; // 還沒起跑的不碰撞
+                if (!horseA.hasStarted || !horseB.hasStarted) continue;
 
                 const deltaS = horseB.s - horseA.s;
                 const deltaD = horseB.d - horseA.d;
@@ -199,91 +185,49 @@ class RaceSimulator {
                     const pushDirD = deltaD / distance;
                     const pushDirS = deltaS / distance;
 
-                    const massA = horseA.mass || 500;
-                    const massB = horseB.mass || 500;
-                    const totalMass = massA + massB;
-                    const ratioA = massB / totalMass;
-                    const ratioB = massA / totalMass;
-
                     const isDirectCollision = Math.abs(deltaD) < 1.5;
 
-                    // **新增：彎道檢測**
-                    const cornerRadiusA = this.frenet.getCornerRadiusAt(horseA.s);
-                    const cornerRadiusB = this.frenet.getCornerRadiusAt(horseB.s);
-                    const inCorner = (cornerRadiusA < Infinity) || (cornerRadiusB < Infinity);
-
-                    // **彎道修正係數**：彎道中減半所有碰撞修正
-                    const cornerFactor = inCorner ? 0.5 : 1.0;
+                    // **關鍵修正：完全移除位置修正，只用速度**
 
                     if (isDirectCollision) {
-                        // **同跑道碰撞：降低縱向修正**
+                        // **同跑道碰撞：純速度調整**
 
-                        // **1. 縱向位置修正** - 應用彎道係數
-                        const longitudinalCorrection = 0.25 * cornerFactor;
-                        horseA.s -= pushDirS * overlap * ratioA * longitudinalCorrection;
-                        horseB.s += pushDirS * overlap * ratioB * longitudinalCorrection;
-
-                        // **2. 橫向位置修正** - 應用彎道係數
-                        const lateralCorrection = 0.15 * cornerFactor;
-                        horseA.d -= pushDirD * overlap * ratioA * lateralCorrection;
-                        horseB.d += pushDirD * overlap * ratioB * lateralCorrection;
-
-                        // **3. 速度調整** - 應用彎道係數
-                        const speedCorrection = 0.20 * cornerFactor;
+                        // 後方馬減速（更溫和）
+                        const speedReduction = 0.08; // **降低** 0.20 -> 0.08
 
                         if (deltaS > 0) {
-                            // B 在 A 後方，B 強制減速
+                            // B 在 A 後方
                             if (!horseB.speedDamping) horseB.speedDamping = 1.0;
-                            horseB.speedDamping *= (1.0 - speedCorrection);
-
-                            // 重疊嚴重時立即減速（彎道中更輕微）
-                            if (overlap > minDistance * 0.5) {
-                                horseB.speed *= (0.97 + (1 - cornerFactor) * 0.02);
-                            }
+                            horseB.speedDamping *= (1.0 - speedReduction);
                         } else {
-                            // A 在 B 後方，A 強制減速
+                            // A 在 B 後方
                             if (!horseA.speedDamping) horseA.speedDamping = 1.0;
-                            horseA.speedDamping *= (1.0 - speedCorrection);
-
-                            if (overlap > minDistance * 0.5) {
-                                horseA.speed *= (0.97 + (1 - cornerFactor) * 0.02);
-                            }
+                            horseA.speedDamping *= (1.0 - speedReduction);
                         }
 
-                        // **4. 橫向速度推開** - 應用彎道係數
-                        const lateralPush = overlap * 0.2 * cornerFactor;
+                        // **橫向速度推開（非常輕微）**
+                        const lateralPush = overlap * 0.15; // **降低** 0.2 -> 0.15
                         if (!horseA.lateralSpeed) horseA.lateralSpeed = 0;
                         if (!horseB.lateralSpeed) horseB.lateralSpeed = 0;
 
-                        horseA.lateralSpeed -= pushDirD * lateralPush * ratioA;
-                        horseB.lateralSpeed += pushDirD * lateralPush * ratioB;
+                        horseA.lateralSpeed -= pushDirD * lateralPush;
+                        horseB.lateralSpeed += pushDirD * lateralPush;
 
                     } else {
-                        // **側面碰撞：主要橫向分離** - 應用彎道係數
+                        // **側面碰撞：橫向速度推開**
 
-                        // 橫向位置修正
-                        const lateralCorrection = 0.6 * cornerFactor;
-                        horseA.d -= pushDirD * overlap * ratioA * lateralCorrection;
-                        horseB.d += pushDirD * overlap * ratioB * lateralCorrection;
-
-                        // 縱向位置修正
-                        const longitudinalCorrection = 0.15 * cornerFactor;
-                        horseA.s -= pushDirS * overlap * ratioA * longitudinalCorrection;
-                        horseB.s += pushDirS * overlap * ratioB * longitudinalCorrection;
-
-                        // 橫向速度
-                        const lateralPush = overlap * 0.6 * cornerFactor;
+                        const lateralPush = overlap * 0.4; // **降低** 0.6 -> 0.4
                         if (!horseA.lateralSpeed) horseA.lateralSpeed = 0;
                         if (!horseB.lateralSpeed) horseB.lateralSpeed = 0;
 
-                        horseA.lateralSpeed -= pushDirD * lateralPush * ratioA;
-                        horseB.lateralSpeed += pushDirD * lateralPush * ratioB;
+                        horseA.lateralSpeed -= pushDirD * lateralPush;
+                        horseB.lateralSpeed += pushDirD * lateralPush;
 
                         // 輕微減速
                         if (!horseA.speedDamping) horseA.speedDamping = 1.0;
                         if (!horseB.speedDamping) horseB.speedDamping = 1.0;
-                        horseA.speedDamping *= (0.98 + (1 - cornerFactor) * 0.01);
-                        horseB.speedDamping *= (0.98 + (1 - cornerFactor) * 0.01);
+                        horseA.speedDamping *= 0.98;
+                        horseB.speedDamping *= 0.98;
                     }
 
                     // 限制在賽道範圍內
