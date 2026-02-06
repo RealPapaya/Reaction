@@ -252,8 +252,15 @@
         </div>
     </div>
 
-    <script type="module">
-        import { RaceEngineAdapter } from './RaceEngineAdapter.js';
+    <script src="core/FrenetCoordinates.js"></script>
+    <script src="core/SteeringBehaviors.js"></script>
+    <script src="core/PhysicsEngine.js"></script>
+    <script src="ai/JockeyAI.js"></script>
+    <script src="RaceSimulator.js"></script>
+    <script src="RaceEngineAdapter.js"></script>
+
+    <script>
+        // 不再需要 import，因為 RaceEngineAdapter.js 會將類別註冊到全域或直接可用
 
         // 模擬遊戲資料（來自 racetracks.js）
         const mockTrack = {
