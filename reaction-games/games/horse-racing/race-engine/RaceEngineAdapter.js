@@ -19,7 +19,13 @@ class RaceEngineAdapter {
         // 🎯 基礎參考尺寸 (Response Design Base)
         this.BASE_WIDTH = 1000;
         this.BASE_HEIGHT = 600;
-        this.currentScale = 1.0; // 相對於 BASE_WIDTH 的縮放比例
+        this.currentScale = 1.0;
+
+        // 🎯 賽道參數
+        this.STRAIGHT_LENGTH = 230;
+        this.CORNER_RADIUS = 100;
+        this.FINISH_X = 0;      // 終點：正中間
+        this.START_X = 0;       // 起點：等於終點 (Run 1 full lap)
 
         // 🎯 物理-視覺比例轉換
         // 基礎 PIXELS_PER_METER (對應 1000px 寬度)
@@ -53,25 +59,79 @@ class RaceEngineAdapter {
     // 主要 API
     // ====================================
 
-    startRace(gameHorses, trackData) {
+    startRace(gameHorses, trackData, elapsedTime = 0) {
         if (this.animationId) {
             cancelAnimationFrame(this.animationId);
         }
 
         this.gameHorses = gameHorses;
 
-        // 如果已經在準備模式，複用模擬器
         if (!this.simulator) {
-            const rawPath = this.createStadiumPath();
-            const simulatorHorses = this.convertHorsesToSimulatorFormat(gameHorses);
-            this.simulator = new RaceSimulator(rawPath, simulatorHorses);
-            this.trackPath = rawPath;
+            this.initSimulator(gameHorses, trackData);
         }
+
+        // 確保 Simulator 參數正確
+        this.setupRaceConditions();
 
         this.simulator.startRace();
         this.isRunning = true;
         this.isPreparing = false; // 切換為正式比賽
+
+        // 🎯 支援中途加入 (Fast Forward)
+        if (elapsedTime > 0) {
+            const steps = Math.floor(elapsedTime / (1000 / 60)); // 60 FPS assumption
+            // Limit max fast forward to prevent freeze (e.g. max 5 seconds of sim per frame, or just do it all?)
+            // For 2 minutes race, 7200 frames. Might freeze UI.
+            // But physics is simple. Let's try direct loop up to 2000 steps (approx 33s) per chunk or just run it.
+            // Given JS speed, 6000 steps is fine.
+            console.log(`⏩ Fast-Forwarding Race: ${steps} frames (${elapsedTime}ms)`);
+            for (let i = 0; i < steps; i++) {
+                this.simulator.update();
+                if (this.simulator.isFinished) break;
+            }
+        }
+
         this.animate();
+    }
+
+    initSimulator(gameHorses, trackData) {
+        const rawPath = this.createStadiumPath();
+        const simulatorHorses = this.convertHorsesToSimulatorFormat(gameHorses);
+        this.simulator = new RaceSimulator(rawPath, simulatorHorses);
+        this.trackPath = rawPath;
+    }
+
+    setupRaceConditions() {
+        if (!this.simulator) return;
+
+        // 計算 Start/Finish 的 S 座標
+        // 假設上直線從 x = -STRAIGHT_LENGTH/2 開始，方向向右
+        const startPathOffset = this.STRAIGHT_LENGTH / 2;
+        const startS = this.START_X + startPathOffset;
+        const finishS = this.FINISH_X + startPathOffset;
+
+        // 設定馬匹起始位置
+        // 如果是準備階段 OR 比賽時間為 0 (剛初始化)，強制設定為 startS
+        this.simulator.horses.forEach((h, i) => {
+            // 保持 lane spacing 初始化邏輯，只更新 s
+            if (this.isPreparing || this.simulator.raceTime === 0) {
+                h.s = startS;
+                h.d = this.simulator.frenet.getTrackWidth() / this.simulator.horses.length * (i + 0.5);
+                h.targetD = h.d; // Ensure targetD is synced
+            }
+        });
+
+        // 設定比賽距離：跑一圈 + 到終點的距離
+        // 因為起點在終點前 (-40 < 0)，如果不加一圈，距離只有 40m
+        // 所以邏輯是：起點 -> (經過終點 ignored) -> 繞一圈 -> 終點
+        // 總距離 = 完整一圈長度 + 終點S
+        // Wait, index 0 is at -115.
+        // StartS = 75. FinishS = 115.
+        // Horse runs 75 -> ... -> PathEnd -> ... -> 115.
+        // Distance = (PathLen - StartS) + FinishS? No.
+        // If s continues increasing:
+        // Target = PathLen + FinishS.
+        this.simulator.raceDistance = this.simulator.frenet.pathLength + finishS;
     }
 
     /**
@@ -86,14 +146,12 @@ class RaceEngineAdapter {
         this.gameHorses = gameHorses;
         this.isPreparing = true;
 
-        const rawPath = this.createStadiumPath();
-        const simulatorHorses = this.convertHorsesToSimulatorFormat(gameHorses);
-
-        this.simulator = new RaceSimulator(rawPath, simulatorHorses);
-        this.trackPath = rawPath;
+        this.initSimulator(gameHorses, trackData);
+        this.setupRaceConditions();
 
         // 初始化馬匹位置但不啟動比賽
-        this.simulator.initializeHorses();
+        // setupRaceConditions 已經設定了 s，這裡確保其他狀態重置
+        // this.simulator.initializeHorses(); // 已經在 new RaceSimulator 做過，且 setupRaceConditions 覆蓋了 s
 
         this.isRunning = true;
         this.animate();
@@ -105,8 +163,9 @@ class RaceEngineAdapter {
     createStadiumPath() {
         const points = [];
         // 為了適應 1000px 畫布，微調物理尺寸但保持比例 (PIXELS_PER_METER = 2.2)
-        const straightLength = 230;
-        const cornerRadius = 100;
+        // 為了適應 1000px 畫布，微調物理尺寸但保持比例 (PIXELS_PER_METER = 2.2)
+        const straightLength = this.STRAIGHT_LENGTH;
+        const cornerRadius = this.CORNER_RADIUS;
         const centerX = 0;
         const centerY = 0;
         const numPointsPerSegment = 40;
@@ -500,24 +559,22 @@ class RaceEngineAdapter {
         traceStadium(radiusOuter);
         this.ctx.fill();
 
-        // 3. 繪製起點線 (Start Line)
-        // 使用物理座標轉換確保位置精確，但方向要正確 (向內延伸)
-        const startPos = this.physicsToCanvas(trackPath[0].x, trackPath[0].y);
-
-        this.ctx.fillStyle = '#ffffff';
         const startLineWidth = 4 * this.currentScale;
-        // 向內延伸，剛好填滿跑道寬度
         const startLineHeight = trackWidthPx;
 
-        // 畫矩形：X置中，Y從外緣 (startPos.y) 向下 (正向) 延伸
-        // 注意：這裡 startPos.y 是上直線的外緣 (y = -cornerRadius)
-        // 向下延伸 (y增加) 是正確的方向 (向內)
-        this.ctx.fillRect(
-            startPos.x - (startLineWidth / 2),
-            startPos.y,
-            startLineWidth,
-            startLineHeight
-        );
+        // 3.1 繪製起點線 (已移除，與終點線合併)
+
+        // 3.2 繪製終點線 (Finish Line) - Checkered Logic simplified
+        const finishXPos = this.physicsToCanvas(this.FINISH_X, -this.CORNER_RADIUS);
+
+        // 畫格紋旗效果
+        const checkSize = startLineHeight / 8;
+        for (let r = 0; r < 8; r++) {
+            this.ctx.fillStyle = (r % 2 === 0) ? '#000000' : '#FFFFFF';
+            this.ctx.fillRect(finishXPos.x - 4, finishXPos.y + r * checkSize, 4, checkSize);
+            this.ctx.fillStyle = (r % 2 === 1) ? '#000000' : '#FFFFFF';
+            this.ctx.fillRect(finishXPos.x, finishXPos.y + r * checkSize, 4, checkSize);
+        }
 
         // 4. 繪製內場草地 (Inner Radius) - 這會遮住內側的咖啡色和起點線多餘部分 (如果有)
         this.ctx.fillStyle = '#7EC850';
@@ -549,6 +606,7 @@ class RaceEngineAdapter {
                 if (i === 0) this.ctx.moveTo(Math.round(pos.x), Math.round(pos.y));
                 else this.ctx.lineTo(Math.round(pos.x), Math.round(pos.y));
             });
+            this.ctx.closePath();
             this.ctx.stroke();
         }
     }

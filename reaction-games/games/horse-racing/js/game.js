@@ -693,9 +693,19 @@ class HorseRacingGame {
             document.getElementById('race-waiting').style.display = 'none';
             document.getElementById('race-canvas').style.display = 'block';
             this.startRacePreparation(trackId, status.timeRemaining);
-        } else {
             // 投注階段或其他階段，秀等待畫面，隱藏畫布
-            document.getElementById('race-waiting').style.display = 'block';
+            const waitingDiv = document.getElementById('race-waiting');
+            if (waitingDiv) {
+                waitingDiv.style.display = 'block';
+                // 更新文字：如果是 POST_RACE，顯示比賽已結束
+                if (status.phase === 'POST_RACE') {
+                    waitingDiv.innerHTML = '<p>🏁 比賽已結束</p>';
+                } else if (status.phase === 'CLOSED') {
+                    waitingDiv.innerHTML = '<p>⏳ 等待下一場</p>';
+                } else {
+                    waitingDiv.innerHTML = '<p>⏳ 比賽尚未開始</p>';
+                }
+            }
             document.getElementById('race-canvas').style.display = 'none';
             if (this.raceEngine) {
                 this.raceEngine.stopRace();
@@ -737,13 +747,23 @@ class HorseRacingGame {
         document.getElementById('race-waiting').style.display = 'none';
         canvas.style.display = 'block';
 
+        document.getElementById('race-waiting').style.display = 'none';
+        canvas.style.display = 'block';
+
+        // 🎯 計算經過時間 (用於中途加入)
+        const raceStatus = raceScheduler.getTrackStatus(trackId);
+        // raceDuration is 120s (2 min) in raceScheduler
+        const elapsedSeconds = raceScheduler.raceDuration / 1000 - raceStatus.timeRemaining;
+        // Make sure it's positive and logical
+        const elapsedTimeMs = Math.max(0, elapsedSeconds * 1000);
+
         // 如果引擎已經在準備狀態，直接啟動即可
         if (this.raceEngine && this.raceEngine.isPreparing) {
-            this.raceEngine.startRace(horses, track);
+            this.raceEngine.startRace(horses, track, elapsedTimeMs);
         } else {
             if (this.raceEngine) this.raceEngine.stopRace();
             this.raceEngine = new RaceEngineAdapter(canvas, horses, track);
-            this.raceEngine.startRace(horses, track);
+            this.raceEngine.startRace(horses, track, elapsedTimeMs);
         }
     }
 
@@ -859,8 +879,19 @@ class HorseRacingGame {
                     // 在 15 秒準備階段，更新中央大型倒數並顯示賽道
                     this.startRacePreparation(this.selectedTrackId, status.timeRemaining);
                 } else {
-                    // 在投注階段，確保顯示等待畫面並隱藏畫布
-                    document.getElementById('race-waiting').style.display = 'block';
+                    // 在投注階段或賽後，確保顯示等待畫面並隱藏畫布
+                    const waitingDiv = document.getElementById('race-waiting');
+                    if (waitingDiv) {
+                        waitingDiv.style.display = 'block';
+                        if (status.phase === 'POST_RACE') {
+                            waitingDiv.innerHTML = '<p>🏁 比賽已結束</p>';
+                        } else if (status.phase === 'CLOSED') {
+                            waitingDiv.innerHTML = '<p>⏳ 等待下一場</p>';
+                        } else {
+                            waitingDiv.innerHTML = '<p>⏳ 比賽尚未開始</p>';
+                        }
+                    }
+
                     document.getElementById('race-canvas').style.display = 'none';
                     if (this.raceEngine) {
                         this.raceEngine.stopRace();

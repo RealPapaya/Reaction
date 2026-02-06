@@ -15,6 +15,9 @@ class RaceSimulator {
         this.horses = horses;
         this.trackPath = trackPath;
 
+        // Custom race distance support
+        this.raceDistance = options.raceDistance || this.frenet.pathLength;
+
         this.isRunning = false;
         this.raceTime = 0;
         this.finishOrder = [];
@@ -139,7 +142,7 @@ class RaceSimulator {
             }
 
             // 7. 檢查是否完賽
-            if (horse.s >= this.frenet.pathLength) {
+            if (horse.s >= this.raceDistance) {
                 horse.finished = true;
                 horse.finishTime = this.raceTime;
                 this.finishOrder.push(horse);
@@ -161,7 +164,7 @@ class RaceSimulator {
                 maxS = Math.max(maxS, horse.s);
             }
         }
-        return maxS / this.frenet.pathLength;
+        return maxS / this.raceDistance;
     }
 
     // ====================================

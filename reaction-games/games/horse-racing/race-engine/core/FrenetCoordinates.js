@@ -127,9 +127,15 @@ class FrenetCoordinate {
             return { x: 0, y: 0, heading: 0 };
         }
 
-        s = Math.max(0, Math.min(s, this.pathLength));
+        let normalizedS = s;
+        if (this.isClosedPath && this.pathLength > 0) {
+            normalizedS = s % this.pathLength;
+            if (normalizedS < 0) normalizedS += this.pathLength;
+        } else {
+            normalizedS = Math.max(0, Math.min(s, this.pathLength));
+        }
 
-        const sample = this.interpolateSampleAtS(s);
+        const sample = this.interpolateSampleAtS(normalizedS);
         const worldX = sample.x + sample.normal.x * d;
         const worldY = sample.y + sample.normal.y * d;
         const heading = Math.atan2(sample.tangent.y, sample.tangent.x);
