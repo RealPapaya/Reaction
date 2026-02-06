@@ -1,4 +1,4 @@
-﻿// ====================================
+// ====================================
 // Race Simulator (V6 - 終極平滑版)
 // 關鍵修正：
 // 1. 完全移除碰撞位置修正（只用速度）
@@ -34,7 +34,9 @@ class RaceSimulator {
             const horse = this.horses[i];
 
             horse.s = 0;
-            horse.d = laneSpacing * (i + 0.5);
+            const gateNumber = parseInt(horse.gateNumber, 10);
+            const laneIndex = (!Number.isNaN(gateNumber) && gateNumber >= 1 && gateNumber <= horseCount) ? (gateNumber - 1) : i;
+            horse.d = laneSpacing * (laneIndex + 0.5);
             horse.speed = 0;
 
             const baseFactor = 5.2 + (horse.competitiveFactor * 0.1);

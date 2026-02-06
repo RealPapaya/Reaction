@@ -143,11 +143,15 @@ class RaceEngineAdapter {
 
         // 設定馬匹起始位置
         // 如果是準備階段 OR 比賽時間為 0 (剛初始化)，強制設定為 startS
+        const horseCount = this.simulator.horses.length;
+        const laneSpacing = this.simulator.frenet.getTrackWidth() / horseCount;
+
         this.simulator.horses.forEach((h, i) => {
             // 保持 lane spacing 初始化邏輯，只更新 s
             if (this.isPreparing || this.simulator.raceTime === 0) {
                 h.s = startS;
-                h.d = this.simulator.frenet.getTrackWidth() / this.simulator.horses.length * (i + 0.5);
+                const laneIndex = this.getLaneIndexForHorse(h, i, horseCount);
+                h.d = laneSpacing * (laneIndex + 0.5);
                 h.targetD = h.d; // Ensure targetD is synced
             }
         });
@@ -820,16 +824,46 @@ class RaceEngineAdapter {
     }
 
     convertHorsesToSimulatorFormat(gameHorses) {
+        // 1. Calculate deterministic results first (if seed exists)
+        const performanceMap = new Map();
+        if (gameHorses.raceSeed && window.raceResultGenerator) {
+            // Use the generator to get the exact same physics parameters used for betting results
+            const results = raceResultGenerator.generateResults(gameHorses, gameHorses.raceSeed);
+            results.forEach(res => {
+                performanceMap.set(res.horse.id, res.horse);
+            });
+        }
+
         return gameHorses.map(horse => {
             const form = horse.form || 50;
+            const perfData = performanceMap.get(horse.id);
+
             return {
                 id: horse.id,
                 name: horse.name,
-                competitiveFactor: form,
+                competitiveFactor: form, // This is actually 'form' property which might be legacy?
+                // Wait, in game.js logic, horse object HAS competitiveFactor property?
+                // Let's check originalData instead.
+
+                // Keep existing fields
                 runningStyle: horse.runningStyle || this.inferRunningStyle(form),
-                originalData: horse
+                gateNumber: horse.gateNumber,
+                originalData: horse,
+
+                // Inject deterministic data
+                finalPerformance: perfData ? perfData.finalPerformance : undefined,
+                incidents: perfData ? perfData.incidents : undefined
             };
         });
+    }
+
+    getLaneIndexForHorse(horse, fallbackIndex, horseCount) {
+        const rawGate = horse?.gateNumber ?? horse?.originalData?.gateNumber;
+        const gateNumber = parseInt(rawGate, 10);
+        if (!Number.isNaN(gateNumber) && gateNumber >= 1 && gateNumber <= horseCount) {
+            return gateNumber - 1;
+        }
+        return fallbackIndex;
     }
 
     inferRunningStyle(form) {
