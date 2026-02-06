@@ -126,17 +126,24 @@ reaction-games/
 │   │   └── style.css       # Game-specific styling (Neubrutalism)
 │   └── horse-racing/       # Modular Horse Racing Simulator
 │       ├── index.html      # Main horse racing game UI
-│       ├── game.js         # Main controller: Modal management & screen switching
-│       ├── style.css       # Core game layout and primary Neubrutalism styles
-│       ├── race-scheduler.js # Real-time state machine for betting/racing cycles
-│       ├── betting-machine.js # Logic for issuing tickets and calculating dynamic odds
-│       ├── redemption-machine.js # Validates race results and handles balance payouts
-│       ├── shop-manager.js # Manages purchasing and persistence of Racing Forms
-│       ├── racetracks.js   # Static data for different track surfaces/lengths
-│       ├── data-generator.js # Utilities for generating realistic horse/jockey names
-│       ├── ticket-styles.css # Specialized CSS for the betting ticket rendering
-│       ├── machine-styles.css # UI styles for betting and redemption machines
-│       ├── track-selection-styles.css # Layout for the venue selection screen
+│       ├── css/            # UI styles for the game
+│       │   ├── style.css             # Core game layout
+│       │   ├── ticket-styles.css     # Betting ticket rendering
+│       │   ├── machine-styles.css    # UI for betting/redemption machines
+│       │   └── track-selection-styles.css # Venue selection screen
+│       ├── js/             # Core logic modules
+│       │   ├── game.js               # Main controller: Modal management
+│       │   ├── race-scheduler.js     # Betting/racing lifecycle
+│       │   ├── betting-machine.js    # Odd calculation & ticket issuing
+│       │   ├── redemption-machine.js # Payouts
+│       │   └── shop-manager.js       # Racing Form purchases
+│       ├── data/           # Static and generated data
+│       │   ├── racetracks.js         # Track surface/length data
+│       │   ├── data-generator.js     # Horse/jockey name generation
+│       │   └── race-result-generator.js # Race outcome logic
+│       ├── tests/          # Internal testing tools
+│       │   ├── test-odds.html        # Odds calculation test
+│       │   └── test-upset-rate.html  # Upset mechanism test
 │       └── race-engine/    # Core Physics & Simulation Engine
 │           ├── README.md   # Documentation for the physical simulation logic
 │           ├── RaceEngineAdapter.js # Renderer: Transforms physics to Canvas visuals
@@ -170,18 +177,25 @@ reaction-games/ (專案根目錄)
 │   │   └── style.css       # 遊戲專屬樣式 (新布魯托風格)
 │   └── horse-racing/       # 模組化賽馬模擬遊戲
 │       ├── index.html      # 賽馬遊戲主介面
-│       ├── game.js         # 主控制器：負責 UI 彈窗管理與畫面切換
-│       ├── style.css       # 核心遊戲佈局與基礎新布魯托風格樣式
-│       ├── race-scheduler.js # 排程引擎：管理投注/比賽週期的狀態機
-│       ├── betting-machine.js # 投注裝置：開出注單與計算動態賠率
-│       ├── redemption-machine.js # 兌獎裝置：比對賽果並發放獎金
-│       ├── shop-manager.js # 商店管理：負責馬報等道具的購買與持久化
-│       ├── racetracks.js   # 賽道數據：定義不同場地的地面材質與長度
-│       ├── data-generator.js # 資料生成：產生真實感的馬匹與騎師名稱
-│       ├── ticket-styles.css # 注單專用樣式表
-│       ├── machine-styles.css # 投注機與兌獎機的 UI 樣式
-│       ├── track-selection-styles.css # 場地選擇畫面的佈局樣式
-│       └── race-engine/    # 核心物理與模擬引擎 (獨立組件)
+│       ├── css/            # 樣式表目錄
+│       │   ├── style.css             # 核心遊戲佈局樣式
+│       │   ├── ticket-styles.css     # 注單專用樣式表
+│       │   ├── machine-styles.css    # 投注機與兌獎機 UI
+│       │   └── track-selection-styles.css # 場地選擇畫面佈局
+│       ├── js/             # 核心邏輯模組
+│       │   ├── game.js               # 主控制器：UI 彈窗管理
+│       │   ├── race-scheduler.js     # 投注/比賽週期排程
+│       │   ├── betting-machine.js    # 賠率計算與注單發放
+│       │   ├── redemption-machine.js # 兌獎與獎金發放
+│       │   └── shop-manager.js       # 商店管理
+│       ├── data/           # 資料與生成器
+│       │   ├── racetracks.js         # 賽道與材質定義
+│       │   ├── data-generator.js     # 隨機馬名/騎師生成器
+│       │   └── race-result-generator.js # 賽果生成邏輯
+│       ├── tests/          # 內部測試工具
+│       │   ├── test-odds.html        # 賠率系統測試
+│       │   └── test-upset-rate.html  # 爆冷機制測試
+│       └── race-engine/    # 核心物理與模擬引擎
 │           ├── README.md   # 物理模擬邏輯的技術開發文檔
 │           ├── RaceEngineAdapter.js # 渲染適配器：將物理數據繪製到 Canvas
 │           ├── RaceSimulator.js # 物理世界模擬器：負責高頻更新與距離追蹤
