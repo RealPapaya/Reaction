@@ -1,9 +1,9 @@
 // ====================================
-// Frenet Coordinate System (V7 - 徹底修正半徑跳動)
+// Frenet Coordinate System (V9 - 完全平滑版)
 // 關鍵修正：
-// 1. 移除錯誤的半徑平滑邏輯
-// 2. 使用移動平均計算半徑
-// 3. 在 PhysicsEngine 中平滑，不在這裡
+// 1. 移除 0.15/0.85 插值邊界（避免突變）
+// 2. 在整個線段上進行平滑 heading 插值
+// 3. 使用 Catmull-Rom 風格的平滑曲線
 // ====================================
 
 class FrenetCoordinate {
@@ -11,6 +11,9 @@ class FrenetCoordinate {
         this.path = trackPath;
         this.pathLength = this.calculatePathLength();
         this.segments = this.buildSegments();
+
+        // 預計算每個線段的平滑 heading
+        this.preprocessSmoothHeadings();
     }
 
     calculatePathLength() {
@@ -57,7 +60,26 @@ class FrenetCoordinate {
     }
 
     // ====================================
-    // 座標轉換（保持平滑插值）
+    // **關鍵修正：預計算平滑 heading**
+    // ====================================
+    preprocessSmoothHeadings() {
+        for (let i = 0; i < this.segments.length; i++) {
+            const seg = this.segments[i];
+
+            // 獲取相鄰線段的 heading
+            const prevHeading = i > 0 ?
+                this.segments[i - 1].heading : seg.heading;
+            const nextHeading = i < this.segments.length - 1 ?
+                this.segments[i + 1].heading : seg.heading;
+
+            // 儲存用於插值的資訊
+            seg.prevHeading = prevHeading;
+            seg.nextHeading = nextHeading;
+        }
+    }
+
+    // ====================================
+    // **關鍵修正：完全平滑的座標轉換**
     // ====================================
     frenetToWorld(s, d) {
         s = Math.max(0, Math.min(s, this.pathLength));
@@ -76,20 +98,16 @@ class FrenetCoordinate {
         const centerY = segment.startPoint.y +
             (segment.endPoint.y - segment.startPoint.y) * segmentProgress;
 
-        // 平滑 heading（在線段邊界處插值）
-        let smoothHeading = segment.heading;
-
-        const segmentIndex = segment.index;
-
-        if (segmentProgress < 0.15 && segmentIndex > 0) {
-            const prevSegment = this.segments[segmentIndex - 1];
-            const t = segmentProgress / 0.15;
-            smoothHeading = this.interpolateAngle(prevSegment.heading, segment.heading, t);
-        } else if (segmentProgress > 0.85 && segmentIndex < this.segments.length - 1) {
-            const nextSegment = this.segments[segmentIndex + 1];
-            const t = (segmentProgress - 0.85) / 0.15;
-            smoothHeading = this.interpolateAngle(segment.heading, nextSegment.heading, t);
-        }
+        // ====================================
+        // **關鍵修正：使用 Catmull-Rom 風格的平滑插值**
+        // 移除 0.15/0.85 邊界，整個線段都平滑
+        // ====================================
+        const smoothHeading = this.getCatmullRomHeading(
+            segment.prevHeading,
+            segment.heading,
+            segment.nextHeading,
+            segmentProgress
+        );
 
         const smoothNormal = {
             x: -Math.sin(smoothHeading),
@@ -106,21 +124,63 @@ class FrenetCoordinate {
         };
     }
 
-    interpolateAngle(angle1, angle2, t) {
-        let diff = angle2 - angle1;
+    // ====================================
+    // **Catmull-Rom 風格的 heading 插值**
+    // 確保整個線段都平滑，無突變點
+    // ====================================
+    getCatmullRomHeading(h0, h1, h2, t) {
+        // 正規化所有角度到連續範圍
+        h0 = this.normalizeAngle(h0);
+        h1 = this.normalizeAngle(h1);
+        h2 = this.normalizeAngle(h2);
 
-        if (diff > Math.PI) {
-            diff -= 2 * Math.PI;
-        } else if (diff < -Math.PI) {
-            diff += 2 * Math.PI;
+        // 確保角度連續（避免 -π 到 π 的跳變）
+        const diff1 = this.normalizeAngle(h1 - h0);
+        const diff2 = this.normalizeAngle(h2 - h1);
+
+        h1 = h0 + diff1;
+        h2 = h1 + diff2;
+
+        // Catmull-Rom 插值公式（簡化版）
+        // 在線段兩端使用更多相鄰資訊，中間使用線性
+        const alpha = 0.5; // 張力參數（0.5 為標準 Catmull-Rom）
+
+        // 使用 Hermite 插值（平滑但不過度彎曲）
+        const t2 = t * t;
+        const t3 = t2 * t;
+
+        // 切線（導數）
+        const m1 = (h2 - h0) * alpha;
+
+        // Hermite 基函數
+        const h00 = 2 * t3 - 3 * t2 + 1;
+        const h10 = t3 - 2 * t2 + t;
+        const h01 = -2 * t3 + 3 * t2;
+        const h11 = t3 - t2;
+
+        // 計算插值結果
+        let result = h00 * h1 + h10 * m1 + h01 * h1 + h11 * m1;
+
+        // 在邊界處加強平滑
+        if (t < 0.2) {
+            // 前 20% 平滑過渡
+            const blendFactor = t / 0.2;
+            const simpleInterp = h0 + (h1 - h0) * (t / 0.2);
+            result = simpleInterp * (1 - blendFactor) + result * blendFactor;
+        } else if (t > 0.8) {
+            // 後 20% 平滑過渡
+            const blendFactor = (1 - t) / 0.2;
+            const simpleInterp = h1 + (h2 - h1) * ((t - 0.8) / 0.2);
+            result = simpleInterp * (1 - blendFactor) + result * blendFactor;
         }
 
-        let result = angle1 + diff * t;
+        return this.normalizeAngle(result);
+    }
 
-        while (result > Math.PI) result -= 2 * Math.PI;
-        while (result < -Math.PI) result += 2 * Math.PI;
-
-        return result;
+    normalizeAngle(angle) {
+        while (angle > Math.PI) angle -= 2 * Math.PI;
+        while (angle < -Math.PI) angle += 2 * Math.PI;
+        return angle;
     }
 
     worldToFrenet(x, y) {
@@ -191,7 +251,7 @@ class FrenetCoordinate {
     }
 
     // ====================================
-    // **關鍵修正：移除錯誤的平滑邏輯，使用移動平均**
+    // **關鍵修正：更穩定的曲率計算**
     // ====================================
     getCornerRadiusAt(s) {
         const segment = this.findSegment(s);
@@ -206,86 +266,60 @@ class FrenetCoordinate {
         const prevSegment = this.segments[segmentIndex - 1];
         const nextSegment = this.segments[segmentIndex + 1];
 
-        // **方法 1：計算當前線段的曲率**
-        const angle1 = prevSegment.heading;
-        const angle2 = segment.heading;
-        const angle3 = nextSegment.heading;
+        // 計算平滑後的 heading
+        const segmentProgress = (s - segment.startDistance) / segment.length;
+        const smoothHeading = this.getCatmullRomHeading(
+            segment.prevHeading,
+            segment.heading,
+            segment.nextHeading,
+            segmentProgress
+        );
 
-        // 正規化角度差
-        let delta1 = this.normalizeAngle(angle2 - angle1);
-        let delta2 = this.normalizeAngle(angle3 - angle2);
+        // 計算相鄰點的 heading（用於估算曲率）
+        const deltaS = 1.0; // 1 米的微小距離
+        const s1 = Math.max(0, s - deltaS);
+        const s2 = Math.min(this.pathLength, s + deltaS);
 
-        const avgDelta = Math.abs((delta1 + delta2) / 2);
+        const seg1 = this.findSegment(s1);
+        const seg2 = this.findSegment(s2);
 
-        if (avgDelta < 0.05) { // 接近直線
-            return Infinity;
+        if (!seg1 || !seg2) return Infinity;
+
+        const progress1 = (s1 - seg1.startDistance) / seg1.length;
+        const progress2 = (s2 - seg2.startDistance) / seg2.length;
+
+        const heading1 = this.getCatmullRomHeading(
+            seg1.prevHeading, seg1.heading, seg1.nextHeading, progress1
+        );
+        const heading2 = this.getCatmullRomHeading(
+            seg2.prevHeading, seg2.heading, seg2.nextHeading, progress2
+        );
+
+        // 計算曲率
+        let headingDiff = this.normalizeAngle(heading2 - heading1);
+        const distanceDiff = s2 - s1;
+
+        if (Math.abs(headingDiff) < 0.001 || distanceDiff < 0.1) {
+            return Infinity; // 接近直線
         }
 
-        const avgSegmentLength = (prevSegment.length + segment.length + nextSegment.length) / 3;
-        let radius = avgSegmentLength / avgDelta;
+        const curvature = headingDiff / distanceDiff;
+        const radius = Math.abs(1.0 / curvature);
 
-        // **方法 2：與前後線段的曲率做移動平均**
-        // 這樣可以避免線段邊界的突變
-        const radiuses = [radius];
-
-        // 前一個線段的曲率
-        if (segmentIndex > 1) {
-            const prevPrevSeg = this.segments[segmentIndex - 2];
-            const prevDelta1 = this.normalizeAngle(prevSegment.heading - prevPrevSeg.heading);
-            const prevDelta2 = this.normalizeAngle(segment.heading - prevSegment.heading);
-            const prevAvgDelta = Math.abs((prevDelta1 + prevDelta2) / 2);
-
-            if (prevAvgDelta > 0.05) {
-                const prevRadius = avgSegmentLength / prevAvgDelta;
-                radiuses.push(prevRadius);
-            }
-        }
-
-        // 後一個線段的曲率
-        if (segmentIndex < this.segments.length - 2) {
-            const nextNextSeg = this.segments[segmentIndex + 2];
-            const nextDelta1 = this.normalizeAngle(nextSegment.heading - segment.heading);
-            const nextDelta2 = this.normalizeAngle(nextNextSeg.heading - nextSegment.heading);
-            const nextAvgDelta = Math.abs((nextDelta1 + nextDelta2) / 2);
-
-            if (nextAvgDelta > 0.05) {
-                const nextRadius = avgSegmentLength / nextAvgDelta;
-                radiuses.push(nextRadius);
-            }
-        }
-
-        // **移動平均**
-        const avgRadius = radiuses.reduce((a, b) => a + b, 0) / radiuses.length;
-
-        return Math.max(20, Math.min(avgRadius, 500)); // 限制在 20-500m
+        return Math.max(20, Math.min(radius, 500));
     }
 
-    normalizeAngle(angle) {
-        while (angle > Math.PI) angle -= 2 * Math.PI;
-        while (angle < -Math.PI) angle += 2 * Math.PI;
-        return angle;
-    }
-
-    // ====================================
-    // **簡化 getActualDistance**
-    // ====================================
     getActualDistance(s1, s2, d) {
         const nominalDistance = Math.abs(s2 - s1);
-
-        // **簡化策略：只在明顯彎道時考慮差異**
         const midS = (s1 + s2) / 2;
         const cornerRadius = this.getCornerRadiusAt(midS);
 
         if (cornerRadius === Infinity || cornerRadius > 300) {
-            // 直線或大彎道
             return nominalDistance;
         }
 
-        // 彎道：外側稍微多跑
         const actualRadius = cornerRadius + d;
         const ratio = actualRadius / cornerRadius;
-
-        // **限制影響在 ±3% 以內**
         const clampedRatio = Math.max(0.97, Math.min(1.03, ratio));
 
         return nominalDistance * clampedRatio;
