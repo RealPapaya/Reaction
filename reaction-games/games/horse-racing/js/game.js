@@ -611,35 +611,33 @@ class HorseRacingGame {
     }
 
     async redeemTicket(ticketId) {
+        // Reset Scanning UI Structure
+        this.dom.scanningOverlay.innerHTML = `
+            <div class="scanning-content">
+                <div class="scanning-message" id="scanning-message">正在掃描...</div>
+                <div class="scanning-progress">
+                    <div class="scanning-progress-bar" id="scanning-progress-bar" style="width: 0%"></div>
+                </div>
+            </div>
+        `;
         this.dom.scanningOverlay.classList.remove('hidden');
-        this.dom.scanningMessage.textContent = '正在掃描投注單...';
-        this.dom.scanningProgressBar.style.width = '0%';
+
+        // Re-cache temporary elements
+        const messageEl = this.dom.scanningOverlay.querySelector('#scanning-message');
+        const progressBarEl = this.dom.scanningOverlay.querySelector('#scanning-progress-bar');
 
         try {
-            // Simulate scanning animation
-            await new Promise(resolve => {
-                let progress = 0;
-                const interval = setInterval(() => {
-                    progress += 10;
-                    this.dom.scanningProgressBar.style.width = `${progress}% `;
-                    if (progress >= 100) {
-                        clearInterval(interval);
-                        resolve();
-                    }
-                }, 100);
+            // Use correct API with progress callback
+            const ticket = await redemptionMachine.scanTicket(ticketId, (msg, progress) => {
+                if (messageEl) messageEl.textContent = msg;
+                if (progressBarEl) progressBarEl.style.width = `${progress}%`;
             });
 
-            this.dom.scanningMessage.textContent = '正在兌獎...';
-
-            const ticket = bettingMachine.getTicket(ticketId);
-            const result = redemptionMachine.redeemTicket(ticketId);
-
-            this.dom.scanningOverlay.classList.add('hidden');
-
-            if (result.isWinner) {
-                this.balance += result.payout;
+            // Handle Success
+            if (ticket.result.isWinner) {
+                this.balance += ticket.result.payout;
                 this.winCount++;
-                this.totalProfit += (result.payout - ticket.amount);
+                this.totalProfit += (ticket.result.payout - ticket.amount);
             } else {
                 this.totalProfit -= ticket.amount;
             }
@@ -648,18 +646,41 @@ class HorseRacingGame {
             this.saveBalance();
             this.saveStats();
 
-            const resultMessage = ticket.result.isWinner
-                ? `🎉 恭喜中獎!\n獲利: $${ticket.result.payout.toLocaleString()} `
-                : `😔 很遺憾, 未中獎`;
+            // Render Result (Custom Theme Modal)
+            const resultHTML = redemptionMachine.renderRedemptionResult(ticket);
+            this.dom.scanningOverlay.innerHTML = `
+                <div class="scanning-content result-mode" style="max-width: 400px; padding: 0;">
+                    ${resultHTML}
+                    <div style="padding: 15px;">
+                        <button class="btn btn-primary close-overlay-btn" style="width: 100%;">確 定</button>
+                    </div>
+                </div>
+            `;
 
-            alert(resultMessage);
-            this.renderMyBetsScreen();
+            // Bind Close Event
+            this.dom.scanningOverlay.querySelector('.close-overlay-btn').addEventListener('click', () => {
+                this.dom.scanningOverlay.classList.add('hidden');
+                this.renderMyBetsScreen();
+            });
 
         } catch (error) {
-            this.dom.scanningOverlay.classList.add('hidden');
-            alert(`❌ 兌獎失敗: ${error.message} `);
+            // Handle Error (Custom Theme Modal)
+            this.dom.scanningOverlay.innerHTML = `
+                <div class="scanning-content error-mode" style="text-align: center; padding: 20px;">
+                    <div style="font-size: 48px; margin-bottom: 10px;">❌</div>
+                    <div style="font-size: 20px; font-weight: bold; margin-bottom: 15px; color: #ff4d4d;">兌獎失敗</div>
+                    <div style="margin-bottom: 20px; color: #666;">${error.message}</div>
+                    <button class="btn btn-primary close-overlay-btn" style="width: 100%;">關 閉</button>
+                </div>
+            `;
+
+            // Bind Close Event
+            this.dom.scanningOverlay.querySelector('.close-overlay-btn').addEventListener('click', () => {
+                this.dom.scanningOverlay.classList.add('hidden');
+            });
         }
     }
+
 
     // ====================================
     // Race Viewing with Fullscreen
