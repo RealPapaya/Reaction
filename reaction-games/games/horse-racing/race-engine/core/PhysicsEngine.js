@@ -51,7 +51,8 @@ class PhysicsEngine {
         // 5. 限制在賽道範圍內
         const trackWidth = frenetCoord.getTrackWidth();
         horse.d = Math.max(0.5, Math.min(horse.d, trackWidth - 0.5));
-        horse.s = Math.max(0, Math.min(horse.s, frenetCoord.pathLength));
+        // horse.s = Math.max(0, Math.min(horse.s, frenetCoord.pathLength)); // REMOVED: Allow loop
+        if (horse.s < 0) horse.s = 0; // Only clamp to 0
 
         // 6. 摩擦
         horse.speed *= this.FRICTION;

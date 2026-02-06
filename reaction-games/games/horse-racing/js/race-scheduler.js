@@ -5,10 +5,10 @@
 
 class RaceScheduler {
     constructor() {
-        this.raceInterval = 8.0 * 60 * 1000; // 8 minutes per race cycle (to fit 2min race)
+        this.raceInterval = 8.5 * 60 * 1000; // 8 minutes per race cycle (to fit 2min race)
         this.bettingDuration = 5 * 60 * 1000; // 5 minutes betting
         this.preRaceDuration = 15 * 1000; // 15 seconds pre-race
-        this.raceDuration = 2 * 60 * 1000; // 120 seconds racing (2 minutes)
+        this.raceDuration = 2.5 * 60 * 1000; // 150 seconds racing (2.5 minutes)
         this.postRaceDuration = 15 * 1000; // 15 seconds post-race
         this.closedDuration = 75 * 1000; // Remaining buffer
 

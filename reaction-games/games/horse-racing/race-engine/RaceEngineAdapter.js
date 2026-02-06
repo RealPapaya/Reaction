@@ -97,7 +97,38 @@ class RaceEngineAdapter {
     initSimulator(gameHorses, trackData) {
         const rawPath = this.createStadiumPath();
         const simulatorHorses = this.convertHorsesToSimulatorFormat(gameHorses);
-        this.simulator = new RaceSimulator(rawPath, simulatorHorses);
+
+        // Pre-calculate race distance to ensure it's set correctly from start
+        // 假設上直線從 x = -STRAIGHT_LENGTH/2 開始，方向向右
+        const startPathOffset = this.STRAIGHT_LENGTH / 2;
+        const finishS = this.FINISH_X + startPathOffset;
+
+        // Use a temporary Frenet to get path length if needed, or assume loop
+        // But we don't have frenet yet. 
+        // We know structure: 2*Straight + 2*PI*R.
+        // straightLength=230, cornerRadius=100.
+        // pathLength ~= 2*230 + 2*PI*100 ~= 460 + 628.3 = 1088.3
+
+        // Better way: Instantiate temp frenet or calculate manually?
+        // Let's iterate points.
+        let pathLength = 0;
+        for (let i = 1; i < rawPath.length; i++) {
+            const dx = rawPath[i].x - rawPath[i - 1].x;
+            const dy = rawPath[i].y - rawPath[i - 1].y;
+            pathLength += Math.sqrt(dx * dx + dy * dy);
+        }
+        // closed loop
+        const last = rawPath[rawPath.length - 1];
+        const first = rawPath[0];
+        pathLength += Math.sqrt((first.x - last.x) ** 2 + (first.y - last.y) ** 2);
+
+        const raceDistance = pathLength + finishS;
+
+        console.log(`🏁 Race Distance Setup: PathLen=${pathLength.toFixed(1)}, FinishS=${finishS}, RaceDist=${raceDistance.toFixed(1)}`);
+
+        this.simulator = new RaceSimulator(rawPath, simulatorHorses, {
+            raceDistance: raceDistance
+        });
         this.trackPath = rawPath;
     }
 
