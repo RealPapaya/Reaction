@@ -303,11 +303,87 @@ class RaceEngineAdapter {
         if (this.isPreparing && this.countdownText) {
             this.renderCountdown();
         }
+
+        // 5. 🎯 繪製即時排名榜
+        this.renderLeaderboard();
     }
 
     /**
-     * 🎯 繪製中央大型倒數計時器
+     * 🎯 繪製即時排名榜 (Compact Infield Overlay)
+     * 移至內場左側，避免遮擋跑道
      */
+    renderLeaderboard() {
+        // 準備階段不顯示排名 (等待倒數結束)
+        if (this.isPreparing) return;
+
+        const leaderboard = this.getLeaderboard();
+        if (!leaderboard || leaderboard.length === 0) return;
+
+        // 固定顏色映射 (需與 drawHorses 一致)
+        const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E2'];
+
+        // 縮小尺寸以適應內場空間 (寬度增加以容納全名)
+        const padding = 10 * this.currentScale;
+        const width = 240 * this.currentScale; // 變寬 (160 -> 240)
+        const rowHeight = 22 * this.currentScale;
+        const totalHeight = leaderboard.length * rowHeight + padding * 2;
+
+        const cx = this.canvas.width / 2;
+        const cy = this.canvas.height / 2;
+
+        // 計算位置：正中間 (Center Screen)
+        const x = cx - (width / 2);
+        const y = cy - (totalHeight / 2);
+
+        this.ctx.save();
+
+        // 背景 (更透明一點)
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        this.ctx.beginPath();
+        this.ctx.roundRect(x, y, width, totalHeight, 6 * this.currentScale);
+        this.ctx.fill();
+
+        // 列表
+        this.ctx.textAlign = 'left';
+        this.ctx.textBaseline = 'middle';
+
+        leaderboard.forEach((entry, index) => {
+            const itemY = y + padding + index * rowHeight;
+
+            // 1. 名次
+            this.ctx.font = `bold ${12 * this.currentScale}px Arial`;
+            this.ctx.fillStyle = '#fff';
+            this.ctx.fillText(`${index + 1}.`, x + 8 * this.currentScale, itemY + rowHeight / 2);
+
+            // 2. 馬號色塊
+            const colorIdx = (entry.horseId - 1) % colors.length;
+            const color = colors[colorIdx];
+
+            this.ctx.fillStyle = color;
+            const boxSize = 14 * this.currentScale;
+            // 調整 X 位置
+            const boxX = x + 25 * this.currentScale;
+            const boxY = itemY + (rowHeight - boxSize) / 2;
+
+            this.ctx.fillRect(boxX, boxY, boxSize, boxSize);
+
+            // 馬號
+            this.ctx.fillStyle = '#fff';
+            this.ctx.font = `bold ${9 * this.currentScale}px Arial`;
+            this.ctx.textAlign = 'center';
+            this.ctx.fillText(entry.horseId, boxX + boxSize / 2, boxY + boxSize / 2 + 1);
+
+            // 3. 馬名 (顯示全名)
+            this.ctx.textAlign = 'left';
+            this.ctx.font = `bold ${12 * this.currentScale}px "Segoe UI", Arial`; // 字體稍大一點
+            this.ctx.fillStyle = '#fff';
+
+            this.ctx.fillText(entry.horseName, boxX + boxSize + 8 * this.currentScale, itemY + rowHeight / 2);
+        });
+
+        this.ctx.restore();
+    }
+
     renderCountdown() {
         const cx = this.canvas.width / 2;
         const cy = this.canvas.height / 2;
@@ -494,9 +570,16 @@ class RaceEngineAdapter {
             const distToCenter = Math.sqrt(dx * dx + dy * dy);
 
             // 標籤定位
-            const labelDistance = 90 * this.currentScale; // 稍微拉長一點
-            const lx = Math.round(canvasPos.x + (dx / distToCenter) * labelDistance);
-            const ly = Math.round(canvasPos.y + (dy / distToCenter) * labelDistance);
+            // 標籤定位：改為向外延伸 (Away from Center)
+            // 賽道寬 74px (半寬37)，馬匹在距離圓心約 80~100 的位置
+            // 我們希望標籤在賽道外側 (Radius > 100)
+            // 馬匹位置 canvasPos 本身約在 Radius 85-95 處
+            // 設定固定距離讓它指出賽道外
+            const labelDistance = 50 * this.currentScale;
+
+            // (dx, dy) 是指向圓心的向量，減去它就是指向外
+            const lx = Math.round(canvasPos.x - (dx / distToCenter) * labelDistance);
+            const ly = Math.round(canvasPos.y - (dy / distToCenter) * labelDistance);
 
             this.ctx.strokeStyle = mainColor;
             this.ctx.lineWidth = 1.5 * this.currentScale; // 加粗引線
@@ -505,7 +588,7 @@ class RaceEngineAdapter {
             this.ctx.lineTo(lx, ly);
             this.ctx.stroke();
 
-            const labelText = `${rank}. #${horse.id} ${horse.name}`;
+            const labelText = `#${horse.id}`;
 
             // 標籤字體優化
             const fontSize = Math.max(12, 12 * this.currentScale); // 最小 12px

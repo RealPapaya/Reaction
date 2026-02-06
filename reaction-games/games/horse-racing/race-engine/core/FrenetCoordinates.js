@@ -4,9 +4,10 @@
 // ====================================
 
 class FrenetCoordinate {
-    constructor(trackPath) {
+    constructor(trackPath, options = {}) {
         this.originalPath = Array.isArray(trackPath) ? trackPath : [];
         this.isClosedPath = this.checkClosedPath(this.originalPath);
+        this.trackWidth = typeof options.trackWidth === 'number' ? options.trackWidth : 18;
 
         // Sampling controls
         this.sampleSpacing = 0.5; // meters
@@ -342,7 +343,7 @@ class FrenetCoordinate {
     }
 
     getTrackWidth() {
-        return 18;
+        return this.trackWidth;
     }
 
     isValidPosition(s, d) {

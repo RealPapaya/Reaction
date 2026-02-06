@@ -6,8 +6,8 @@
 // ====================================
 
 class RaceSimulator {
-    constructor(trackPath, horses) {
-        this.frenet = new FrenetCoordinate(trackPath);
+    constructor(trackPath, horses, options = {}) {
+        this.frenet = new FrenetCoordinate(trackPath, { trackWidth: options.trackWidth });
         this.physics = new PhysicsEngine();
         this.steering = new SteeringBehavior();
         this.jockeyAI = new JockeyAI();
@@ -23,11 +23,15 @@ class RaceSimulator {
     }
 
     initializeHorses() {
+        const trackWidth = this.frenet.getTrackWidth();
+        const horseCount = Math.max(1, this.horses.length);
+        const laneSpacing = trackWidth / horseCount;
+
         for (let i = 0; i < this.horses.length; i++) {
             const horse = this.horses[i];
 
-            horse.s = -i * 0.5 + (Math.random() - 0.5) * 1.0;
-            horse.d = 1.0 + (i * 2.0) + (Math.random() - 0.5) * 0.6;
+            horse.s = 0;
+            horse.d = laneSpacing * (i + 0.5);
             horse.speed = 0;
 
             const baseFactor = 8 + (horse.competitiveFactor * 0.1);

@@ -166,6 +166,8 @@
         const HORSE_VISUAL_LENGTH = HORSE_PHYSICAL_LENGTH * PIXELS_PER_METER * VISUAL_SCALE;  // 2.0*2.2*3 = 13.2
         const HORSE_VISUAL_WIDTH = HORSE_PHYSICAL_WIDTH * PIXELS_PER_METER * VISUAL_SCALE;    // 1.2*2.2*3 = 7.92
 
+        const TRACK_WIDTH = 34;
+
         console.log('視覺尺寸:', { length: HORSE_VISUAL_LENGTH, width: HORSE_VISUAL_WIDTH });
 
         // ====================================
@@ -267,7 +269,7 @@
         const ctx = canvas.getContext('2d');
         const trackPath = createTestTrack();  // 物理座標
         const horses = createTestHorses();
-        const simulator = new RaceSimulator(trackPath, horses);
+        const simulator = new RaceSimulator(trackPath, horses, { trackWidth: TRACK_WIDTH });
 
         let animationId = null;
 
@@ -304,9 +306,11 @@
             // 繪製跑道分隔線
             ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
             ctx.lineWidth = 1;
-            const trackWidth = 18;
-            for (let lane = 1; lane < 8; lane++) {
-                const laneD = lane * 2.0;
+            const trackWidth = simulator.frenet.getTrackWidth();
+            const laneCount = horses.length;
+            const laneSpacing = trackWidth / laneCount;
+            for (let lane = 1; lane < laneCount; lane++) {
+                const laneD = lane * laneSpacing;
                 ctx.beginPath();
                 trackPath.forEach((point, i) => {
                     const worldPos = simulator.frenet.frenetToWorld(
