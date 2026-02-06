@@ -15,6 +15,9 @@ class RaceScheduler {
         this.raceSeeds = {}; // 儲存每場比賽的種子碼
         this.loadRaceSeeds();
 
+        this.raceHistory = {}; // 🆕 儲存歷史比賽結果 {trackId_raceNumber: results}
+        this.loadRaceHistory();
+
         this.schedule = null;
         this.loadOrInitializeSchedule();
     }
@@ -160,9 +163,62 @@ class RaceScheduler {
         trackSchedule.raceStartTime = nextRaceStart;
         trackSchedule.raceSeed = this.generateRaceSeed(trackId, nextRaceNumber);
         trackSchedule.horses = null;
+        trackSchedule.raceResults = null; // 清除舊結果
 
         this.saveSchedule();
         console.log(`🏁 ${trackId} 進入第 ${nextRaceNumber} 場`);
+    }
+
+    // ====================================
+    // Race Results Storage
+    // ====================================
+
+    saveRaceResults(trackId, results) {
+        const trackSchedule = this.schedule.find(s => s.trackId === trackId);
+        if (!trackSchedule) {
+            console.error(`無法儲存結果：找不到賽道 ${trackId}`);
+            return;
+        }
+
+        console.log('📥 收到的原始結果:', results);
+
+        // 儲存結果到歷史記錄（使用 trackId_raceNumber 作為 key）
+        const historyKey = `${trackId}_${trackSchedule.raceNumber}`;
+        this.raceHistory[historyKey] = results.map(r => ({
+            position: r.rank || r.position,
+            horse: {
+                id: r.horseId || r.horse?.id,
+                name: r.horseName || r.horse?.name
+            },
+            finishTime: r.finishTime
+        }));
+
+        this.saveRaceHistory();
+        console.log(`💾 已儲存 ${trackId} 第 ${trackSchedule.raceNumber} 場結果:`, this.raceHistory[historyKey]);
+    }
+
+    getRaceResults(trackId, raceNumber) {
+        // 從歷史記錄中讀取（支援跨場次查詢）
+        const historyKey = `${trackId}_${raceNumber}`;
+        const results = this.raceHistory[historyKey] || null;
+        console.log(`📤 讀取 ${trackId} 第 ${raceNumber} 場結果:`, results);
+        return results;
+    }
+
+    loadRaceHistory() {
+        const saved = localStorage.getItem('raceHistory');
+        if (saved) {
+            try {
+                this.raceHistory = JSON.parse(saved);
+            } catch (e) {
+                console.error('歷史結果載入失敗', e);
+                this.raceHistory = {};
+            }
+        }
+    }
+
+    saveRaceHistory() {
+        localStorage.setItem('raceHistory', JSON.stringify(this.raceHistory));
     }
 
     // ====================================

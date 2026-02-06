@@ -786,6 +786,21 @@ class HorseRacingGame {
             this.raceEngine = new RaceEngineAdapter(canvas, horses, track);
             this.raceEngine.startRace(horses, track, elapsedTimeMs);
         }
+
+        // 🆕 監聽比賽結束，儲存結果
+        if (this.raceFinishCheckInterval) {
+            clearInterval(this.raceFinishCheckInterval);
+        }
+
+        this.raceFinishCheckInterval = setInterval(() => {
+            if (this.raceEngine && this.raceEngine.isFinished()) {
+                const results = this.raceEngine.getResults();
+                raceScheduler.saveRaceResults(trackId, results);
+                clearInterval(this.raceFinishCheckInterval);
+                this.raceFinishCheckInterval = null;
+                console.log('✅ 比賽結束，結果已儲存');
+            }
+        }, 1000);
     }
 
     // ====================================

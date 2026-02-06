@@ -49,9 +49,18 @@ class RedemptionMachine {
             if (onProgress) onProgress('✅ 正在驗證結果...', 66);
             await this.delay(700);
 
-            // Generate results from seed
-            const horses = raceScheduler.getOrGenerateHorses(ticket.trackId);
-            const results = raceResultGenerator.generateResults(horses, ticket.raceSeed);
+            // 🆕 優先使用儲存的比賽結果
+            let results = raceScheduler.getRaceResults(ticket.trackId, ticket.raceNumber);
+
+            if (!results) {
+                // 如果沒有儲存的結果（比賽還沒跑完或沒人觀看），用舊方法生成
+                console.warn('⚠️ 找不到儲存的結果，使用種子生成（可能與視覺比賽不符）');
+                const horses = raceScheduler.getOrGenerateHorses(ticket.trackId);
+                results = raceResultGenerator.generateResults(horses, ticket.raceSeed);
+            } else {
+                console.log('✅ 使用儲存的比賽結果');
+            }
+
             const winner = results[0];
 
             // Check if won
