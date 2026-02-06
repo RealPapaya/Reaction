@@ -253,8 +253,6 @@ class RaceEngineAdapter {
         // 4. 計算縮放比例 (以寬度為基準，讓視野保持一致)
         // 為什麼用寬度？因為賽道是橫向的，我們希望寬度適配螢幕
         // 這裡計算的是 "當前物理像素" 相對於 "設計稿物理像素 (1000px)" 的比例
-        // 注意：這裡不乘 DPR，因为 rect.width 是 CSS 像素，我們希望所有的繪製參數都根據這個 CSS 寬度來縮放
-        // 實際上應該是：實際物理寬度 / 基準物理寬度 ? 
         // 簡單點：如果 CSS 寬度是 1000px，DPR=2，那 width=2000。
         // 我們希望視覺上看起來和 1000px 一樣大 (只是更清晰)。
         // 所以我們應該基於 CSS 寬度來決定物件的"相對大小"，然後乘上 DPR 得到物理像素大小。
@@ -309,8 +307,8 @@ class RaceEngineAdapter {
     }
 
     /**
-     * 🎯 繪製即時排名榜 (Compact Infield Overlay)
-     * 移至內場左側，避免遮擋跑道
+     * 🎯 繪製即時排名榜 (Neubrutalism Style)
+     * 風格化：白底、黑外框、硬陰影
      */
     renderLeaderboard() {
         // 準備階段不顯示排名 (等待倒數結束)
@@ -323,9 +321,9 @@ class RaceEngineAdapter {
         const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E2'];
 
         // 縮小尺寸以適應內場空間 (寬度增加以容納全名)
-        const padding = 10 * this.currentScale;
-        const width = 240 * this.currentScale; // 變寬 (160 -> 240)
-        const rowHeight = 22 * this.currentScale;
+        const padding = 12 * this.currentScale; // 增加一點 padding
+        const width = 300 * this.currentScale;
+        const rowHeight = 24 * this.currentScale; // 增加行高
         const totalHeight = leaderboard.length * rowHeight + padding * 2;
 
         const cx = this.canvas.width / 2;
@@ -337,11 +335,24 @@ class RaceEngineAdapter {
 
         this.ctx.save();
 
-        // 背景 (更透明一點)
-        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        // 1. 硬陰影 (Hard Shadow) - 黑色，向右下偏移
+        const shadowOffset = 6 * this.currentScale;
+        this.ctx.fillStyle = '#000000';
         this.ctx.beginPath();
-        this.ctx.roundRect(x, y, width, totalHeight, 6 * this.currentScale);
+        // 陰影位置 = 原位置 + offset
+        this.ctx.roundRect(x + shadowOffset, y + shadowOffset, width, totalHeight, 8 * this.currentScale);
         this.ctx.fill();
+
+        // 2. 主體 (Main Box) - 白色 (配合主題風格)
+        this.ctx.fillStyle = '#FFFFFF';
+        this.ctx.beginPath();
+        this.ctx.roundRect(x, y, width, totalHeight, 8 * this.currentScale);
+        this.ctx.fill();
+
+        // 3. 粗外框 (Bold Border)
+        this.ctx.strokeStyle = '#000000';
+        this.ctx.lineWidth = 3 * this.currentScale;
+        this.ctx.stroke();
 
         // 列表
         this.ctx.textAlign = 'left';
@@ -350,35 +361,46 @@ class RaceEngineAdapter {
         leaderboard.forEach((entry, index) => {
             const itemY = y + padding + index * rowHeight;
 
-            // 1. 名次
-            this.ctx.font = `bold ${12 * this.currentScale}px Arial`;
-            this.ctx.fillStyle = '#fff';
-            this.ctx.fillText(`${index + 1}.`, x + 8 * this.currentScale, itemY + rowHeight / 2);
+            // 1. 名次 (黑色文字)
+            this.ctx.font = `bold ${12 * this.currentScale}px "Segoe UI", Arial`; // 加粗
+            this.ctx.fillStyle = '#000000';
+            this.ctx.fillText(`${index + 1}.`, x + 12 * this.currentScale, itemY + rowHeight / 2);
 
-            // 2. 馬號色塊
+            // 2. 馬號色塊 (保持顏色，增加細黑邊)
             const colorIdx = (entry.horseId - 1) % colors.length;
             const color = colors[colorIdx];
 
             this.ctx.fillStyle = color;
-            const boxSize = 14 * this.currentScale;
+            const boxSize = 16 * this.currentScale; // 稍微大一點
             // 調整 X 位置
-            const boxX = x + 25 * this.currentScale;
+            const boxX = x + 35 * this.currentScale;
             const boxY = itemY + (rowHeight - boxSize) / 2;
 
             this.ctx.fillRect(boxX, boxY, boxSize, boxSize);
 
-            // 馬號
-            this.ctx.fillStyle = '#fff';
-            this.ctx.font = `bold ${9 * this.currentScale}px Arial`;
+            // 色塊邊框
+            this.ctx.strokeStyle = '#000000';
+            this.ctx.lineWidth = 1.5 * this.currentScale;
+            this.ctx.strokeRect(boxX, boxY, boxSize, boxSize);
+
+            // 馬號 (白色或黑色？淺色底配黑色，深色底配白色。這裡色塊通常是亮色，用黑色或白色皆可，白色比較明顯)
+            this.ctx.fillStyle = '#FFFFFF';
+            // 如果顏色太亮，改用黑色？暫時統一用白色加個黑邊？或者直接白色
+            // 為了風格，用黑色字可能更有型，但白色對比度對深色塊較好。
+            // 讓字體加個黑邊效果
+            this.ctx.font = `bold ${11 * this.currentScale}px Arial`;
             this.ctx.textAlign = 'center';
+            this.ctx.lineWidth = 2 * this.currentScale;
+            this.ctx.strokeText(entry.horseId, boxX + boxSize / 2, boxY + boxSize / 2 + 1);
+            this.ctx.fillStyle = '#FFFFFF';
             this.ctx.fillText(entry.horseId, boxX + boxSize / 2, boxY + boxSize / 2 + 1);
 
-            // 3. 馬名 (顯示全名)
+            // 3. 馬名 (黑色文字，加粗)
             this.ctx.textAlign = 'left';
-            this.ctx.font = `bold ${12 * this.currentScale}px "Segoe UI", Arial`; // 字體稍大一點
-            this.ctx.fillStyle = '#fff';
+            this.ctx.font = `bold ${12 * this.currentScale}px "Segoe UI", Arial`;
+            this.ctx.fillStyle = '#000000';
 
-            this.ctx.fillText(entry.horseName, boxX + boxSize + 8 * this.currentScale, itemY + rowHeight / 2);
+            this.ctx.fillText(entry.horseName, boxX + boxSize + 10 * this.currentScale, itemY + rowHeight / 2);
         });
 
         this.ctx.restore();
@@ -390,26 +412,49 @@ class RaceEngineAdapter {
 
         this.ctx.save();
 
-        // 半透明背景
-        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+        // 半徑
+        const r = 80 * (this.currentScale / window.devicePixelRatio);
+
+        // 1. 硬陰影 (Hard Shadow)
+        const shadowOffset = 6 * this.currentScale;
+        this.ctx.fillStyle = '#000000';
         this.ctx.beginPath();
-        this.ctx.arc(cx, cy, 80 * (this.currentScale / window.devicePixelRatio), 0, Math.PI * 2);
+        this.ctx.arc(cx + shadowOffset, cy + shadowOffset, r, 0, Math.PI * 2);
         this.ctx.fill();
 
-        // 文字發光效果
-        this.ctx.shadowBlur = 20;
-        this.ctx.shadowColor = '#8B5CF6';
+        // 2. 主體 (Main Circle) - 白色
+        this.ctx.fillStyle = '#FFFFFF';
+        this.ctx.beginPath();
+        this.ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        this.ctx.fill();
 
-        this.ctx.fillStyle = '#ffffff';
-        const fontSizeBig = 64 * (this.currentScale / window.devicePixelRatio);
-        this.ctx.font = `bold ${fontSizeBig}px "Segoe UI", Arial`;
+        // 3. 粗外框 (Bold Border)
+        this.ctx.strokeStyle = '#000000';
+        this.ctx.lineWidth = 4 * this.currentScale; // 稍微更粗一點
+        this.ctx.stroke();
+
+        // 文字
         this.ctx.textAlign = 'center';
         this.ctx.textBaseline = 'middle';
-        this.ctx.fillText(this.countdownText, cx, cy);
 
-        const fontSizeSmall = 16 * (this.currentScale / window.devicePixelRatio);
-        this.ctx.font = `bold ${fontSizeSmall}px Arial`;
-        this.ctx.fillText('距離開賽', cx, cy - (45 * (this.currentScale / window.devicePixelRatio)));
+        // 數字 (黑色) - 僅顯示秒數
+        this.ctx.fillStyle = '#000000';
+        const fontSizeBig = 48 * (this.currentScale / window.devicePixelRatio);
+        this.ctx.font = `bold ${fontSizeBig}px "Segoe UI", Arial`;
+
+        // 嘗試解析秒數 (如果是 "00:05" 格式)
+        let displayText = this.countdownText;
+        if (typeof displayText === 'string' && displayText.includes(':')) {
+            const parts = displayText.split(':');
+            displayText = parseInt(parts[parts.length - 1], 10).toString();
+        } else if (!isNaN(parseInt(displayText))) {
+            displayText = parseInt(displayText, 10).toString();
+        }
+
+        // 置中顯示 (垂直位置不再需要避開標題)
+        this.ctx.fillText(displayText, cx, cy);
+
+        // 標題已移除
 
         this.ctx.restore();
     }
@@ -575,7 +620,7 @@ class RaceEngineAdapter {
             // 我們希望標籤在賽道外側 (Radius > 100)
             // 馬匹位置 canvasPos 本身約在 Radius 85-95 處
             // 設定固定距離讓它指出賽道外
-            const labelDistance = 50 * this.currentScale;
+            const labelDistance = 90 * this.currentScale; // 延長至 90 (原 50)
 
             // (dx, dy) 是指向圓心的向量，減去它就是指向外
             const lx = Math.round(canvasPos.x - (dx / distToCenter) * labelDistance);

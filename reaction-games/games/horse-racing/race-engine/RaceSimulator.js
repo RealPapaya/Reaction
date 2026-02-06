@@ -34,7 +34,7 @@ class RaceSimulator {
             horse.d = laneSpacing * (i + 0.5);
             horse.speed = 0;
 
-            const baseFactor = 8 + (horse.competitiveFactor * 0.1);
+            const baseFactor = 4 + (horse.competitiveFactor * 0.1);
             horse.baseSpeed = baseFactor * (0.97 + Math.random() * 0.06);
 
             horse.startDelay = Math.random() * 0.3;

@@ -5,12 +5,12 @@
 
 class RaceScheduler {
     constructor() {
-        this.raceInterval = 6.25 * 60 * 1000; // 6.25 minutes per race cycle (adjusted)
+        this.raceInterval = 8.0 * 60 * 1000; // 8 minutes per race cycle (to fit 2min race)
         this.bettingDuration = 5 * 60 * 1000; // 5 minutes betting
-        this.preRaceDuration = 15 * 1000; // 15 seconds pre-race (NEW)
-        this.raceDuration = 30 * 1000; // 30 seconds racing
+        this.preRaceDuration = 15 * 1000; // 15 seconds pre-race
+        this.raceDuration = 2 * 60 * 1000; // 120 seconds racing (2 minutes)
         this.postRaceDuration = 15 * 1000; // 15 seconds post-race
-        this.closedDuration = 75 * 1000; // 1 minute 15 seconds prep
+        this.closedDuration = 75 * 1000; // Remaining buffer
 
         this.raceSeeds = {}; // 儲存每場比賽的種子碼
         this.loadRaceSeeds();
