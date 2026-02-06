@@ -222,6 +222,72 @@ class RaceScheduler {
     }
 
     // ====================================
+    // Track History & Schedule
+    // ====================================
+
+    getTrackHistory(trackId, limit = 10) {
+        const history = [];
+
+        // 從 raceHistory 中篩選該賽道的紀錄
+        for (const key in this.raceHistory) {
+            if (key.startsWith(`${trackId}_`)) {
+                const raceNumber = parseInt(key.split('_')[1]);
+                const results = this.raceHistory[key];
+
+                // 取得該場比賽的馬匹資料（含賠率）
+                // 注意：這裡我們需要從某處取得賠率，但 raceHistory 沒有儲存賠率
+                // 暫時先不顯示賠率，或者之後補充
+
+                history.push({
+                    raceNumber: raceNumber,
+                    results: results,
+                    // 計算比賽時間（根據 raceInterval）
+                    timestamp: this.estimateRaceTime(trackId, raceNumber)
+                });
+            }
+        }
+
+        // 按場次降序排序（最新的在前）
+        history.sort((a, b) => b.raceNumber - a.raceNumber);
+
+        return history.slice(0, limit);
+    }
+
+    getTrackSchedule(trackId, futureRaces = 5) {
+        const trackSchedule = this.schedule.find(s => s.trackId === trackId);
+        if (!trackSchedule) return [];
+
+        const schedule = [];
+        const currentRaceNumber = trackSchedule.raceNumber;
+        const currentRaceStart = trackSchedule.raceStartTime;
+
+        for (let i = 0; i < futureRaces; i++) {
+            const raceNumber = currentRaceNumber + i;
+            const raceStartTime = currentRaceStart + (i * this.raceInterval);
+
+            schedule.push({
+                raceNumber: raceNumber,
+                raceStartTime: raceStartTime,
+                isCurrent: i === 0
+            });
+        }
+
+        return schedule;
+    }
+
+    estimateRaceTime(trackId, raceNumber) {
+        const trackSchedule = this.schedule.find(s => s.trackId === trackId);
+        if (!trackSchedule) return null;
+
+        const currentRaceNumber = trackSchedule.raceNumber;
+        const currentRaceStart = trackSchedule.raceStartTime;
+
+        // 計算過去比賽的時間
+        const racesDiff = currentRaceNumber - raceNumber;
+        return currentRaceStart - (racesDiff * this.raceInterval);
+    }
+
+    // ====================================
     // Seed Generation & Management
     // ====================================
 

@@ -106,12 +106,11 @@ class HorseRacingGame {
         // Modals
         document.querySelectorAll('.close-modal').forEach(btn => {
             btn.addEventListener('click', () => {
-                this.dom.raceModal?.classList.remove('show');
-                this.dom.quickBetModal?.classList.remove('show');
-                this.dom.successModal?.classList.remove('show');
-                this.dom.trackInfoModal?.classList.remove('show');
-                this.dom.racingFormModal?.classList.remove('show');
-                this.dom.raceModal?.classList.remove('fullscreen');
+                // 🆕 Generic close for all modals
+                document.querySelectorAll('.modal').forEach(modal => {
+                    modal.classList.remove('show');
+                    modal.classList.remove('fullscreen');
+                });
 
                 // Restore navigation bar
                 if (this.dom.navContainer) {
@@ -252,6 +251,14 @@ class HorseRacingGame {
                                 data-track-id="${status.trackId}">
                             場地介紹
                         </button>
+                        <button class="btn btn-secondary track-history-btn" 
+                                data-track-id="${status.trackId}">
+                            歷史紀錄
+                        </button>
+                        <button class="btn btn-secondary track-schedule-btn" 
+                                data-track-id="${status.trackId}">
+                            賽程表
+                        </button>
                         <button class="btn ${btnClass} track-view-btn" 
                                 data-track-id="${status.trackId}"
                                 ${btnDisabled}>
@@ -266,6 +273,20 @@ class HorseRacingGame {
         this.dom.venuesCardsContainer.querySelectorAll('.track-info-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 this.showTrackInfo(btn.dataset.trackId);
+            });
+        });
+
+        // 🆕 Add event listeners for track history
+        this.dom.venuesCardsContainer.querySelectorAll('.track-history-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.showTrackHistory(btn.dataset.trackId);
+            });
+        });
+
+        // 🆕 Add event listeners for track schedule
+        this.dom.venuesCardsContainer.querySelectorAll('.track-schedule-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.showTrackSchedule(btn.dataset.trackId);
             });
         });
 

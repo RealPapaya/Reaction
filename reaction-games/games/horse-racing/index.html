@@ -15,6 +15,7 @@
     <link rel="stylesheet" href="css/success-modal-styles.css">
     <link rel="stylesheet" href="css/screen-transitions.css">
     <link rel="stylesheet" href="css/shop-styles.css">
+    <link rel="stylesheet" href="css/history-schedule-styles.css">
     <style>
         #racing-form-modal .modal-content {
             max-width: 800px;
@@ -348,6 +349,36 @@
         </div>
     </div>
 
+    <!-- 🆕 History Modal -->
+    <div id="history-modal" class="modal">
+        <div class="modal-content card">
+            <div class="modal-header">
+                <h2 id="history-modal-title">🏆 歷史紀錄</h2>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="history-records-container" class="records-container">
+                    <!-- 動態生成 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🆕 Schedule Modal -->
+    <div id="schedule-modal" class="modal">
+        <div class="modal-content card">
+            <div class="modal-header">
+                <h2 id="schedule-modal-title">📅 賽程表</h2>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="schedule-records-container" class="records-container">
+                    <!-- 動態生成 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="data/racetracks.js"></script>
     <script src="data/data-generator.js"></script>
     <script src="data/race-result-generator.js"></script>
@@ -366,6 +397,7 @@
     <!-- 舊引擎（保留作為備份）-->
     <script src="js/race-engine.js"></script>
     <script src="js/game.js"></script>
+    <script src="js/history-schedule.js"></script>
 </body>
 
 </html>
