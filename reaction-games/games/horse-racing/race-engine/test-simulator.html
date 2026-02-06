@@ -137,10 +137,14 @@
     <script src="core/FrenetCoordinates.js"></script>
     <script src="core/SteeringBehaviors.js"></script>
     <script src="core/PhysicsEngine.js"></script>
+    <script src="CornerDebugger.js"></script>
     <script src="ai/JockeyAI.js"></script>
     <script src="RaceSimulator.js"></script>
 
     <script>
+        // 初始化 debugger
+        const cornerDebugger = new CornerDebugger();
+        let frameCount = 0;
         // ====================================
         // 🎯 關鍵修正：物理-視覺比例轉換
         // ====================================
@@ -466,11 +470,13 @@
         // ====================================
 
         function gameLoop() {
-            simulator.update();
-            render();
-            updateUI();
+            frameCount++;
 
             if (simulator.isRunning) {
+                simulator.update();
+                // ✅ 捕獲 debug 數據
+                cornerDebugger.captureFrame(simulator, frameCount);
+
                 animationId = requestAnimationFrame(gameLoop);
             } else {
                 // 比賽結束
@@ -479,6 +485,16 @@
                 alert('比賽結束！\n' + results.map(r =>
                     `${r.position}. ${r.horse.name} - ${r.finishTime.toFixed(2)}秒`
                 ).join('\n'));
+                return;
+            }
+
+            render();
+            updateUI();
+
+            // ✅ 繪製 debug 圖表
+            const debugPanel = document.getElementById('cornerDebugPanel');
+            if (debugPanel && debugPanel.style.display !== 'none') {
+                cornerDebugger.drawDebugOverlay(ctx, simulator, canvas.width, canvas.height);
             }
         }
 

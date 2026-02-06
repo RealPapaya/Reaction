@@ -239,21 +239,32 @@ class FrenetCoordinate {
 
         const nominalDistance = Math.abs(s2 - s1);
 
-        // 簡化計算：檢查這段路徑的平均曲率
-        const midS = (s1 + s2) / 2;
-        const cornerRadius = this.getCornerRadiusAt(midS);
+        // **修正：採樣多個點而非單點**
+        const samples = 5;
+        let totalRatio = 0;
 
-        if (cornerRadius === Infinity) {
-            // 直線段，距離相同
-            return nominalDistance;
+        for (let i = 0; i < samples; i++) {
+            const t = i / (samples - 1);
+            const sampleS = s1 + (s2 - s1) * t;
+            const cornerRadius = this.getCornerRadiusAt(sampleS);
+
+            if (cornerRadius === Infinity) {
+                // 直線段，距離相同
+                totalRatio += 1.0;
+            } else {
+                // 彎道段，外側多跑距離
+                const actualRadius = cornerRadius + d;
+                const ratio = actualRadius / cornerRadius;
+                totalRatio += ratio;
+            }
         }
 
-        // 彎道段，外側多跑距離
-        // 實際半徑 = 彎道中心半徑 + 橫向偏移
-        const actualRadius = cornerRadius + d;
-        const ratio = actualRadius / cornerRadius;
+        const avgRatio = totalRatio / samples;
 
-        return nominalDistance * ratio;
+        // **限制最大比例**（防止極端值）
+        const clampedRatio = Math.min(avgRatio, 1.5); // 最多 150%
+
+        return nominalDistance * clampedRatio;
     }
 
     // ====================================

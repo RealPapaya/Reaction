@@ -16,6 +16,10 @@ class PhysicsEngine {
     }
 
     update(horse, frenetCoord, deltaTime, lateralForce) {
+        // 0. 記錄上一幀位置（用於異常檢測）
+        if (!horse.lastS) horse.lastS = horse.s;
+        const prevS = horse.lastS;
+
         // 0. 應用速度阻尼
         this.applySpeedDamping(horse, deltaTime);
 
@@ -26,6 +30,16 @@ class PhysicsEngine {
             deltaTime
         );
         horse.s += actualDistance;
+
+        // **新增：異常檢測與修正**
+        const deltaS = horse.s - prevS;
+        const expectedMax = horse.speed * deltaTime * 1.5; // 允許 150% 誤差
+
+        if (Math.abs(deltaS) > expectedMax) {
+            console.warn(`⚠️ 異常 s 跳變: 馬 ${horse.id}, Δs=${deltaS.toFixed(3)}m, 預期最大=${expectedMax.toFixed(3)}m`);
+            // 限制跳變
+            horse.s = prevS + Math.sign(deltaS) * expectedMax;
+        }
 
         // 2. 處理彎道物理（**修正版 - 平滑曲率**）
         this.applyCentrifugalForceSmooth(horse, frenetCoord, deltaTime);
@@ -38,6 +52,9 @@ class PhysicsEngine {
 
         // 5. 速度衰減
         horse.speed *= this.FRICTION;
+
+        // 記錄本幀位置
+        horse.lastS = horse.s;
     }
 
     applySpeedDamping(horse, deltaTime) {
@@ -60,11 +77,22 @@ class PhysicsEngine {
         const nominalDistance = horse.speed * deltaTime;
         const currentS = horse.s;
         const nextS = currentS + nominalDistance;
-        const actualDist = frenetCoord.getActualDistance(
+
+        // **彎道檢測**
+        const cornerRadius = frenetCoord.getCornerRadiusAt(currentS);
+
+        let actualDist = frenetCoord.getActualDistance(
             currentS,
             nextS,
             horse.d
         );
+
+        // **關鍵修正：彎道中限制單幀最大移動**
+        if (cornerRadius < Infinity) {
+            const maxCornerMove = horse.speed * deltaTime * 1.1; // 最多110%
+            actualDist = Math.min(actualDist, maxCornerMove);
+        }
+
         return actualDist;
     }
 
