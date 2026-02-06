@@ -1,235 +1,236 @@
 // ====================================
-// Frenet Coordinate System (V13 - 真實切線版)
-// 最簡單直接的解決方案：
-// 直接計算 (s, d) 實際位置的切線方向
-// 不依賴中心線的 heading
+// Frenet Coordinate System (Spline + Arc-Length)
+// Rendering-focused mapping for smooth inner-lane motion
 // ====================================
 
 class FrenetCoordinate {
     constructor(trackPath) {
-        this.originalPath = trackPath;
-        this.path = this.resamplePath(trackPath, 0.5);
-        this.pathLength = this.calculatePathLength();
-        this.segments = this.buildSegments();
+        this.originalPath = Array.isArray(trackPath) ? trackPath : [];
+        this.isClosedPath = this.checkClosedPath(this.originalPath);
+
+        // Sampling controls
+        this.sampleSpacing = 0.5; // meters
+        this.curvatureSampleDelta = 1.0; // meters
+
+        this.buildSplineSamples(this.sampleSpacing);
+        this.pathLength = this.sampleS.length > 0 ? this.sampleS[this.sampleS.length - 1] : 0;
+
+        // Keep compatibility for debug/test tooling
+        this.path = this.samples;
+        this.segments = this.buildSegmentsFromSamples();
     }
 
-    calculatePathLength() {
-        let length = 0;
-        for (let i = 1; i < this.path.length; i++) {
-            const dx = this.path[i].x - this.path[i - 1].x;
-            const dy = this.path[i].y - this.path[i - 1].y;
-            length += Math.sqrt(dx * dx + dy * dy);
-        }
-        return length;
-    }
+    // =========================
+    // Spline sampling
+    // =========================
+    buildSplineSamples(spacing) {
+        const src = this.prepareControlPoints(this.originalPath, this.isClosedPath);
+        const n = src.length;
 
-    buildSegments() {
-        const segments = [];
-        let accumulatedDistance = 0;
+        this.samples = [];
+        this.sampleTangents = [];
+        this.sampleNormals = [];
+        this.sampleS = [];
 
-        for (let i = 1; i < this.path.length; i++) {
-            const p1 = this.path[i - 1];
-            const p2 = this.path[i];
-
-            const dx = p2.x - p1.x;
-            const dy = p2.y - p1.y;
-            const length = Math.sqrt(dx * dx + dy * dy);
-            const heading = Math.atan2(dy, dx);
-
-            segments.push({
-                startPoint: p1,
-                endPoint: p2,
-                startDistance: accumulatedDistance,
-                endDistance: accumulatedDistance + length,
-                length: length,
-                heading: heading,
-                normal: {
-                    x: -Math.sin(heading),
-                    y: Math.cos(heading)
-                },
-                index: i - 1
-            });
-
-            accumulatedDistance += length;
+        if (n < 2) {
+            if (n === 1) {
+                this.samples.push({ x: src[0].x, y: src[0].y });
+                this.sampleTangents.push({ x: 1, y: 0 });
+                this.sampleNormals.push({ x: 0, y: 1 });
+                this.sampleS.push(0);
+            }
+            return;
         }
 
-        return segments;
+        const segments = this.isClosedPath ? n : n - 1;
+        let prev = null;
+        let accum = 0;
+
+        for (let i = 0; i < segments; i++) {
+            const p0 = this.getControlPoint(src, i - 1, this.isClosedPath);
+            const p1 = this.getControlPoint(src, i, this.isClosedPath);
+            const p2 = this.getControlPoint(src, i + 1, this.isClosedPath);
+            const p3 = this.getControlPoint(src, i + 2, this.isClosedPath);
+
+            const chordLen = this.distance(p1, p2);
+            const steps = Math.max(1, Math.ceil(chordLen / spacing));
+            const startStep = (i === 0) ? 0 : 1; // avoid duplicate at segment joins
+
+            for (let s = startStep; s <= steps; s++) {
+                const t = s / steps;
+                const pos = this.catmullRom(p0, p1, p2, p3, t);
+                const tan = this.normalize(this.catmullRomDerivative(p0, p1, p2, p3, t));
+                const normal = { x: -tan.y, y: tan.x };
+
+                if (prev) {
+                    accum += this.distance(prev, pos);
+                }
+
+                this.samples.push(pos);
+                this.sampleTangents.push(tan);
+                this.sampleNormals.push(normal);
+                this.sampleS.push(accum);
+                prev = pos;
+            }
+        }
     }
 
-    // ====================================
-    // **終極解決方案：計算真實位置的切線**
-    // ====================================
+    prepareControlPoints(points, closed) {
+        if (!points || points.length === 0) return [];
+        const copy = points.map(p => ({ x: p.x, y: p.y }));
+        if (!closed) return copy;
+
+        // If closed and last duplicates first, drop last
+        const first = copy[0];
+        const last = copy[copy.length - 1];
+        const dx = first.x - last.x;
+        const dy = first.y - last.y;
+        if ((dx * dx + dy * dy) < 1e-6 && copy.length > 2) {
+            copy.pop();
+        }
+        return copy;
+    }
+
+    getControlPoint(points, index, closed) {
+        const n = points.length;
+        if (closed) {
+            const i = ((index % n) + n) % n;
+            return points[i];
+        }
+        const clamped = Math.max(0, Math.min(index, n - 1));
+        return points[clamped];
+    }
+
+    catmullRom(p0, p1, p2, p3, t) {
+        const t2 = t * t;
+        const t3 = t2 * t;
+        return {
+            x: 0.5 * ((2 * p1.x) + (-p0.x + p2.x) * t + (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 + (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3),
+            y: 0.5 * ((2 * p1.y) + (-p0.y + p2.y) * t + (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 + (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3)
+        };
+    }
+
+    catmullRomDerivative(p0, p1, p2, p3, t) {
+        const t2 = t * t;
+        return {
+            x: 0.5 * ((-p0.x + p2.x) + 2 * (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t + 3 * (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t2),
+            y: 0.5 * ((-p0.y + p2.y) + 2 * (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t + 3 * (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t2)
+        };
+    }
+
+    // =========================
+    // Core conversions
+    // =========================
     frenetToWorld(s, d) {
+        if (!this.samples || this.samples.length === 0) {
+            return { x: 0, y: 0, heading: 0 };
+        }
+
         s = Math.max(0, Math.min(s, this.pathLength));
 
-        const segment = this.findSegment(s);
-        if (!segment) {
-            const last = this.path[this.path.length - 1];
-            return { x: last.x, y: last.y, heading: 0 };
-        }
+        const sample = this.interpolateSampleAtS(s);
+        const worldX = sample.x + sample.normal.x * d;
+        const worldY = sample.y + sample.normal.y * d;
+        const heading = Math.atan2(sample.tangent.y, sample.tangent.x);
 
-        const segmentProgress = segment.length > 0
-            ? (s - segment.startDistance) / segment.length
-            : 0;
-        const smoothHeading = this.getSmoothHeading(segment, segmentProgress);
-
-        // 計算中心線位置
-        const centerX = segment.startPoint.x +
-            (segment.endPoint.x - segment.startPoint.x) * segmentProgress;
-        const centerY = segment.startPoint.y +
-            (segment.endPoint.y - segment.startPoint.y) * segmentProgress;
-
-        // 計算法線方向
-        const centerNormal = {
-            x: -Math.sin(segment.heading),
-            y: Math.cos(segment.heading)
-        };
-
-        // 計算實際世界位置
-        const worldX = centerX + centerNormal.x * d;
-        const worldY = centerY + centerNormal.y * d;
-
-        // ====================================
-        // **關鍵：計算實際位置的切線方向**
-        // 使用數值微分：看前後一小段距離的方向
-        // ====================================
-
-        const delta = 0.5; // 前後 0.5 米
-
-        // 前一點
-        const s1 = Math.max(0, s - delta);
-        const seg1 = this.findSegment(s1);
-        const prog1 = (s1 - seg1.startDistance) / seg1.length;
-        const c1x = seg1.startPoint.x + (seg1.endPoint.x - seg1.startPoint.x) * prog1;
-        const c1y = seg1.startPoint.y + (seg1.endPoint.y - seg1.startPoint.y) * prog1;
-        const n1x = -Math.sin(seg1.heading);
-        const n1y = Math.cos(seg1.heading);
-        const p1x = c1x + n1x * d;
-        const p1y = c1y + n1y * d;
-
-        // 後一點
-        const s2 = Math.min(this.pathLength, s + delta);
-        const seg2 = this.findSegment(s2);
-        const prog2 = (s2 - seg2.startDistance) / seg2.length;
-        const c2x = seg2.startPoint.x + (seg2.endPoint.x - seg2.startPoint.x) * prog2;
-        const c2y = seg2.startPoint.y + (seg2.endPoint.y - seg2.startPoint.y) * prog2;
-        const n2x = -Math.sin(seg2.heading);
-        const n2y = Math.cos(seg2.heading);
-        const p2x = c2x + n2x * d;
-        const p2y = c2y + n2y * d;
-
-        // 計算實際切線方向
-        const dx = p2x - p1x;
-        const dy = p2y - p1y;
-        const actualHeading = Math.atan2(dy, dx);
-
-        return {
-            x: worldX,
-            y: worldY,
-            heading: actualHeading
-        };
-    }
-
-    normalizeAngle(angle) {
-        while (angle > Math.PI) angle -= 2 * Math.PI;
-        while (angle < -Math.PI) angle += 2 * Math.PI;
-        return angle;
+        return { x: worldX, y: worldY, heading };
     }
 
     worldToFrenet(x, y) {
-        let minDistance = Infinity;
+        if (!this.samples || this.samples.length < 2) {
+            return { s: 0, d: 0 };
+        }
+
+        let minDist = Infinity;
         let bestS = 0;
         let bestD = 0;
 
-        for (const segment of this.segments) {
-            const projection = this.projectPointToSegment(x, y, segment);
-
-            if (projection.distance < minDistance) {
-                minDistance = projection.distance;
-                bestS = projection.s;
-                bestD = projection.d;
+        for (let i = 0; i < this.samples.length - 1; i++) {
+            const p1 = this.samples[i];
+            const p2 = this.samples[i + 1];
+            const proj = this.projectPointToSegment(x, y, p1, p2);
+            if (proj.distance < minDist) {
+                minDist = proj.distance;
+                bestS = this.sampleS[i] + proj.t * proj.length;
+                bestD = proj.d;
             }
         }
 
         return { s: bestS, d: bestD };
     }
 
-    projectPointToSegment(px, py, segment) {
-        const p1 = segment.startPoint;
-        const p2 = segment.endPoint;
+    interpolateSampleAtS(s) {
+        const idx = this.sToSampleIndex(s);
+        const s0 = this.sampleS[idx];
+        const s1 = this.sampleS[idx + 1];
+        const denom = (s1 - s0) || 1;
+        const t = Math.max(0, Math.min(1, (s - s0) / denom));
 
-        const dx = p2.x - p1.x;
-        const dy = p2.y - p1.y;
-        const lengthSq = dx * dx + dy * dy;
+        const p0 = this.samples[idx];
+        const p1 = this.samples[idx + 1];
+        const tan0 = this.sampleTangents[idx];
+        const tan1 = this.sampleTangents[idx + 1];
 
-        if (lengthSq === 0) {
-            const dist = Math.sqrt((px - p1.x) ** 2 + (py - p1.y) ** 2);
-            return { s: segment.startDistance, d: dist, distance: dist };
-        }
+        const x = p0.x + (p1.x - p0.x) * t;
+        const y = p0.y + (p1.y - p0.y) * t;
 
-        let t = ((px - p1.x) * dx + (py - p1.y) * dy) / lengthSq;
-        t = Math.max(0, Math.min(1, t));
+        const tan = this.normalize({
+            x: tan0.x + (tan1.x - tan0.x) * t,
+            y: tan0.y + (tan1.y - tan0.y) * t
+        });
 
-        const projX = p1.x + t * dx;
-        const projY = p1.y + t * dy;
+        const normal = { x: -tan.y, y: tan.x };
 
-        const distance = Math.sqrt((px - projX) ** 2 + (py - projY) ** 2);
-
-        const cross = (px - p1.x) * dy - (py - p1.y) * dx;
-        const d = cross > 0 ? distance : -distance;
-
-        const s = segment.startDistance + t * segment.length;
-
-        return { s, d, distance };
+        return { x, y, tangent: tan, normal };
     }
 
-    findSegment(s) {
-        let left = 0;
-        let right = this.segments.length - 1;
+    sToSampleIndex(s) {
+        if (!this.sampleS || this.sampleS.length < 2) return 0;
+        if (s <= 0) return 0;
+        if (s >= this.pathLength) return this.sampleS.length - 2;
 
+        let left = 0;
+        let right = this.sampleS.length - 2;
         while (left <= right) {
             const mid = Math.floor((left + right) / 2);
-            const segment = this.segments[mid];
-
-            if (s < segment.startDistance) {
+            const s0 = this.sampleS[mid];
+            const s1 = this.sampleS[mid + 1];
+            if (s < s0) {
                 right = mid - 1;
-            } else if (s > segment.endDistance) {
+            } else if (s > s1) {
                 left = mid + 1;
             } else {
-                return segment;
+                return mid;
             }
         }
-
-        return this.segments[Math.min(left, this.segments.length - 1)];
+        return Math.max(0, Math.min(left, this.sampleS.length - 2));
     }
 
+    // =========================
+    // Corner radius (curvature)
+    // =========================
     getCornerRadiusAt(s) {
-        const segment = this.findSegment(s);
-        if (!segment) return Infinity;
+        if (!this.samples || this.samples.length < 3) return Infinity;
 
-        const segmentIndex = segment.index;
-        if (segmentIndex === 0 || segmentIndex === this.segments.length - 1) {
-            return Infinity;
-        }
+        const delta = Math.max(this.curvatureSampleDelta, this.sampleSpacing * 2);
+        const s1 = Math.max(0, s - delta);
+        const s2 = Math.min(this.pathLength, s + delta);
+        const s0 = Math.max(0, Math.min(s, this.pathLength));
 
-        const prevSegment = this.segments[segmentIndex - 1];
-        const nextSegment = this.segments[segmentIndex + 1];
+        const p1 = this.interpolateSampleAtS(s1);
+        const p2 = this.interpolateSampleAtS(s0);
+        const p3 = this.interpolateSampleAtS(s2);
 
-        const angle1 = prevSegment.heading;
-        const angle2 = segment.heading;
-        const angle3 = nextSegment.heading;
+        const a = this.distance(p1, p2);
+        const b = this.distance(p2, p3);
+        const c = this.distance(p1, p3);
+        if (a < 1e-6 || b < 1e-6 || c < 1e-6) return Infinity;
 
-        let delta1 = this.normalizeAngle(angle2 - angle1);
-        let delta2 = this.normalizeAngle(angle3 - angle2);
+        const cross = Math.abs((p2.x - p1.x) * (p3.y - p1.y) - (p2.y - p1.y) * (p3.x - p1.x));
+        if (cross < 1e-6) return Infinity;
 
-        const avgDelta = Math.abs((delta1 + delta2) / 2);
-
-        if (avgDelta < 0.01) {
-            return Infinity;
-        }
-
-        const avgSegmentLength = (prevSegment.length + segment.length + nextSegment.length) / 3;
-        let radius = avgSegmentLength / avgDelta;
+        const radius = (a * b * c) / (2 * cross);
+        if (!isFinite(radius)) return Infinity;
 
         return Math.max(20, Math.min(radius, 500));
     }
@@ -248,6 +249,96 @@ class FrenetCoordinate {
         const clampedRatio = Math.max(0.97, Math.min(1.03, ratio));
 
         return nominalDistance * clampedRatio;
+    }
+
+    // =========================
+    // Compatibility / helpers
+    // =========================
+    buildSegmentsFromSamples() {
+        const segments = [];
+        if (!this.samples || this.samples.length < 2) return segments;
+
+        for (let i = 0; i < this.samples.length - 1; i++) {
+            const p1 = this.samples[i];
+            const p2 = this.samples[i + 1];
+            const dx = p2.x - p1.x;
+            const dy = p2.y - p1.y;
+            const length = Math.sqrt(dx * dx + dy * dy);
+            const heading = Math.atan2(dy, dx);
+            const invLen = length > 0 ? 1 / length : 0;
+            const dir = { x: dx * invLen, y: dy * invLen };
+
+            segments.push({
+                startPoint: p1,
+                endPoint: p2,
+                startDistance: this.sampleS[i],
+                endDistance: this.sampleS[i + 1],
+                length,
+                heading,
+                dir,
+                normal: { x: -dir.y, y: dir.x },
+                index: i
+            });
+        }
+
+        return segments;
+    }
+
+    findSegment(s) {
+        if (!this.segments || this.segments.length === 0) return null;
+        const idx = this.sToSampleIndex(s);
+        return this.segments[Math.max(0, Math.min(idx, this.segments.length - 1))];
+    }
+
+    projectPointToSegment(px, py, p1, p2) {
+        const dx = p2.x - p1.x;
+        const dy = p2.y - p1.y;
+        const lengthSq = dx * dx + dy * dy;
+        const length = Math.sqrt(lengthSq);
+
+        if (lengthSq === 0) {
+            const dist = Math.sqrt((px - p1.x) ** 2 + (py - p1.y) ** 2);
+            return { t: 0, d: dist, distance: dist, length: 0 };
+        }
+
+        let t = ((px - p1.x) * dx + (py - p1.y) * dy) / lengthSq;
+        t = Math.max(0, Math.min(1, t));
+
+        const projX = p1.x + t * dx;
+        const projY = p1.y + t * dy;
+
+        const distance = Math.sqrt((px - projX) ** 2 + (py - projY) ** 2);
+        const cross = (px - p1.x) * dy - (py - p1.y) * dx;
+        const d = cross > 0 ? distance : -distance;
+
+        return { t, d, distance, length };
+    }
+
+    checkClosedPath(points) {
+        if (!points || points.length < 2) return false;
+        const first = points[0];
+        const last = points[points.length - 1];
+        const dx = first.x - last.x;
+        const dy = first.y - last.y;
+        return (dx * dx + dy * dy) < 1e-6;
+    }
+
+    normalize(v) {
+        const len = Math.sqrt(v.x * v.x + v.y * v.y);
+        if (len < 1e-8) return { x: 1, y: 0 };
+        return { x: v.x / len, y: v.y / len };
+    }
+
+    distance(a, b) {
+        const dx = a.x - b.x;
+        const dy = a.y - b.y;
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    normalizeAngle(angle) {
+        while (angle > Math.PI) angle -= 2 * Math.PI;
+        while (angle < -Math.PI) angle += 2 * Math.PI;
+        return angle;
     }
 
     getTrackWidth() {
