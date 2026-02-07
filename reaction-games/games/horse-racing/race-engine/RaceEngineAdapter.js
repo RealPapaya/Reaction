@@ -284,9 +284,20 @@ class RaceEngineAdapter {
                 position: entry.position,
                 distance: entry.distance,
                 isBoxedIn: h.isBoxedIn,
-                isOvertaking: h.isOvertaking
+                isOvertaking: h.isOvertaking,
+                finished: h.finished,
+                finishTime: h.finishTime,
+                raceTime: this.simulator.raceTime
             };
         });
+    }
+
+    formatTime(seconds) {
+        if (typeof seconds !== 'number') return '--:--.--';
+        const m = Math.floor(seconds / 60);
+        const s = Math.floor(seconds % 60);
+        const ms = Math.floor((seconds * 100) % 100);
+        return `${m}:${s.toString().padStart(2, '0')}.${ms.toString().padStart(2, '0')}`;
     }
 
     getRenderData() {
@@ -424,9 +435,9 @@ class RaceEngineAdapter {
         // 固定顏色映射 (需與 drawHorses 一致)
         const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E2'];
 
-        // 縮小尺寸以適應內場空間 (寬度增加以容納全名)
+        // 縮小尺寸以適應內場空間 (寬度增加以容納全名 + 時間)
         const padding = 12 * this.currentScale; // 增加一點 padding
-        const width = 300 * this.currentScale;
+        const width = 360 * this.currentScale;  // 寬度增加 (300 -> 360)
         const rowHeight = 24 * this.currentScale; // 增加行高
         const totalHeight = leaderboard.length * rowHeight + padding * 2;
 
@@ -487,6 +498,21 @@ class RaceEngineAdapter {
             this.ctx.font = `bold ${12 * this.currentScale}px "Segoe UI", Arial`;
             this.ctx.fillStyle = rankColor;
             this.ctx.fillText(`${i + 1}.`, x + 12 * this.currentScale, itemY + rowHeight / 2);
+        }
+
+        // D. Draw **Fixed** Main Timer (Rank 1 Time)
+        // 第一名的時間固定在第一行位置，不隨馬匹移動而跳動
+        const leader = leaderboard[0];
+        if (leader) {
+            const isLeaderFinished = leader.finished;
+            const mainTime = isLeaderFinished ? leader.finishTime : this.simulator.raceTime;
+            const mainTimeText = this.formatTime(mainTime);
+
+            this.ctx.textAlign = 'right';
+            this.ctx.font = `bold ${12 * this.currentScale}px "Monaco", "Consolas", monospace`;
+            this.ctx.fillStyle = isLeaderFinished ? '#d97706' : '#000000';
+            // 固定位置：y + padding + 0 * rowHeight (第一行)
+            this.ctx.fillText(mainTimeText, x + width - 15 * this.currentScale, y + padding + rowHeight / 2);
         }
 
         // C. Update & Draw Dynamic Horse Rows
@@ -551,6 +577,21 @@ class RaceEngineAdapter {
             this.ctx.font = `bold ${12 * this.currentScale}px "Segoe UI", Arial`;
             this.ctx.fillStyle = '#000000';
             this.ctx.fillText(entry.horseName, boxX + boxSize + 10 * this.currentScale, itemY + rowHeight / 2);
+
+            // 時間 / 差距 (Timer / Diff) - 僅顯示非第一名的差距
+            if (entry.position > 1 && entry.finished) {
+                const leader = leaderboard[0];
+                if (leader && leader.finished) {
+                    const diff = entry.finishTime - leader.finishTime;
+                    const timeText = `+ ${diff.toFixed(2)}`;
+
+                    this.ctx.textAlign = 'right';
+                    this.ctx.font = `bold ${12 * this.currentScale}px "Monaco", "Consolas", monospace`;
+                    this.ctx.fillStyle = '#d97706'; // 完賽差距顏色
+                    // 跟隨馬匹行移動
+                    this.ctx.fillText(timeText, x + width - 15 * this.currentScale, itemY + rowHeight / 2);
+                }
+            }
         });
 
         this.ctx.restore();
