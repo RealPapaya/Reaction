@@ -105,6 +105,7 @@ class RaceScheduler {
             return {
                 phase: 'RACING',
                 timeRemaining: Math.floor((raceEndTime - now) / 1000),
+                elapsedTime: now - raceStartTime,
                 message: '比賽進行中',
                 raceNumber: trackSchedule.raceNumber,
                 raceSeed: trackSchedule.raceSeed

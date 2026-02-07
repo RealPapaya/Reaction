@@ -802,15 +802,17 @@ class HorseRacingGame {
         document.getElementById('race-waiting').style.display = 'none';
         canvas.style.display = 'block';
 
-        document.getElementById('race-waiting').style.display = 'none';
-        canvas.style.display = 'block';
-
         // 🎯 計算經過時間 (用於中途加入)
         const raceStatus = raceScheduler.getTrackStatus(trackId);
-        // raceDuration is 120s (2 min) in raceScheduler
-        const elapsedSeconds = raceScheduler.raceDuration / 1000 - raceStatus.timeRemaining;
-        // Make sure it's positive and logical
-        const elapsedTimeMs = Math.max(0, elapsedSeconds * 1000);
+
+        let elapsedTimeMs = 0;
+        if (raceStatus.elapsedTime !== undefined) {
+            elapsedTimeMs = raceStatus.elapsedTime;
+        } else {
+            // Fallback
+            const elapsedSeconds = raceScheduler.raceDuration / 1000 - raceStatus.timeRemaining;
+            elapsedTimeMs = Math.max(0, elapsedSeconds * 1000);
+        }
 
         // 如果引擎已經在準備狀態，直接啟動即可
         if (this.raceEngine && this.raceEngine.isPreparing) {

@@ -78,19 +78,13 @@ class RaceEngineAdapter {
         this.isRunning = true;
         this.isPreparing = false; // 切換為正式比賽
 
-        // 🎯 支援中途加入 (Fast Forward)
-        if (elapsedTime > 0) {
-            const steps = Math.floor(elapsedTime / (1000 / 60)); // 60 FPS assumption
-            // Limit max fast forward to prevent freeze (e.g. max 5 seconds of sim per frame, or just do it all?)
-            // For 2 minutes race, 7200 frames. Might freeze UI.
-            // But physics is simple. Let's try direct loop up to 2000 steps (approx 33s) per chunk or just run it.
-            // Given JS speed, 6000 steps is fine.
-            console.log(`⏩ Fast-Forwarding Race: ${steps} frames (${elapsedTime}ms)`);
-            for (let i = 0; i < steps; i++) {
-                this.simulator.update();
-                if (this.simulator.isFinished) break;
-            }
-        }
+        // 🎯 設定比賽起始的系統時間
+        // 如果 elapsedTime = 5000ms，表示比賽在 5秒前開始
+        // 所以 raceStartTime = 現在 - 5000ms
+        this.raceStartTime = performance.now() - elapsedTime;
+
+        // 🎯 立即進行一次同步 (處理中途加入的情況)
+        this.syncToTime();
 
         this.animate();
     }
@@ -162,12 +156,6 @@ class RaceEngineAdapter {
         // 因為起點在終點前 (-40 < 0)，如果不加一圈，距離只有 40m
         // 所以邏輯是：起點 -> (經過終點 ignored) -> 繞一圈 -> 終點
         // 總距離 = 完整一圈長度 + 終點S
-        // Wait, index 0 is at -115.
-        // StartS = 75. FinishS = 115.
-        // Horse runs 75 -> ... -> PathEnd -> ... -> 115.
-        // Distance = (PathLen - StartS) + FinishS? No.
-        // If s continues increasing:
-        // Target = PathLen + FinishS.
         this.simulator.raceDistance = this.simulator.frenet.pathLength + finishS;
     }
 
@@ -265,9 +253,52 @@ class RaceEngineAdapter {
 
     update() {
         if (!this.simulator || !this.isRunning) return;
-        this.simulator.update();
+
+        // 🎯 時間同步邏輯
+        this.syncToTime();
+
         if (!this.simulator.isRunning) {
             this.isRunning = false;
+        }
+    }
+
+    /**
+     * 🎯 核心同步函數：將物理世界趕上現實時間
+     */
+    syncToTime() {
+        if (!this.raceStartTime) return;
+
+        const now = performance.now();
+        // 目標時間 (毫秒) -> 轉秒
+        const targetRaceTime = (now - this.raceStartTime) / 1000;
+
+        // 容錯：如果已經完賽，就不再追趕
+        if (this.simulator.isFinished) return;
+
+        // 追趕迴圈
+        const dt = 1 / 60; // 固定物理步長
+        let steps = 0;
+        const maxSteps = 1200; // 安全限制：單幀最多追趕 20秒 (1200 * 16ms)，避免卡死
+
+        // 如果落後超過 1 幀，就追趕
+        if (targetRaceTime > this.simulator.raceTime + dt) {
+            console.log(`⏱️ 同步中... 落後 ${(targetRaceTime - this.simulator.raceTime).toFixed(2)}s`);
+        }
+
+        while (this.simulator.raceTime < targetRaceTime && steps < maxSteps) {
+            if (this.simulator.updateWithFixedDelta) {
+                this.simulator.updateWithFixedDelta(dt);
+            } else {
+                this.simulator.update(); // Fallback
+            }
+
+            if (this.simulator.isFinished) break;
+            steps++;
+        }
+
+        if (steps >= maxSteps) {
+            console.warn('⚠️ 物理模擬落後太多，強制放棄部分幀以保持流暢');
+            // 這裡可以選擇重置 startTime，或者就讓它慢慢追
         }
     }
 
