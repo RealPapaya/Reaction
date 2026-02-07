@@ -19,6 +19,7 @@ class HorseRacingGame {
         // Race engine for viewing
         this.raceEngine = null;
         this.updateInterval = null;
+        this.deltaTimeout = null;
 
         this.dom = {};
         this.init();
@@ -73,6 +74,9 @@ class HorseRacingGame {
 
         // Shop
         this.dom.navBalance = document.getElementById('nav-balance');
+        this.dom.coinBalance = document.getElementById('coin-balance');
+        this.dom.coinDelta = document.getElementById('coin-delta');
+        this.dom.coinDisplay = document.querySelector('.coin-display');
         this.dom.racingFormList = document.getElementById('racing-form-list');
 
         // Racing Form - Header Indicator
@@ -121,6 +125,8 @@ class HorseRacingGame {
                 if (this.dom.globalBackBtn) {
                     this.dom.globalBackBtn.style.display = 'block';
                 }
+
+                this.setCoinDisplayVisible(true);
             });
         });
 
@@ -153,6 +159,7 @@ class HorseRacingGame {
             // Restore UI
             if (this.dom.navContainer) this.dom.navContainer.style.display = 'flex';
             if (this.dom.globalBackBtn) this.dom.globalBackBtn.style.display = 'block';
+            this.setCoinDisplayVisible(true);
 
             if (this.raceEngine) {
                 this.raceEngine.stopRace();
@@ -666,6 +673,10 @@ class HorseRacingGame {
 
             this.saveBalance();
             this.saveStats();
+            this.updateBalanceDisplay();
+            if (ticket.result.isWinner) {
+                this.showBalanceDelta(ticket.result.payout);
+            }
 
             // Render Result (Custom Theme Modal)
             const resultHTML = redemptionMachine.renderRedemptionResult(ticket);
@@ -727,6 +738,8 @@ class HorseRacingGame {
         if (this.dom.globalBackBtn) {
             this.dom.globalBackBtn.style.display = 'none';
         }
+
+        this.setCoinDisplayVisible(false);
 
         if (status.phase === 'RACING') {
             this.startRaceViewing(trackId);
@@ -903,6 +916,8 @@ class HorseRacingGame {
             this.totalBet += this.currentBetAmount;
             this.saveBalance();
             this.saveStats();
+            this.updateBalanceDisplay();
+            this.showBalanceDelta(-this.currentBetAmount);
 
             this.dom.quickBetModal.classList.remove('show');
 
@@ -1066,6 +1081,7 @@ class HorseRacingGame {
             this.balance = result.newBalance;
             this.saveBalance();
             this.updateBalanceDisplay();
+            this.showBalanceDelta(-price);
 
             // 重新渲染商店
             this.renderShopScreen();
@@ -1147,6 +1163,34 @@ class HorseRacingGame {
         if (this.dom.navBalance) {
             this.dom.navBalance.textContent = this.balance.toLocaleString();
         }
+        if (this.dom.coinBalance) {
+            this.dom.coinBalance.textContent = this.balance.toLocaleString();
+        }
+    }
+
+    showBalanceDelta(delta) {
+        if (!this.dom.coinDelta || !delta) return;
+
+        const sign = delta > 0 ? '+' : '';
+        this.dom.coinDelta.textContent = `${sign}${delta.toLocaleString()}`;
+        this.dom.coinDelta.classList.remove('positive', 'negative', 'show');
+        this.dom.coinDelta.classList.add(delta > 0 ? 'positive' : 'negative');
+
+        // Restart animation
+        void this.dom.coinDelta.offsetWidth;
+        this.dom.coinDelta.classList.add('show');
+
+        if (this.deltaTimeout) {
+            clearTimeout(this.deltaTimeout);
+        }
+        this.deltaTimeout = setTimeout(() => {
+            this.dom.coinDelta.classList.remove('show');
+        }, 1200);
+    }
+
+    setCoinDisplayVisible(isVisible) {
+        if (!this.dom.coinDisplay) return;
+        this.dom.coinDisplay.style.display = isVisible ? 'flex' : 'none';
     }
 
     // ====================================
