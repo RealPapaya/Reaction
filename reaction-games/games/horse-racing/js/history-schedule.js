@@ -34,51 +34,49 @@ HorseRacingGame.prototype.showTrackHistory = function (trackId) {
                 hour: '2-digit', minute: '2-digit'
             });
 
-            // 安全檢查：防止 results 為空導致錯誤
-            if (!record.results || record.results.length === 0 || !record.results[0]) {
+            // 更寬鬆的檢查，並提供調試信息
+            if (!record.results || !Array.isArray(record.results) || record.results.length === 0) {
+                console.warn('⚠️ 歷史紀錄缺少 results:', record);
                 return `
                                     <tr class="history-row error">
                                         <td>${dateStr}</td>
                                         <td>第 ${record.raceNumber} 場</td>
-                                        <td colspan="3" style="color: var(--text-muted);">數據無效或損毀</td>
+                                        <td colspan="3" style="color: #999;">
+                                            ⚠️ 無比賽數據
+                                            <button onclick="localStorage.clear(); location.reload();" 
+                                                    style="margin-left:10px; padding:4px 8px; font-size:0.8rem; cursor:pointer;">
+                                                清除所有數據
+                                            </button>
+                                        </td>
                                     </tr>
                                 `;
             }
 
             const winner = record.results[0];
-            // 再次檢查 winner.horse 是否存在
-            if (!winner.horse) {
-                return `
-                                    <tr class="history-row error">
-                                        <td>${dateStr}</td>
-                                        <td>第 ${record.raceNumber} 場</td>
-                                        <td colspan="3" style="color: var(--text-muted);">馬匹數據缺失</td>
-                                    </tr>
-                                `;
-            }
-
-            const track = raceScheduler.getTrackData(trackId);
-
-            // 詳情行 ID
             const detailId = `detail-${trackId}-${record.raceNumber}`;
 
+            // 使用安全的屬性訪問
+            const horseName = winner?.horse?.name || '未知';
+            const horseId = winner?.horse?.id || '?';
+            const finishTime = winner?.finishTime || 0;
+
             return `
-                                <tr class="history-row" onclick="toggleDetail('${detailId}', this)">
+                                <tr class="history-row" onclick="toggleDetail('${detailId}', this)" style="cursor:pointer;">
                                     <td>${dateStr}</td>
                                     <td>第 ${record.raceNumber} 場</td>
                                     <td>
                                         <div class="winner-cell">
                                             <span>🥇</span>
-                                            <span>#${winner.horse.id} ${winner.horse.name}</span>
+                                            <span>#${horseId} ${horseName}</span>
                                         </div>
                                     </td>
-                                    <td class="hide-mobile">${winner.finishTime.toFixed(2)}s</td>
+                                    <td class="hide-mobile">${finishTime.toFixed(2)}s</td>
                                     <td>
                                         <button class="btn-table-action btn-replay-sm" 
                                             onclick="event.stopPropagation(); game.showReplayModal('${trackId}', ${record.raceNumber});">
                                             🎬 <span class="hide-mobile">重播</span>
                                         </button>
-                                        <button class="btn-table-action">
+                                        <button class="btn-table-action" onclick="event.stopPropagation(); toggleDetail('${detailId}', this.closest('tr'));">
                                             詳情 <span class="toggle-icon">▼</span>
                                         </button>
                                     </td>
@@ -103,9 +101,9 @@ HorseRacingGame.prototype.showTrackHistory = function (trackId) {
                 return `
                                                             <tr>
                                                                 <td>${medal}</td>
-                                                                <td>#${r.horse.id}</td>
-                                                                <td>${r.horse.name}</td>
-                                                                <td>${r.finishTime.toFixed(2)}s</td>
+                                                                <td>#${r?.horse?.id || '?'}</td>
+                                                                <td>${r?.horse?.name || '未知'}</td>
+                                                                <td>${(r?.finishTime || 0).toFixed(2)}s</td>
                                                                 <td>${gap}</td>
                                                             </tr>
                                                         `;
@@ -182,7 +180,6 @@ HorseRacingGame.prototype.showTrackSchedule = function (trackId) {
 
         if (item.isCurrent) {
             statusBadge = '<span class="schedule-status betting">🟢 投注中</span>';
-            // 添加動態倒數容器
             countdownText = `<span class="dynamic-countdown" data-end="${item.raceStartTime}" style="color: #e91e63; font-weight: bold;">計算中...</span>`;
             rowClass = 'current-race-row';
         } else if (minutesUntil > 0) {
@@ -216,7 +213,6 @@ HorseRacingGame.prototype.showTrackSchedule = function (trackId) {
     if (typeof startScheduleTimer === 'function') {
         startScheduleTimer();
     } else {
-        // 如果 startScheduleTimer 尚未定義，使用 setTimeout 延遲調用
         setTimeout(() => {
             if (typeof startScheduleTimer === 'function') startScheduleTimer();
         }, 100);
@@ -247,6 +243,6 @@ window.startScheduleTimer = function () {
         });
     };
 
-    update(); // 立即執行一次
+    update();
     window.scheduleTimer = setInterval(update, 1000);
 };

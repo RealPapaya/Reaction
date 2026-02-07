@@ -19,6 +19,14 @@ class ArrowRushGame {
         this.resultTitle = document.getElementById('result-title');
         this.resultMessage = document.getElementById('result-message');
 
+        // Coin display
+        this.coinBalanceEl = document.getElementById('coin-balance');
+        this.coinDeltaEl = document.getElementById('coin-delta');
+        this.deltaTimeout = null;
+        this.balance = this.loadBalance();
+        this.rewardToast = null;
+        this.rewardToastTimeout = null;
+
         // Modal elements
         this.rulesModal = document.getElementById('rules-modal');
         this.btnRules = document.getElementById('btn-rules');
@@ -123,6 +131,7 @@ class ArrowRushGame {
 
         // Show rules on load
         this.openRules();
+        this.updateBalanceDisplay();
     }
 
     openRules() {
@@ -488,6 +497,7 @@ class ArrowRushGame {
         this.stats.totalAttempts += this.totalAttempts;
 
         this.saveStats();
+        this.awardCoins(50);
 
         this.showResult();
     }
@@ -496,7 +506,7 @@ class ArrowRushGame {
         // Create Time's Up overlay
         const overlay = document.createElement('div');
         overlay.className = 'times-up-overlay';
-        overlay.innerHTML = '<div class="times-up-text">時間到</div>';
+        overlay.innerHTML = '<div class="times-up-text">時間到</div><div class="times-up-reward">完成遊戲 +50金幣</div>';
         document.body.appendChild(overlay);
 
         // Wait before showing leaderboard and allowing restart
@@ -587,6 +597,7 @@ class ArrowRushGame {
             } else {
                 display.innerHTML = '<p style="text-align: center; color: #666;">尚無紀錄或無法連接</p>';
             }
+            return scores || [];
         };
 
         loadLeaderboard();
@@ -622,7 +633,8 @@ class ArrowRushGame {
             const res = await leaderboard.submitScore('arrow-rush', name, score, details);
             if (res.success) {
                 status.innerHTML = '<span style="color:green; font-weight:bold;">✅ 已提交！</span>';
-                loadLeaderboard();
+                const scores = await loadLeaderboard();
+                this.applyLeaderboardRewardFromScores(scores, name, score);
                 input.disabled = true;
                 btn.style.display = 'none';
             } else {
@@ -694,6 +706,88 @@ class ArrowRushGame {
 
     saveStats() {
         localStorage.setItem('arrowRushStats', JSON.stringify(this.stats));
+    }
+
+    loadBalance() {
+        const saved = localStorage.getItem('playerBalance');
+        const parsed = parseInt(saved, 10);
+        if (!Number.isNaN(parsed)) return parsed;
+        return 10000;
+    }
+
+    saveBalance() {
+        localStorage.setItem('playerBalance', this.balance);
+    }
+
+    updateBalanceDisplay() {
+        if (this.coinBalanceEl) {
+            this.coinBalanceEl.textContent = this.balance.toLocaleString();
+        }
+    }
+
+    showBalanceDelta(delta) {
+        if (!this.coinDeltaEl || !delta) return;
+        const sign = delta > 0 ? '+' : '';
+        this.coinDeltaEl.textContent = `${sign}${delta.toLocaleString()}`;
+        this.coinDeltaEl.classList.remove('positive', 'negative', 'show');
+        this.coinDeltaEl.classList.add(delta > 0 ? 'positive' : 'negative');
+
+        void this.coinDeltaEl.offsetWidth;
+        this.coinDeltaEl.classList.add('show');
+
+        if (this.deltaTimeout) {
+            clearTimeout(this.deltaTimeout);
+        }
+        this.deltaTimeout = setTimeout(() => {
+            this.coinDeltaEl.classList.remove('show');
+        }, 1200);
+    }
+
+    awardCoins(amount) {
+        if (!amount) return;
+        this.balance += amount;
+        this.saveBalance();
+        this.updateBalanceDisplay();
+        this.showBalanceDelta(amount);
+    }
+
+    showRewardToast(message) {
+        if (!message) return;
+        if (!this.rewardToast) {
+            this.rewardToast = document.createElement('div');
+            this.rewardToast.className = 'reward-toast';
+            document.body.appendChild(this.rewardToast);
+        }
+        this.rewardToast.textContent = message;
+        this.rewardToast.classList.remove('show');
+        void this.rewardToast.offsetWidth;
+        this.rewardToast.classList.add('show');
+
+        if (this.rewardToastTimeout) {
+            clearTimeout(this.rewardToastTimeout);
+        }
+        this.rewardToastTimeout = setTimeout(() => {
+            this.rewardToast.classList.remove('show');
+        }, 1600);
+    }
+
+    getLeaderboardReward(rank) {
+        if (rank === 1) return 1000;
+        if (rank === 2) return 750;
+        if (rank === 3) return 500;
+        return 0;
+    }
+
+    applyLeaderboardRewardFromScores(scores, name, score) {
+        if (!scores || scores.length === 0) return;
+        const numericScore = Number(score);
+        const index = scores.findIndex((s) => s.name === name && Number(s.score) === numericScore);
+        if (index === -1) return;
+        const reward = this.getLeaderboardReward(index + 1);
+        if (reward > 0) {
+            this.awardCoins(reward);
+            this.showRewardToast(`刷新第${index + 1}名排行榜！提交名字可再獲得${reward}金幣`);
+        }
     }
 
 
