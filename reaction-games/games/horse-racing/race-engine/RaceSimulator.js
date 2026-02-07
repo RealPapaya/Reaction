@@ -52,7 +52,7 @@ class RaceSimulator {
 
             // 修正:真實賽馬速度應該是 15-18 m/s (54-65 km/h)
             const baseFactor = 1 + (horse.competitiveFactor / 100 * 0.3);  // competitiveFactor 是 0-100
-            horse.baseSpeed = baseFactor * 15 * (0.97 + this.random.next() * 0.06);  // 基礎速度 15 m/s
+            horse.baseSpeed = baseFactor * 11.8 * (0.97 + this.random.next() * 0.06);  // 基礎速度 15 m/s
 
             horse.startDelay = this.random.next() * 0.3;
             horse.hasStarted = false;

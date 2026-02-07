@@ -15,7 +15,7 @@ class BackgroundSimulator {
 
     /**
      * 快速執行完整比賽（無渲染）
-     * 返回比賽結果和重播數據
+     * 使用物理模擬 + raceResultGenerator 數據注入
      */
     runFullSimulation() {
         console.log(`🎬 開始後台模擬比賽 (Seed: ${this.raceSeed.substring(0, 20)}...)`);
@@ -24,7 +24,7 @@ class BackgroundSimulator {
         // 1. 建立賽道路徑
         const trackPath = this.createStadiumPath();
 
-        // 2. 轉換馬匹格式
+        // 2. 轉換馬匹格式（注入 raceResultGenerator 數據）
         const simulatorHorses = this.convertHorsesToSimulatorFormat(this.horses);
 
         // 3. 計算比賽距離
@@ -37,40 +37,33 @@ class BackgroundSimulator {
         this.simulator = new RaceSimulator(trackPath, simulatorHorses, {
             raceDistance: raceDistance,
             trackWidth: 17.5,
-            raceSeed: this.raceSeed  // ← 傳遞種子碼
+            raceSeed: this.raceSeed
         });
 
         console.log('  🏁 模擬器初始化完成:');
         console.log('    - 賽道距離:', this.simulator.raceDistance);
         console.log('    - 馬匹數量:', this.simulator.horses.length);
-        console.log('    - 路徑長度:', pathLength);
 
         // 5. 啟動比賽
         this.simulator.startRace();
-        console.log('  🚀 比賽已啟動, isRunning:', this.simulator.isRunning);
+
+        // 修正：同步起始位置 (RaceEngineAdapter 設定 s = 115)
+        // straightLength(230) / 2 = 115
+        const startS = 115;
+        this.simulator.horses.forEach(h => {
+            h.s = startS;
+        });
 
         // 6. 執行物理模擬循環 - 使用固定時間步長
         const FIXED_TIMESTEP = 1 / 60; // 60 FPS
         const trajectory = [];
         let frameCount = 0;
-        const SAMPLE_INTERVAL = 0.5; // 每0.5秒記錄一次（減少存儲）
+        const SAMPLE_INTERVAL = 0.5; // 每0.5秒記錄一次
         let nextSampleTime = 0;
 
-        console.log('  📍 模擬循環開始前狀態:');
-        console.log('    - isRunning:', this.simulator.isRunning);
-        console.log('    - raceTime:', this.simulator.raceTime);
-        console.log('    - 馬匹初始 s:', this.simulator.horses.map(h => h.s));
-        console.log('    - 馬匹速度:', this.simulator.horses.map(h => h.speed.toFixed(2)));
-
         while (this.simulator.isRunning && frameCount < 20000) {
-            // **關鍵修復：傳遞固定的 deltaTime 給 update()**
             this.simulator.updateWithFixedDelta(FIXED_TIMESTEP);
             frameCount++;
-
-            // 前 10 幀輸出詳細狀態
-            if (frameCount <= 10) {
-                console.log(`    [Frame ${frameCount}] raceTime: ${this.simulator.raceTime.toFixed(3)}s, 馬匹 s:`, this.simulator.horses.map(h => h.s.toFixed(2)));
-            }
 
             // 定期記錄軌跡
             if (this.simulator.raceTime >= nextSampleTime) {
@@ -81,35 +74,18 @@ class BackgroundSimulator {
             // 每 1000 幀輸出進度
             if (frameCount % 1000 === 0) {
                 const maxS = Math.max(...this.simulator.horses.map(h => h.s));
-                console.log(`    [Frame ${frameCount}] 最大進度: ${maxS.toFixed(1)}/${this.simulator.raceDistance.toFixed(1)}, 完賽: ${this.simulator.finishOrder.length}/${this.simulator.horses.length}, 時間: ${this.simulator.raceTime.toFixed(1)}s`);
+                console.log(`    [Frame ${frameCount}] 進度: ${maxS.toFixed(1)}/${this.simulator.raceDistance.toFixed(1)}, 完賽: ${this.simulator.finishOrder.length}/${this.simulator.horses.length}`);
             }
 
-            // 防止無限循環 - 所有馬匹完賽就停止
+            // 所有馬匹完賽就停止
             if (this.simulator.finishOrder.length === this.simulator.horses.length) {
                 console.log('  ✅ 所有馬匹已完賽');
                 break;
             }
         }
 
-        // 循環結束原因分析
-        if (frameCount >= 20000) {
-            console.warn('  ⚠️ 模擬超時 (20000 幀)');
-            console.warn('    - 完賽數量:', this.simulator.finishOrder.length, '/', this.simulator.horses.length);
-            const maxS = Math.max(...this.simulator.horses.map(h => h.s));
-            console.warn('    - 最大進度:', maxS.toFixed(1), '/', this.simulator.raceDistance.toFixed(1));
-        } else if (!this.simulator.isRunning) {
-            console.log('  ✅ 模擬器已停止');
-        }
-
-        // 🔍 DEBUG: 檢查完賽狀態
-        console.log('  📊 模擬後狀態:');
-        console.log('    - finishOrder.length:', this.simulator.finishOrder.length);
-        console.log('    - horses.length:', this.simulator.horses.length);
-        console.log('    - finishOrder:', this.simulator.finishOrder.map(h => ({ id: h.id, name: h.name, time: h.finishTime })));
-
         // 7. 收集結果
         const results = this.simulator.getResults();
-        console.log('  📋 getResults() 返回:', results.length, '個結果');
         const duration = this.simulator.raceTime;
 
         const elapsed = ((performance.now() - startTime) / 1000).toFixed(2);
@@ -148,45 +124,34 @@ class BackgroundSimulator {
     createStadiumPath() {
         const points = [];
         const straightLength = 230;
-        const cornerRadius = 100;
-        const centerX = 0;
-        const centerY = 0;
-        const numPointsPerSegment = 40;
+        const cornerRadius = 100; // 修正與 Adapter 一致 (原本 115)
+        const centerY = 150;
 
-        // 1. 上直線
-        for (let i = 0; i <= numPointsPerSegment; i++) {
-            const t = i / numPointsPerSegment;
-            points.push({
-                x: centerX - straightLength / 2 + t * straightLength,
-                y: centerY - cornerRadius
-            });
+        // 上直道
+        for (let x = 0; x <= straightLength; x += 5) {
+            points.push({ x: x, y: centerY - cornerRadius });
         }
 
-        // 2. 右彎道 (180度)
-        for (let i = 1; i <= numPointsPerSegment; i++) {
-            const t = i / numPointsPerSegment;
-            const angle = -Math.PI / 2 + t * Math.PI;
+        // 右彎道
+        const steps = 50;
+        for (let i = 0; i <= steps; i++) {
+            const angle = (Math.PI / 2) * (i / steps) - Math.PI / 2;
             points.push({
-                x: centerX + straightLength / 2 + Math.cos(angle) * cornerRadius,
+                x: straightLength + Math.cos(angle) * cornerRadius,
                 y: centerY + Math.sin(angle) * cornerRadius
             });
         }
 
-        // 3. 下直線
-        for (let i = 1; i <= numPointsPerSegment; i++) {
-            const t = i / numPointsPerSegment;
-            points.push({
-                x: centerX + straightLength / 2 - t * straightLength,
-                y: centerY + cornerRadius
-            });
+        // 下直道（反向）
+        for (let x = straightLength; x >= 0; x -= 5) {
+            points.push({ x: x, y: centerY + cornerRadius });
         }
 
-        // 4. 左彎道 (180度)
-        for (let i = 1; i <= numPointsPerSegment; i++) {
-            const t = i / numPointsPerSegment;
-            const angle = Math.PI / 2 + t * Math.PI;
+        // 左彎道
+        for (let i = 0; i <= steps; i++) {
+            const angle = (Math.PI / 2) * (i / steps) + Math.PI / 2;
             points.push({
-                x: centerX - straightLength / 2 + Math.cos(angle) * cornerRadius,
+                x: 0 + Math.cos(angle) * cornerRadius,
                 y: centerY + Math.sin(angle) * cornerRadius
             });
         }
@@ -212,19 +177,43 @@ class BackgroundSimulator {
     }
 
     /**
-     * 轉換馬匹格式為模擬器格式
+     * 轉換馬匹格式為模擬器格式（注入 raceResultGenerator 數據）
      */
     convertHorsesToSimulatorFormat(gameHorses) {
-        return gameHorses.map((horse, index) => ({
-            id: horse.id,
-            name: horse.name,
-            gateNumber: horse.gateNumber || (index + 1),
-            competitiveFactor: horse.competitiveFactor || 80,
-            runningStyle: horse.runningStyle || this.inferRunningStyle(horse.lastFiveTrend),
-            jockey: horse.jockey,
-            weight: horse.weight,
-            age: horse.age
-        }));
+        // 1. 使用 raceResultGenerator 獲取確定性的表現數據
+        const performanceMap = new Map();
+
+        let generator = window.raceResultGenerator;
+        if (!generator && typeof RaceResultGenerator !== 'undefined') {
+            generator = new RaceResultGenerator();
+        }
+
+        if (generator) {
+            const results = generator.generateResults(gameHorses, this.raceSeed);
+            results.forEach(res => {
+                performanceMap.set(res.horse.id, res.horse);
+            });
+        }
+
+        return gameHorses.map((horse, index) => {
+            const perfData = performanceMap.get(horse.id);
+            // 修正：與 RaceEngineAdapter 一致，使用 form 作為 competitiveFactor
+            const form = horse.form || 50;
+
+            return {
+                id: horse.id,
+                name: horse.name,
+                gateNumber: horse.gateNumber || (index + 1),
+                competitiveFactor: form, // 修正：使用 form (預設50)
+                runningStyle: horse.runningStyle || this.inferRunningStyle(horse.lastFiveTrend),
+                jockey: horse.jockey,
+                weight: horse.weight,
+                age: horse.age,
+                // 注入 raceResultGenerator 的數據
+                finalPerformance: perfData ? perfData.finalPerformance : undefined,
+                incidents: perfData ? perfData.incidents : undefined
+            };
+        });
     }
 
     /**
