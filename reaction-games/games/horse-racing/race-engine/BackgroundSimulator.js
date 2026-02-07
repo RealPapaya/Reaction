@@ -48,7 +48,7 @@ class BackgroundSimulator {
         const SAMPLE_INTERVAL = 0.5; // 每0.5秒記錄一次（減少存儲）
         let nextSampleTime = 0;
 
-        while (!this.simulator.isRunning === false && frameCount < 10000) {
+        while (this.simulator.isRunning && frameCount < 10000) {
             this.simulator.update();
             frameCount++;
 

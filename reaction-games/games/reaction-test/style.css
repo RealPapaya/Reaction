@@ -29,9 +29,7 @@ body {
 }
 
 .btn-back {
-    position: absolute;
-    left: 0;
-    top: 0;
+    position: static;
     padding: var(--space-2) var(--space-4);
     background: var(--surface);
     border: 3px solid var(--border-color);
@@ -50,7 +48,7 @@ body {
 }
 
 .game-header h1 {
-    margin-top: var(--space-8);
+    margin-top: var(--space-4);
     color: var(--primary);
 }
 
@@ -428,9 +426,7 @@ body {
 
 /* Rules Button */
 .btn-rules {
-    position: absolute;
-    right: 0;
-    top: 0;
+    position: static;
     padding: var(--space-2) var(--space-4);
     background: var(--surface);
     border: 3px solid var(--border-color);
@@ -440,7 +436,6 @@ body {
     color: var(--text);
     cursor: pointer;
     transition: transform 150ms ease, box-shadow 150ms ease;
-    z-index: 10;
 }
 
 .btn-rules:hover {

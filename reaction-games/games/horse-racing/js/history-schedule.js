@@ -7,11 +7,18 @@ HorseRacingGame.prototype.showTrackHistory = function (trackId) {
     const track = raceScheduler.getTrackData(trackId);
     const history = raceScheduler.getTrackHistory(trackId, 10);
 
+    // 🔍 DEBUG: 查看 history 數據
+    console.log('=== showTrackHistory DEBUG ===');
+    console.log('trackId:', trackId);
+    console.log('history length:', history.length);
+    console.log('history:', history);
+
     document.getElementById('history-modal-title').textContent = `${track.flagEmoji} ${track.name} - 歷史紀錄`;
 
     const historyContainer = document.getElementById('history-records-container');
 
     if (history.length === 0) {
+        console.log('⚠️ history is empty');
         historyContainer.innerHTML = '<p class="no-history">暫無歷史紀錄</p>';
     } else {
         const tableHTML = `

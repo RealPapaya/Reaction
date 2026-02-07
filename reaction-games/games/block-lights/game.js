@@ -22,6 +22,11 @@ class BlockLightsGame {
         this.balance = this.loadBalance();
         this.rewardToast = null;
         this.rewardToastTimeout = null;
+        this.rankToast = null;
+        this.rankToastTimeout = null;
+        this.rankScoresPromise = null;
+        this.leaderboardCache = {};
+        this.leaderboardLoading = {};
 
         // Rules modal
         this.rulesModal = document.getElementById('rules-modal');
@@ -311,6 +316,7 @@ class BlockLightsGame {
         this.stats.totalHits += this.totalHits;
         this.stats.totalAttempts += this.totalAttempts;
         this.saveStats();
+        this.rankScoresPromise = leaderboard.getScores('block-lights');
         this.awardCoins(50);
 
         this.showResult();
@@ -327,7 +333,7 @@ class BlockLightsGame {
         setTimeout(() => {
             overlay.remove();
             if (this.restartBtn) this.restartBtn.classList.remove('hidden');
-            this.showLeaderboardModal(this.score);
+            this.showRankPreviewThenModal(this.score);
         }, 1500);
     }
 
@@ -338,9 +344,7 @@ class BlockLightsGame {
         const maxCombo = this.sessionMaxCombo; // Use session max combo
 
         let modal = document.getElementById('leaderboard-submit-modal-blocks');
-        if (!modal) {
-            modal = document.createElement('div');
-            modal.id = 'leaderboard-submit-modal-blocks';
+        const buildModalContent = () => {
             modal.className = 'modal';
             modal.innerHTML = `
                 <div class="modal-content card">
@@ -366,38 +370,31 @@ class BlockLightsGame {
                         </div>
                     </div>
                 </div>`;
-            document.body.appendChild(modal);
+        };
 
-            modal.querySelector('.close-modal').onclick = () => modal.classList.remove('show');
-            modal.onclick = (e) => { if (e.target === modal) modal.classList.remove('show'); };
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'leaderboard-submit-modal-blocks';
+            buildModalContent();
+            document.body.appendChild(modal);
+        } else if (!modal.querySelector('.leaderboard-tabs')) {
+            buildModalContent();
         }
+
+        const closeBtn = modal.querySelector('.close-modal');
+        if (closeBtn) closeBtn.onclick = () => modal.classList.remove('show');
+        modal.onclick = (e) => { if (e.target === modal) modal.classList.remove('show'); };
 
         const scoreStrong = modal.querySelector('.modal-body p strong');
         if (scoreStrong) scoreStrong.textContent = score;
         modal.classList.add('show');
 
-        const loadLeaderboard = async () => {
-            const display = document.getElementById('leaderboard-display-modal-blocks');
-            if (display) {
-                display.innerHTML = '<p style="text-align: center;">載入中...</p>';
-                const scores = await leaderboard.getScores('block-lights');
-                if (scores && scores.length > 0) {
-                    let html = '<table style="width:100%; border-collapse: collapse;"><thead><tr style="border-bottom: 3px solid #000;"><th style="padding: 8px; text-align:left">排名</th><th style="padding: 8px; text-align:left">名字</th><th style="padding: 8px; text-align:right">方塊</th><th style="padding: 8px; text-align:right">正確率</th><th style="padding: 8px; text-align:right">最高連擊</th><th style="padding: 8px; text-align:right">分數</th></tr></thead><tbody>';
-                    scores.forEach((s, i) => {
-                        const rank = i + 1;
-                        const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : '';
-                        const details = s.details ? (typeof s.details === 'string' ? JSON.parse(s.details) : s.details) : { count: '-', accuracy: '-', maxCombo: '-' };
-                        html += `<tr style="border-bottom: 1px solid #ddd;"><td style="padding: 8px;"><strong>${medal} ${rank}</strong></td><td style="padding: 8px;">${s.name}</td><td style="padding: 8px; text-align:right">${details.count || '-'}</td><td style="padding: 8px; text-align:right">${details.accuracy || '-'}</td><td style="padding: 8px; text-align:right">${details.maxCombo || '-'}</td><td style="padding: 8px; text-align:right; font-weight: bold; color: var(--primary);">${s.score}</td></tr>`;
-                    });
-                    display.innerHTML = html + '</tbody></table>';
-                } else {
-                    display.innerHTML = '<p style="text-align: center; color: #666;">尚無紀錄</p>';
-                }
-                return scores || [];
-            }
-            return [];
+        const display = document.getElementById('leaderboard-display-modal-blocks');
+        const currentGameId = 'block-lights';
+        const showLeaderboardForGame = async () => {
+            return await this.loadLeaderboardData(currentGameId, display);
         };
-        loadLeaderboard();
+        showLeaderboardForGame();
 
         const btn = document.getElementById('submit-score-btn-modal-blocks');
         const input = document.getElementById('player-name-modal-blocks');
@@ -422,8 +419,10 @@ class BlockLightsGame {
                 const res = await leaderboard.submitScore('block-lights', name, score, details);
                 if (res.success) {
                     if (status) status.innerHTML = '<span style="color:green; font-weight:bold;">✅ 已提交！</span>';
-                    const scores = await loadLeaderboard();
-                    this.applyLeaderboardRewardFromScores(scores, name, score);
+                    this.clearLeaderboardCache(currentGameId);
+                    const scores = await showLeaderboardForGame();
+                    const rank = this.getRankFromResponse(res) ?? this.findLeaderboardRank(scores, name, score);
+                    this.applyLeaderboardReward(rank);
                     if (input) input.disabled = true;
                     btn.style.display = 'none';
                 } else {
@@ -443,6 +442,9 @@ class BlockLightsGame {
     }
 
     resetGame() {
+        this.isPlaying = false;
+        this.isCountingDown = false;
+        this.isEnding = false;
         if (this.result) this.result.classList.add('hidden');
         if (this.restartBtn) this.restartBtn.classList.add('hidden');
         this.score = 0;
@@ -530,6 +532,26 @@ class BlockLightsGame {
         }, 1600);
     }
 
+    showRankToast(message) {
+        if (!message) return;
+        if (!this.rankToast) {
+            this.rankToast = document.createElement('div');
+            this.rankToast.className = 'rank-refresh-toast';
+            document.body.appendChild(this.rankToast);
+        }
+        this.rankToast.textContent = message;
+        this.rankToast.classList.remove('show');
+        void this.rankToast.offsetWidth;
+        this.rankToast.classList.add('show');
+
+        if (this.rankToastTimeout) {
+            clearTimeout(this.rankToastTimeout);
+        }
+        this.rankToastTimeout = setTimeout(() => {
+            this.rankToast.classList.remove('show');
+        }, 2000);
+    }
+
     getLeaderboardReward(rank) {
         if (rank === 1) return 1000;
         if (rank === 2) return 750;
@@ -537,16 +559,203 @@ class BlockLightsGame {
         return 0;
     }
 
-    applyLeaderboardRewardFromScores(scores, name, score) {
-        if (!scores || scores.length === 0) return;
-        const numericScore = Number(score);
-        const index = scores.findIndex((s) => s.name === name && Number(s.score) === numericScore);
-        if (index === -1) return;
-        const reward = this.getLeaderboardReward(index + 1);
+    applyLeaderboardReward(rank) {
+        if (!rank) return;
+        const reward = this.getLeaderboardReward(rank);
         if (reward > 0) {
             this.awardCoins(reward);
-            this.showRewardToast(`刷新第${index + 1}名排行榜！提交名字可再獲得${reward}金幣`);
+            this.showRewardToast(`排行榜獎勵 +${reward}金幣`);
         }
+    }
+
+    getRankFromResponse(res) {
+        if (!res) return null;
+        const rankValue = res.rank ?? res.position ?? (res.data && res.data.rank);
+        const parsed = Number(rankValue);
+        return Number.isNaN(parsed) ? null : parsed;
+    }
+
+    normalizeName(name) {
+        return String(name || '').trim().toLowerCase();
+    }
+
+    getScoreNumber(value) {
+        const direct = Number(value);
+        if (!Number.isNaN(direct)) return direct;
+        const cleaned = String(value || '').replace(/[^\d.-]/g, '');
+        const parsed = Number(cleaned);
+        return Number.isNaN(parsed) ? null : parsed;
+    }
+
+    findLeaderboardRank(scores, name, score) {
+        if (!scores || scores.length === 0) return null;
+        const targetName = this.normalizeName(name);
+        if (!targetName) return null;
+        const targetScore = this.getScoreNumber(score);
+
+        const candidates = scores
+            .map((s, idx) => ({
+                idx,
+                name: this.normalizeName(s.name),
+                score: this.getScoreNumber(s.score)
+            }))
+            .filter((entry) => entry.name === targetName);
+
+        if (candidates.length === 0) return null;
+        if (targetScore === null) return candidates[0].idx + 1;
+
+        let best = candidates[0];
+        let bestDiff = best.score === null ? Number.POSITIVE_INFINITY : Math.abs(best.score - targetScore);
+
+        for (let i = 1; i < candidates.length; i++) {
+            const candidate = candidates[i];
+            const diff = candidate.score === null ? Number.POSITIVE_INFINITY : Math.abs(candidate.score - targetScore);
+            if (diff < bestDiff) {
+                best = candidate;
+                bestDiff = diff;
+            }
+        }
+
+        return best.idx + 1;
+    }
+
+    clearLeaderboardCache(gameId) {
+        if (gameId) {
+            delete this.leaderboardCache[gameId];
+            delete this.leaderboardLoading[gameId];
+        } else {
+            this.leaderboardCache = {};
+            this.leaderboardLoading = {};
+        }
+    }
+
+    renderLeaderboardTable(gameId, scores, display) {
+        if (!display) return;
+        if (!scores || scores.length === 0) {
+            display.innerHTML = '<p style="text-align: center; color: #666;">尚無紀錄或無法連接</p>';
+            return;
+        }
+
+        let html = '<table style="width:100%; border-collapse: collapse;">';
+
+        if (gameId === 'reaction-test') {
+            html += '<thead><tr style="border-bottom: 3px solid #000;"><th style="padding: 8px; text-align:left">排名</th><th style="padding: 8px; text-align:left">名字</th><th style="padding: 8px; text-align:right">時間</th></tr></thead><tbody>';
+            scores.forEach((s, i) => {
+                const rank = i + 1;
+                const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : '';
+                html += `<tr style="border-bottom: 1px solid #ddd;">
+                    <td style="padding: 8px;"><strong>${medal} ${rank}</strong></td>
+                    <td style="padding: 8px;">${s.name}</td>
+                    <td style="padding: 8px; text-align:right; font-weight: bold; color: var(--primary);">${s.score}ms</td>
+                </tr>`;
+            });
+        } else {
+            const countLabel = gameId === 'arrow-rush' ? '箭頭' : '方塊';
+            html += `<thead><tr style="border-bottom: 3px solid #000;"><th style="padding: 8px; text-align:left">排名</th><th style="padding: 8px; text-align:left">名字</th><th style="padding: 8px; text-align:right">${countLabel}</th><th style="padding: 8px; text-align:right">正確率</th><th style="padding: 8px; text-align:right">最高連擊</th><th style="padding: 8px; text-align:right">分數</th></tr></thead><tbody>`;
+            scores.forEach((s, i) => {
+                const rank = i + 1;
+                const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : '';
+                const details = s.details ? (typeof s.details === 'string' ? JSON.parse(s.details) : s.details) : {};
+                html += `<tr style="border-bottom: 1px solid #ddd;">
+                    <td style="padding: 8px;"><strong>${medal} ${rank}</strong></td>
+                    <td style="padding: 8px;">${s.name}</td>
+                    <td style="padding: 8px; text-align:right">${details.count || '-'}</td>
+                    <td style="padding: 8px; text-align:right">${details.accuracy || '-'}</td>
+                    <td style="padding: 8px; text-align:right">${details.maxCombo || '-'}</td>
+                    <td style="padding: 8px; text-align:right; font-weight: bold; color: var(--primary);">${s.score}</td>
+                </tr>`;
+            });
+        }
+
+        html += '</tbody></table>';
+        display.innerHTML = html;
+    }
+
+    async loadLeaderboardData(gameId, display) {
+        if (!gameId) return [];
+        if (this.leaderboardCache[gameId]) {
+            this.renderLeaderboardTable(gameId, this.leaderboardCache[gameId], display);
+            return this.leaderboardCache[gameId];
+        }
+
+        if (this.leaderboardLoading[gameId]) return [];
+        this.leaderboardLoading[gameId] = true;
+        if (display) display.innerHTML = '<p style="text-align: center;">載入中...</p>';
+
+        try {
+            const scores = await leaderboard.getScores(gameId);
+            this.leaderboardCache[gameId] = scores || [];
+            this.renderLeaderboardTable(gameId, this.leaderboardCache[gameId], display);
+            return this.leaderboardCache[gameId];
+        } catch (error) {
+            this.renderLeaderboardTable(gameId, [], display);
+            return [];
+        } finally {
+            this.leaderboardLoading[gameId] = false;
+        }
+    }
+
+    getPreviewRank(scores, score, isLowerBetter) {
+        if (!scores || scores.length === 0) return 1;
+        const targetScore = this.getScoreNumber(score);
+        if (targetScore === null) return null;
+        const scoreNumbers = scores
+            .map((s) => this.getScoreNumber(s.score))
+            .filter((value) => value !== null);
+        if (scoreNumbers.length === 0) return 1;
+
+        const betterCount = scoreNumbers.filter((value) => {
+            if (isLowerBetter) return value < targetScore;
+            return value > targetScore;
+        }).length;
+
+        return betterCount + 1;
+    }
+
+    async getPrefetchedScores(gameId) {
+        const promise = this.rankScoresPromise;
+        this.rankScoresPromise = null;
+        if (promise) {
+            try {
+                const scores = await promise;
+                if (scores) {
+                    this.leaderboardCache[gameId] = scores;
+                }
+                return scores;
+            } catch (error) {
+                return null;
+            }
+        }
+
+        try {
+            const scores = await leaderboard.getScores(gameId);
+            if (scores) {
+                this.leaderboardCache[gameId] = scores;
+            }
+            return scores;
+        } catch (error) {
+            return null;
+        }
+    }
+
+    async showRankPreviewThenModal(score) {
+        let rank = null;
+        try {
+            const scores = await this.getPrefetchedScores('block-lights');
+            rank = this.getPreviewRank(scores, score, false);
+        } catch (error) {
+            rank = null;
+        }
+
+        const reward = this.getLeaderboardReward(rank);
+        const hasReward = reward > 0;
+        if (hasReward) {
+            this.showRankToast(`刷新排行榜！第${rank}名！提交名字可再獲得${reward}金幣！`);
+        }
+
+        setTimeout(() => {
+            this.showLeaderboardModal(score);
+        }, hasReward ? 2200 : 200);
     }
 }
 

@@ -56,6 +56,9 @@
   --space-6: 1.5rem;
   --space-8: 2rem;
   --space-12: 3rem;
+
+  /* Component Sizes */
+  --coin-chip-height: 44px;
 }
 
 /* ====================================
@@ -87,18 +90,40 @@ body {
    ==================================== */
 
 .coin-display {
-  position: fixed;
-  top: var(--space-4);
-  right: var(--space-4);
-  z-index: 2000;
-  display: flex;
+  position: static;
+  display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
+  height: var(--coin-chip-height);
+  padding: 0 var(--space-4);
   background: var(--surface);
   border: 3px solid var(--border-color);
   box-shadow: 4px 4px 0 var(--shadow-color);
   font-family: var(--font-display);
+  box-sizing: border-box;
+}
+
+.header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.header-actions .btn-rules {
+  height: var(--coin-chip-height);
+  padding: 0 var(--space-4);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
 }
 
 .coin-label {
@@ -160,11 +185,71 @@ body {
   transition: opacity 200ms ease, transform 200ms ease;
   max-width: 90vw;
   text-align: center;
+  pointer-events: none;
 }
 
 .reward-toast.show {
   opacity: 1;
   transform: translate(-50%, 0);
+}
+
+/* Rank Refresh Toast */
+.rank-refresh-toast {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -8px);
+  z-index: 2100;
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 2.5rem;
+  color: var(--primary);
+  text-shadow: 4px 4px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000;
+  opacity: 0;
+  transition: opacity 180ms ease, transform 180ms ease;
+  text-align: center;
+  max-width: 90vw;
+  pointer-events: none;
+}
+
+.rank-refresh-toast.show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+/* Leaderboard Tabs */
+.leaderboard-tabs-label {
+  font-weight: var(--font-bold);
+  margin-bottom: var(--space-2);
+}
+
+.leaderboard-tabs {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-4);
+}
+
+.leaderboard-tab {
+  padding: 6px 12px;
+  border: 3px solid var(--border-color);
+  background: var(--surface);
+  font-family: var(--font-display);
+  font-weight: var(--font-bold);
+  cursor: pointer;
+  box-shadow: 3px 3px 0 var(--shadow-color);
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+
+.leaderboard-tab:hover {
+  transform: translate(1px, 1px);
+  box-shadow: 2px 2px 0 var(--shadow-color);
+}
+
+.leaderboard-tab.active {
+  background: var(--primary);
+  color: #fff;
 }
 
 /* Reduced motion support */

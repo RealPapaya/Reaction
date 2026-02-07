@@ -1,33 +1,51 @@
 // ====================================
-// Race Scheduler
-// Server-side scheduling with localStorage persistence
+// Race Scheduler (修正版 - 確保歷史記錄生成)
 // ====================================
 
 class RaceScheduler {
     constructor() {
-        this.raceInterval = 8.5 * 60 * 1000; // 8 minutes per race cycle (to fit 2min race)
-        this.bettingDuration = 5 * 60 * 1000; // 5 minutes betting
-        this.preRaceDuration = 15 * 1000; // 15 seconds pre-race
-        this.raceDuration = 2.5 * 60 * 1000; // 150 seconds racing (2.5 minutes)
-        this.postRaceDuration = 15 * 1000; // 15 seconds post-race
-        this.closedDuration = 75 * 1000; // Remaining buffer
+        this.raceInterval = 8.5 * 60 * 1000;
+        this.bettingDuration = 5 * 60 * 1000;
+        this.preRaceDuration = 15 * 1000;
+        this.raceDuration = 2.5 * 60 * 1000;
+        this.postRaceDuration = 15 * 1000;
+        this.closedDuration = 75 * 1000;
 
-        this.raceSeeds = {}; // 儲存每場比賽的種子碼
+        this.raceSeeds = {};
         this.loadRaceSeeds();
 
-        this.raceHistory = {}; // 🆕 儲存歷史比賽結果 {trackId_raceNumber: results}
+        this.raceHistory = {};
         this.loadRaceHistory();
 
-        this.replayData = {}; // 🆕 儲存重播軌跡數據
+        this.replayData = {};
         this.loadReplayData();
 
         this.schedule = null;
         this.loadOrInitializeSchedule();
+
+        // **新增：清理損壞的歷史記錄**
+        this.cleanupCorruptedHistory();
     }
 
     // ====================================
-    // Initialization & Persistence
+    // **新增：清理損壞的歷史記錄**
     // ====================================
+    cleanupCorruptedHistory() {
+        let cleaned = false;
+        Object.keys(this.raceHistory).forEach(key => {
+            const results = this.raceHistory[key];
+            // 如果是空陣列或無效數據，刪除它
+            if (!results || (Array.isArray(results) && results.length === 0)) {
+                console.warn(`🗑️ 清理損壞的歷史記錄: ${key}`);
+                delete this.raceHistory[key];
+                cleaned = true;
+            }
+        });
+        if (cleaned) {
+            this.saveRaceHistory();
+            console.log('✅ 已清理損壞的歷史記錄');
+        }
+    }
 
     loadOrInitializeSchedule() {
         const saved = localStorage.getItem('raceSchedule');
@@ -51,17 +69,16 @@ class RaceScheduler {
     generateInitialSchedule() {
         const now = Date.now();
 
-        // Stagger each track by 2 minutes
         return RACETRACKS.map((track, index) => {
             const offset = index * 2 * 60 * 1000;
-            const firstRaceStart = now + offset + (5 * 60 * 1000); // Start first race in 5 min
+            const firstRaceStart = now + offset + (5 * 60 * 1000);
 
             return {
                 trackId: track.id,
                 raceNumber: 1,
                 raceStartTime: firstRaceStart,
                 raceSeed: this.generateRaceSeed(track.id, 1),
-                horses: null // Will be generated when needed
+                horses: null
             };
         });
     }
@@ -69,10 +86,6 @@ class RaceScheduler {
     saveSchedule() {
         localStorage.setItem('raceSchedule', JSON.stringify(this.schedule));
     }
-
-    // ====================================
-    // Track Status
-    // ====================================
 
     getTrackStatus(trackId) {
         const now = Date.now();
@@ -85,13 +98,9 @@ class RaceScheduler {
         const raceStartTime = trackSchedule.raceStartTime;
         const raceEndTime = raceStartTime + this.raceDuration;
         const postRaceEndTime = raceEndTime + this.postRaceDuration;
-        const preRaceStartTime = raceStartTime - this.preRaceDuration; // NEW
-        const bettingStartTime = preRaceStartTime - this.bettingDuration; // UPDATED
+        const preRaceStartTime = raceStartTime - this.preRaceDuration;
+        const bettingStartTime = preRaceStartTime - this.bettingDuration;
 
-        const timeSinceRaceStart = now - raceStartTime;
-        const timeUntilRaceStart = raceStartTime - now;
-
-        // RACING (30 seconds)
         if (now >= raceStartTime && now < raceEndTime) {
             return {
                 phase: 'RACING',
@@ -102,7 +111,6 @@ class RaceScheduler {
             };
         }
 
-        // POST_RACE (15 seconds after race)
         if (now >= raceEndTime && now < postRaceEndTime) {
             return {
                 phase: 'POST_RACE',
@@ -113,7 +121,6 @@ class RaceScheduler {
             };
         }
 
-        // PRE_RACE (15 seconds before race) - NEW PHASE
         if (now >= preRaceStartTime && now < raceStartTime) {
             return {
                 phase: 'PRE_RACE',
@@ -124,7 +131,6 @@ class RaceScheduler {
             };
         }
 
-        // BETTING (5 minutes before pre-race)
         if (now >= bettingStartTime && now < preRaceStartTime) {
             return {
                 phase: 'BETTING',
@@ -135,11 +141,9 @@ class RaceScheduler {
             };
         }
 
-        // CLOSED (waiting for next race)
-        // Auto-advance to next race if post-race period ended
         if (now >= postRaceEndTime) {
             this.advanceToNextRace(trackId);
-            return this.getTrackStatus(trackId); // Recursive call with new schedule
+            return this.getTrackStatus(trackId);
         }
 
         return {
@@ -149,10 +153,6 @@ class RaceScheduler {
             raceNumber: trackSchedule.raceNumber
         };
     }
-
-    // ====================================
-    // Race Advancement
-    // ====================================
 
     advanceToNextRace(trackId) {
         const trackSchedule = this.schedule.find(s => s.trackId === trackId);
@@ -166,15 +166,11 @@ class RaceScheduler {
         trackSchedule.raceStartTime = nextRaceStart;
         trackSchedule.raceSeed = this.generateRaceSeed(trackId, nextRaceNumber);
         trackSchedule.horses = null;
-        trackSchedule.raceResults = null; // 清除舊結果
+        trackSchedule.raceResults = null;
 
         this.saveSchedule();
         console.log(`🏁 ${trackId} 進入第 ${nextRaceNumber} 場`);
     }
-
-    // ====================================
-    // Race Results Storage
-    // ====================================
 
     saveRaceResults(trackId, results) {
         const trackSchedule = this.schedule.find(s => s.trackId === trackId);
@@ -185,7 +181,6 @@ class RaceScheduler {
 
         console.log('📥 收到的原始結果:', results);
 
-        // 儲存結果到歷史記錄（使用 trackId_raceNumber 作為 key）
         const historyKey = `${trackId}_${trackSchedule.raceNumber}`;
         this.raceHistory[historyKey] = results.map(r => ({
             position: r.rank || r.position,
@@ -201,7 +196,6 @@ class RaceScheduler {
     }
 
     getRaceResults(trackId, raceNumber) {
-        // 從歷史記錄中讀取（支援跨場次查詢）
         const historyKey = `${trackId}_${raceNumber}`;
         const results = this.raceHistory[historyKey] || null;
         console.log(`📤 讀取 ${trackId} 第 ${raceNumber} 場結果:`, results);
@@ -225,43 +219,14 @@ class RaceScheduler {
     }
 
     // ====================================
-    // Replay Data Management (🆕)
+    // Replay Data Management
     // ====================================
-
-    loadReplayData() {
-        const saved = localStorage.getItem('raceReplays');
-        if (saved) {
-            try {
-                this.replayData = JSON.parse(saved);
-                console.log(`📼 已載入 ${Object.keys(this.replayData).length} 場重播數據`);
-            } catch (e) {
-                console.error('重播數據載入失敗', e);
-                this.replayData = {};
-            }
-        } else {
-            this.replayData = {};
-        }
-    }
 
     saveReplayData(trackId, raceNumber, replayData) {
         const key = `${trackId}_${raceNumber}`;
         this.replayData[key] = replayData;
-
-        // 🚀 只保留最近10場重播（節省空間）
-        const allKeys = Object.keys(this.replayData);
-        if (allKeys.length > 10) {
-            // 按時間戳排序，移除最舊的
-            const sorted = allKeys.sort((a, b) => {
-                const timeA = this.replayData[a]?.timestamp || 0;
-                const timeB = this.replayData[b]?.timestamp || 0;
-                return timeA - timeB;
-            });
-            const toRemove = sorted.slice(0, allKeys.length - 10);
-            toRemove.forEach(k => delete this.replayData[k]);
-        }
-
-        localStorage.setItem('raceReplays', JSON.stringify(this.replayData));
-        console.log(`📼 已儲存重播數據: ${key}`);
+        this.saveReplayDataToStorage();
+        console.log(`📼 已儲存 ${trackId} 第 ${raceNumber} 場重播數據`);
     }
 
     getReplayData(trackId, raceNumber) {
@@ -269,39 +234,75 @@ class RaceScheduler {
         return this.replayData[key] || null;
     }
 
+    loadReplayData() {
+        const saved = localStorage.getItem('replayData');
+        if (saved) {
+            try {
+                this.replayData = JSON.parse(saved);
+            } catch (e) {
+                console.error('重播數據載入失敗', e);
+                this.replayData = {};
+            }
+        }
+    }
+
+    saveReplayDataToStorage() {
+        localStorage.setItem('replayData', JSON.stringify(this.replayData));
+    }
+
     // ====================================
-    // Track History & Schedule
+    // **修正版：getTrackHistory**
     // ====================================
 
-    getTrackHistory(trackId, limit = 10) {
-        const history = [];
+    getTrackHistory(trackId, count = 10) {
         const trackSchedule = this.schedule.find(s => s.trackId === trackId);
         if (!trackSchedule) return [];
 
-        let currentRaceNum = trackSchedule.raceNumber;
+        const currentRaceNumber = trackSchedule.raceNumber;
+        const history = [];
 
-        // Look back 'limit' races
-        for (let i = 1; i <= limit; i++) {
-            const lookBackRaceNum = currentRaceNum - i;
+        for (let i = 1; i <= count; i++) {
+            const lookBackRaceNum = currentRaceNumber - i;
             if (lookBackRaceNum < 1) break;
 
             const key = `${trackId}_${lookBackRaceNum}`;
             let results = this.raceHistory[key];
 
-            // If missing, auto-generate (backfill)
-            if (!results) {
-                // Warning: This implies we are generating history for a race the user NEVER saw.
-                // But it's better than showing nothing.
-                // Only generate if we have the tools available (global scope check)
-                if (typeof generateHorses === 'function' && typeof raceResultGenerator !== 'undefined') {
-                    // console.log(`📜 自動補齊歷史紀錄：${trackId} 第 ${lookBackRaceNum} 場`);
-                    results = this.generatePastRaceResults(trackId, lookBackRaceNum);
-                    this.raceHistory[key] = results;
-                    this.saveRaceHistory();
+            // **關鍵修正：檢查是否需要生成**
+            const needsGeneration = !results ||
+                (Array.isArray(results) && results.length === 0) ||
+                !Array.isArray(results);
+
+            if (needsGeneration) {
+                console.log(`🔧 自動生成歷史記錄：${trackId} 第 ${lookBackRaceNum} 場`);
+
+                // **確保生成函數可用**
+                const canGenerate = this.checkGenerationCapability();
+
+                if (canGenerate) {
+                    try {
+                        results = this.generatePastRaceResults(trackId, lookBackRaceNum);
+
+                        // **驗證生成結果**
+                        if (results && Array.isArray(results) && results.length > 0) {
+                            this.raceHistory[key] = results;
+                            this.saveRaceHistory();
+                            console.log(`✅ 成功生成 ${trackId} 第 ${lookBackRaceNum} 場，共 ${results.length} 筆結果`);
+                        } else {
+                            console.error(`❌ 生成結果無效:`, results);
+                            continue;
+                        }
+                    } catch (error) {
+                        console.error(`❌ 生成歷史記錄失敗:`, error);
+                        continue;
+                    }
+                } else {
+                    console.warn(`⚠️ 無法生成歷史記錄：缺少必要的函數`);
+                    continue;
                 }
             }
 
-            if (results) {
+            if (results && Array.isArray(results) && results.length > 0) {
                 history.push({
                     raceNumber: lookBackRaceNum,
                     results: results,
@@ -313,12 +314,37 @@ class RaceScheduler {
         return history;
     }
 
+    // ====================================
+    // **新增：檢查生成能力**
+    // ====================================
+    checkGenerationCapability() {
+        const hasGenerateHorses = typeof generateHorses === 'function';
+        const hasBackgroundSimulator = typeof BackgroundSimulator !== 'undefined';
+
+        console.log('📋 檢查生成能力:');
+        console.log('  - generateHorses:', hasGenerateHorses);
+        console.log('  - BackgroundSimulator:', hasBackgroundSimulator);
+
+        return hasGenerateHorses && hasBackgroundSimulator;
+    }
+
+    // ====================================
+    // **修正版：generatePastRaceResults**
+    // ====================================
+
     generatePastRaceResults(trackId, raceNumber) {
+        console.log(`🎲 開始生成 ${trackId} 第 ${raceNumber} 場的結果...`);
+
         // 1. Get seed
         const raceSeed = this.generateRaceSeed(trackId, raceNumber);
+        console.log(`  種子碼: ${raceSeed}`);
 
         // 2. Generate horses
+        if (typeof generateHorses !== 'function') {
+            throw new Error('generateHorses 函數未定義');
+        }
         const horses = generateHorses();
+        console.log(`  生成馬匹: ${horses.length} 匹`);
 
         // 3. Assign gates and conditions
         const gates = [1, 2, 3, 4, 5, 6, 7, 8];
@@ -333,39 +359,34 @@ class RaceScheduler {
             horse.todayCondition = horse.generateTodayCondition(seedValue);
         });
 
-        // 4. 🆕 執行完整物理模擬（替代原本的算法生成）
+        // 4. 執行物理模擬
         const track = this.getTrackData(trackId);
 
-        // 確保 BackgroundSimulator 可用
         if (typeof BackgroundSimulator === 'undefined') {
-            console.error('❌ BackgroundSimulator 未載入，降級使用舊算法');
-            // 降級方案：使用舊的 RaceResultGenerator
-            const rawResults = raceResultGenerator.generateResults(horses, raceSeed);
-            return rawResults.map(r => ({
-                position: r.position,
-                horse: {
-                    id: r.horse.id,
-                    name: r.horse.name
-                },
-                finishTime: parseFloat(r.time)
-            }));
+            throw new Error('BackgroundSimulator 未定義');
         }
 
+        console.log(`  使用 BackgroundSimulator 模擬...`);
         const bgSim = new BackgroundSimulator(horses, track, raceSeed);
         const simData = bgSim.runFullSimulation();
+
+        console.log(`  模擬完成:`, simData.results.length, '個結果');
 
         // 5. 存儲重播數據
         this.saveReplayData(trackId, raceNumber, simData);
 
-        // 6. Format results (finishTime 現在來自物理模擬)
-        return simData.results.map(r => ({
+        // 6. Format results
+        const formattedResults = simData.results.map(r => ({
             position: r.position,
             horse: {
                 id: r.horse.id,
                 name: r.horse.name
             },
-            finishTime: r.finishTime  // ✅ 真實物理模擬時間 (~110秒)
+            finishTime: r.finishTime
         }));
+
+        console.log(`✅ 生成完成，結果:`, formattedResults);
+        return formattedResults;
     }
 
     getTrackSchedule(trackId, futureRaces = 5) {
@@ -397,21 +418,15 @@ class RaceScheduler {
         const currentRaceNumber = trackSchedule.raceNumber;
         const currentRaceStart = trackSchedule.raceStartTime;
 
-        // 計算過去比賽的時間
         const racesDiff = currentRaceNumber - raceNumber;
         return currentRaceStart - (racesDiff * this.raceInterval);
     }
 
-    // ====================================
-    // Seed Generation & Management
-    // ====================================
-
     generateRaceSeed(trackId, raceNumber) {
         const seedKey = `${trackId}_${raceNumber}`;
         if (!this.raceSeeds[seedKey]) {
-            // 只在第一次生成，之後都重複使用
             this.raceSeeds[seedKey] = `${trackId}_R${raceNumber}_${Date.now()}_${Math.random()}`;
-            this.saveRaceSeeds(); // 立即存入 localStorage
+            this.saveRaceSeeds();
         }
         return this.raceSeeds[seedKey];
     }
@@ -432,7 +447,6 @@ class RaceScheduler {
         }
     }
 
-    // 簡單的字串雜湊函數
     hashString(str) {
         let hash = 0;
         for (let i = 0; i < str.length; i++) {
@@ -442,24 +456,16 @@ class RaceScheduler {
         return Math.abs(hash);
     }
 
-    // ====================================
-    // Horse Management
-    // ====================================
-
     getOrGenerateHorses(trackId) {
         const trackSchedule = this.schedule.find(s => s.trackId === trackId);
         if (!trackSchedule) return null;
 
-        // Generate horses if not yet generated
         if (!trackSchedule.horses) {
             const horses = generateHorses();
 
-            // 獲取這場比賽的種子碼
             const raceSeed = trackSchedule.raceSeed;
 
-            // 隨機分配檔位（避免強馬總是在好檔位）
             const gates = [1, 2, 3, 4, 5, 6, 7, 8];
-            // 使用種子打亂檔位
             const shuffleSeed = this.hashString(raceSeed + '_gates');
             for (let i = gates.length - 1; i > 0; i--) {
                 const j = Math.floor((Math.sin(shuffleSeed + i) * 10000) % (i + 1));
@@ -468,12 +474,10 @@ class RaceScheduler {
 
             horses.forEach((horse, index) => {
                 horse.gateNumber = gates[index];
-                // 使用種子生成當日狀態（確保多設備同步）
                 const seedValue = this.hashString(raceSeed + horse.id);
                 horse.todayCondition = horse.generateTodayCondition(seedValue);
             });
 
-            // 儲存種子碼供比賽結果使用
             horses.raceSeed = raceSeed;
 
             trackSchedule.horses = horses;
@@ -482,10 +486,6 @@ class RaceScheduler {
 
         return trackSchedule.horses;
     }
-
-    // ====================================
-    // Utility
-    // ====================================
 
     getAllTrackStatuses() {
         return RACETRACKS.map(track => ({
@@ -496,7 +496,6 @@ class RaceScheduler {
         }));
     }
 
-    // Reset schedule (for testing/debugging)
     resetSchedule() {
         localStorage.removeItem('raceSchedule');
         this.schedule = this.generateInitialSchedule();
@@ -504,11 +503,9 @@ class RaceScheduler {
         console.log('🔄 賽程已重置');
     }
 
-    // Get track data
     getTrackData(trackId) {
         return RACETRACKS.find(t => t.id === trackId);
     }
 }
 
-// Create global instance
 const raceScheduler = new RaceScheduler();

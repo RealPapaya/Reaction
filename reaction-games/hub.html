@@ -185,14 +185,11 @@
                 <button class="close-modal">&times;</button>
             </div>
             <div class="modal-body">
-                <div
-                    style="margin-bottom: var(--space-6); display: flex; align-items: center; gap: var(--space-4); flex-wrap: wrap;">
-                    <label for="game-select" style="font-weight: bold;">選擇遊戲：</label>
-                    <select id="game-select"
-                        style="padding: var(--space-2); border: 3px solid #000; font-family: inherit; font-weight: bold; flex-grow: 1;">
-                        <option value="reaction-test">紅綠燈反應測試</option>
-                        <option value="arrow-rush">箭頭衝刺</option>
-                    </select>
+                <div class="leaderboard-tabs-label">選擇遊戲：</div>
+                <div class="leaderboard-tabs" id="hub-leaderboard-tabs">
+                    <button class="leaderboard-tab" data-game="reaction-test">紅綠燈反應測試</button>
+                    <button class="leaderboard-tab" data-game="block-lights">方塊燈</button>
+                    <button class="leaderboard-tab" data-game="arrow-rush">箭頭衝刺</button>
                 </div>
                 <div id="leaderboard-content" style="overflow-x: auto;">
                     <p style="text-align: center;">載入中...</p>
@@ -206,12 +203,14 @@
         const modal = document.getElementById('leaderboard-modal');
         const btn = document.getElementById('leaderboard-btn');
         const closeBtn = document.querySelector('.close-modal');
-        const gameSelect = document.getElementById('game-select');
         const leaderboardContent = document.getElementById('leaderboard-content');
+        const leaderboardTabs = document.querySelectorAll('#hub-leaderboard-tabs .leaderboard-tab');
+        const leaderboardCache = {};
+        const leaderboardLoading = {};
 
         btn.addEventListener('click', () => {
             modal.classList.add('show');
-            loadLeaderboard();
+            showLeaderboardForGame('reaction-test');
         });
 
         closeBtn.addEventListener('click', () => {
@@ -224,27 +223,73 @@
             }
         });
 
-        gameSelect.addEventListener('change', loadLeaderboard);
+        leaderboardTabs.forEach(tab => {
+            tab.addEventListener('click', () => showLeaderboardForGame(tab.dataset.game));
+        });
 
-        async function loadLeaderboard() {
-            const gameId = gameSelect.value;
-            leaderboardContent.innerHTML = '<p style="text-align: center;">載入中...</p>';
-            const scores = await leaderboard.getScores(gameId);
-            if (scores && scores.length > 0) {
-                let html = '<table style="width:100%; border-collapse: collapse; text-align: left; min-width: 400px;">';
+        function setActiveTab(gameId) {
+            leaderboardTabs.forEach(tab => {
+                tab.classList.toggle('active', tab.dataset.game === gameId);
+            });
+        }
+
+        function renderLeaderboardTable(gameId, scores) {
+            if (!scores || scores.length === 0) {
+                leaderboardContent.innerHTML = '<p style="text-align: center; color: #666;">尚無紀錄</p>';
+                return;
+            }
+
+            let html = '<table style="width:100%; border-collapse: collapse; text-align: left; min-width: 400px;">';
+
+            if (gameId === 'reaction-test') {
                 html += '<thead><tr style="border-bottom: 3px solid #000;">';
-                html += '<th style="padding: var(--space-2);">排名</th><th style="padding: var(--space-2);">名字</th><th style="padding: var(--space-2); text-align: right;">分數/時間</th></tr></thead><tbody>';
+                html += '<th style="padding: var(--space-2);">排名</th><th style="padding: var(--space-2);">名字</th><th style="padding: var(--space-2); text-align: right;">時間</th></tr></thead><tbody>';
                 scores.forEach((s, i) => {
                     html += `<tr style="border-bottom: 1px solid #ddd;">
                         <td style="padding: var(--space-2); font-weight: bold;">${i + 1}</td>
                         <td style="padding: var(--space-2);">${s.name}</td>
-                        <td style="padding: var(--space-2); text-align: right; font-weight: bold;">${s.score}${gameId === 'reaction-test' ? 'ms' : ''}</td>
+                        <td style="padding: var(--space-2); text-align: right; font-weight: bold;">${s.score}ms</td>
                     </tr>`;
                 });
-                html += '</tbody></table>';
-                leaderboardContent.innerHTML = html;
             } else {
-                leaderboardContent.innerHTML = '<p style="text-align: center; color: #666;">尚無紀錄</p>';
+                const countLabel = gameId === 'arrow-rush' ? '箭頭' : '方塊';
+                html += '<thead><tr style="border-bottom: 3px solid #000;">';
+                html += `<th style="padding: var(--space-2);">排名</th><th style="padding: var(--space-2);">名字</th><th style="padding: var(--space-2); text-align: right;">${countLabel}</th><th style="padding: var(--space-2); text-align: right;">正確率</th><th style="padding: var(--space-2); text-align: right;">最高連擊</th><th style="padding: var(--space-2); text-align: right;">分數</th></tr></thead><tbody>`;
+                scores.forEach((s, i) => {
+                    const details = s.details ? (typeof s.details === 'string' ? JSON.parse(s.details) : s.details) : {};
+                    html += `<tr style="border-bottom: 1px solid #ddd;">
+                        <td style="padding: var(--space-2); font-weight: bold;">${i + 1}</td>
+                        <td style="padding: var(--space-2);">${s.name}</td>
+                        <td style="padding: var(--space-2); text-align: right;">${details.count || '-'}</td>
+                        <td style="padding: var(--space-2); text-align: right;">${details.accuracy || '-'}</td>
+                        <td style="padding: var(--space-2); text-align: right;">${details.maxCombo || '-'}</td>
+                        <td style="padding: var(--space-2); text-align: right; font-weight: bold;">${s.score}</td>
+                    </tr>`;
+                });
+            }
+
+            html += '</tbody></table>';
+            leaderboardContent.innerHTML = html;
+        }
+
+        async function showLeaderboardForGame(gameId) {
+            setActiveTab(gameId);
+            if (leaderboardCache[gameId]) {
+                renderLeaderboardTable(gameId, leaderboardCache[gameId]);
+                return;
+            }
+            if (leaderboardLoading[gameId]) return;
+            leaderboardLoading[gameId] = true;
+            leaderboardContent.innerHTML = '<p style="text-align: center;">載入中...</p>';
+
+            try {
+                const scores = await leaderboard.getScores(gameId);
+                leaderboardCache[gameId] = scores || [];
+                renderLeaderboardTable(gameId, leaderboardCache[gameId]);
+            } catch (error) {
+                renderLeaderboardTable(gameId, []);
+            } finally {
+                leaderboardLoading[gameId] = false;
             }
         }
 

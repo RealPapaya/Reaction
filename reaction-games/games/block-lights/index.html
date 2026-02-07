@@ -11,18 +11,22 @@
 </head>
 
 <body>
-    <div class="coin-display" aria-live="polite">
-        <span class="coin-label">金幣</span>
-        <span class="coin-value" id="coin-balance">10,000</span>
-        <span class="coin-delta" id="coin-delta"></span>
-    </div>
     <div class="container">
         <!-- Header -->
         <header class="game-header">
-            <a href="../../hub.html" class="btn-back">← 返回大廳</a>
+            <div class="header-top">
+                <a href="../../hub.html" class="btn-back">← 返回大廳</a>
+                <div class="header-actions">
+                    <div class="coin-display" aria-live="polite">
+                        <span class="coin-label">金幣</span>
+                        <span class="coin-value" id="coin-balance">10,000</span>
+                        <span class="coin-delta" id="coin-delta"></span>
+                    </div>
+                    <button id="btn-rules" class="btn-rules">❓ 規則</button>
+                </div>
+            </div>
             <h1>💡 方塊燈</h1>
             <p>在最短時間內點擊亮起的方塊！</p>
-            <button id="btn-rules" class="btn-rules">❓ 規則</button>
         </header>
 
         <!-- Game Area -->
