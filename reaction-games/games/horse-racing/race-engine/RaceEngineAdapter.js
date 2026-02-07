@@ -65,7 +65,15 @@ class RaceEngineAdapter {
             cancelAnimationFrame(this.animationId);
         }
 
+        const incomingSeed = gameHorses?.raceSeed || this.raceSeed;
+        if (incomingSeed) this.raceSeed = incomingSeed;
+        if (this.simulator && incomingSeed && this.simulator.raceSeed !== incomingSeed) {
+            this.simulator.stopRace();
+            this.simulator = null;
+        }
+
         this.gameHorses = gameHorses;
+        this.visualRanks = null; // 🆕 重置視覺排名，避免跳轉時發生動畫插值錯誤
 
         if (!this.simulator) {
             this.initSimulator(gameHorses, trackData);
@@ -84,7 +92,8 @@ class RaceEngineAdapter {
         this.raceStartTime = performance.now() - elapsedTime;
 
         // 🎯 立即進行一次同步 (處理中途加入的情況)
-        this.syncToTime();
+        // Force catch-up (true) to ensure we jump to the correct state immediately
+        this.syncToTime(true);
 
         this.animate();
     }
@@ -168,6 +177,13 @@ class RaceEngineAdapter {
             cancelAnimationFrame(this.animationId);
         }
 
+        const incomingSeed = gameHorses?.raceSeed || this.raceSeed;
+        if (incomingSeed) this.raceSeed = incomingSeed;
+        if (this.simulator && incomingSeed && this.simulator.raceSeed !== incomingSeed) {
+            this.simulator.stopRace();
+            this.simulator = null;
+        }
+
         this.gameHorses = gameHorses;
         this.isPreparing = true;
 
@@ -237,14 +253,21 @@ class RaceEngineAdapter {
     }
 
     animate() {
-        if (!this.isRunning) return;
+        if (!this.isRunning) {
+            console.log('🛑 animate() stopped: isRunning =', this.isRunning);
+            return;
+        }
 
         // 準備階段不更新模擬器物理，僅渲染
         if (!this.isPreparing) {
             this.update();
         }
 
-        if (this.canvas) this.render();
+        if (this.canvas) {
+            this.render();
+        } else {
+            console.warn('⚠️ Canvas is null in animate()');
+        }
 
         if (this.isRunning) {
             this.animationId = requestAnimationFrame(() => this.animate());
@@ -254,35 +277,47 @@ class RaceEngineAdapter {
     update() {
         if (!this.simulator || !this.isRunning) return;
 
-        // 🎯 時間同步邏輯
-        this.syncToTime();
+        // 🎯 時間同步邏輯 (正常每幀同步，受限頻寬)
+        this.syncToTime(false);
 
-        if (!this.simulator.isRunning) {
-            this.isRunning = false;
+        // 移除：不要在比賽結束時停止渲染
+        // 讓畫面繼續顯示最終狀態（所有馬匹在終點線，最終排名）
+
+        if (this.simulator.isFinished) {
+            console.log('✅ Race finished! Continuing to render final state.');
+            console.log('   - Finish order:', this.simulator.finishOrder.map(h => `${h.id}:${h.name}`));
+            console.log('   - isRunning:', this.isRunning);
+            console.log('   - simulator.isRunning:', this.simulator.isRunning);
         }
     }
 
     /**
      * 🎯 核心同步函數：將物理世界趕上現實時間
+     * @param {boolean} allowHugeCatchUp 是否允許大量計算 (用於初始化時的一次性同步)
      */
-    syncToTime() {
+    syncToTime(allowHugeCatchUp = false) {
         if (!this.raceStartTime) return;
 
         const now = performance.now();
         // 目標時間 (毫秒) -> 轉秒
         const targetRaceTime = (now - this.raceStartTime) / 1000;
 
-        // 容錯：如果已經完賽，就不再追趕
-        if (this.simulator.isFinished) return;
-
         // 追趕迴圈
         const dt = 1 / 60; // 固定物理步長
         let steps = 0;
-        const maxSteps = 1200; // 安全限制：單幀最多追趕 20秒 (1200 * 16ms)，避免卡死
+        // 如果是初始化，允許追趕至 600秒 (10分鐘)，否則限制單幀 20秒
+        const maxSteps = allowHugeCatchUp ? 36000 : 1200;
+
+        const timeBehind = targetRaceTime - this.simulator.raceTime;
 
         // 如果落後超過 1 幀，就追趕
-        if (targetRaceTime > this.simulator.raceTime + dt) {
-            console.log(`⏱️ 同步中... 落後 ${(targetRaceTime - this.simulator.raceTime).toFixed(2)}s`);
+        if (timeBehind > dt) {
+            // 只在非初始化時顯示 log，避免洗版
+            if (!allowHugeCatchUp) {
+                console.log(`⏱️ 同步中... 落後 ${timeBehind.toFixed(2)}s`);
+            } else {
+                console.log(`🚀 初始同步: 目標 ${targetRaceTime.toFixed(1)}s (當前 ${this.simulator.raceTime.toFixed(1)}s, 落後 ${timeBehind.toFixed(1)}s)`);
+            }
         }
 
         while (this.simulator.raceTime < targetRaceTime && steps < maxSteps) {
@@ -292,19 +327,39 @@ class RaceEngineAdapter {
                 this.simulator.update(); // Fallback
             }
 
-            if (this.simulator.isFinished) break;
+            // Safety break if simulation thinks it's done
+            if (this.simulator.isFinished || !this.simulator.isRunning) {
+                console.log(`🏁 比賽已完成 (步數: ${steps}, 比賽時間: ${this.simulator.raceTime.toFixed(1)}s)`);
+                break;
+            }
             steps++;
         }
 
         if (steps >= maxSteps) {
-            console.warn('⚠️ 物理模擬落後太多，強制放棄部分幀以保持流暢');
-            // 這裡可以選擇重置 startTime，或者就讓它慢慢追
+            console.warn(`⚠️ 物理模擬落後太多，強制放棄部分幀以保持流暢 (已執行 ${steps} 步)`);
+            console.warn(`   當前時間: ${this.simulator.raceTime.toFixed(1)}s, 目標: ${targetRaceTime.toFixed(1)}s, 仍落後: ${(targetRaceTime - this.simulator.raceTime).toFixed(1)}s`);
+            // Force finish if we ran out of steps and time is huge
+            if (allowHugeCatchUp && targetRaceTime > this.simulator.raceTime + 10) {
+                console.warn('⚠️ 強制結束模擬以避免卡死');
+                this.simulator.isRunning = false;
+            }
+        } else if (steps > 0) {
+            console.log(`✅ 同步完成: 執行了 ${steps} 步, 當前時間 ${this.simulator.raceTime.toFixed(1)}s`);
         }
     }
 
     getLeaderboard() {
         if (!this.simulator) return [];
         const leaderboard = this.simulator.getCurrentLeaderboard();
+
+        // 🔍 DEBUG: 顯示排名資訊
+        if (this.simulator.isFinished) {
+            console.log('📊 當前排行榜 (比賽已結束):');
+            leaderboard.forEach((entry, idx) => {
+                console.log(`   ${idx + 1}. #${entry.horse.id} ${entry.horse.name} - ${entry.horse.finished ? '✅' : '🏃'} ${entry.horse.finishTime ? entry.horse.finishTime.toFixed(2) + 's' : ''}`);
+            });
+        }
+
         return leaderboard.map(entry => {
             const h = entry.horse;
             let name = h.name;

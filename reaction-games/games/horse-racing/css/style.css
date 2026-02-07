@@ -107,7 +107,7 @@ h4,
 }
 
 .coin-display {
-    position: fixed;
+    position: absolute;
     top: var(--space-4);
     right: var(--space-4);
     z-index: 11000;

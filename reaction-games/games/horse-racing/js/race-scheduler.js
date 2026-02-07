@@ -20,11 +20,40 @@ class RaceScheduler {
         this.replayData = {};
         this.loadReplayData();
 
+        this.raceSnapshots = {};
+        this.loadRaceSnapshots();
+
         this.schedule = null;
         this.loadOrInitializeSchedule();
 
+        // **新增：版本檢查，清除舊版本的不確定性資料**
+        this.checkAndMigrateData();
+
         // **新增：清理損壞的歷史記錄**
         this.cleanupCorruptedHistory();
+    }
+
+    // ====================================
+    // **新增：版本檢查與資料遷移**
+    // ====================================
+    checkAndMigrateData() {
+        const currentVersion = '2.0'; // 確定性物理版本
+        const savedVersion = localStorage.getItem('raceDataVersion');
+
+        if (savedVersion !== currentVersion) {
+            console.warn(`🔄 偵測到舊版本資料 (${savedVersion || 'v1.0'}), 清理重播與快照...`);
+
+            // 清除舊的重播資料與快照（保留歷史結果）
+            this.replayData = {};
+            this.raceSnapshots = {};
+            this.saveRaceHistory();
+            this.saveReplayDataToStorage();
+            this.saveRaceSnapshots();
+
+            // 更新版本號
+            localStorage.setItem('raceDataVersion', currentVersion);
+            console.log('✅ 資料已遷移至版本 ' + currentVersion);
+        }
     }
 
     // ====================================
@@ -116,6 +145,7 @@ class RaceScheduler {
             return {
                 phase: 'POST_RACE',
                 timeRemaining: Math.floor((postRaceEndTime - now) / 1000),
+                elapsedTime: now - raceStartTime,
                 message: '正在審議比賽結果...',
                 raceNumber: trackSchedule.raceNumber,
                 raceSeed: trackSchedule.raceSeed
@@ -179,10 +209,18 @@ class RaceScheduler {
             console.error(`無法儲存結果：找不到賽道 ${trackId}`);
             return;
         }
+        this.saveRaceResultsForRace(trackId, trackSchedule.raceNumber, results);
+    }
+
+    saveRaceResultsForRace(trackId, raceNumber, results) {
+        if (!results || !Array.isArray(results) || results.length === 0) {
+            console.warn(`⚠️ 嘗試儲存空的結果: ${trackId} 第 ${raceNumber} 場`);
+            return;
+        }
 
         console.log('📥 收到的原始結果:', results);
 
-        const historyKey = `${trackId}_${trackSchedule.raceNumber}`;
+        const historyKey = `${trackId}_${raceNumber}`;
         this.raceHistory[historyKey] = results.map(r => ({
             position: r.rank || r.position,
             horse: {
@@ -193,7 +231,7 @@ class RaceScheduler {
         }));
 
         this.saveRaceHistory();
-        console.log(`💾 已儲存 ${trackId} 第 ${trackSchedule.raceNumber} 場結果:`, this.raceHistory[historyKey]);
+        console.log(`💾 已儲存 ${trackId} 第 ${raceNumber} 場結果:`, this.raceHistory[historyKey]);
     }
 
     getRaceResults(trackId, raceNumber) {
@@ -217,6 +255,67 @@ class RaceScheduler {
 
     saveRaceHistory() {
         localStorage.setItem('raceHistory', JSON.stringify(this.raceHistory));
+    }
+
+    // ====================================
+    // Race Snapshot Management
+    // ====================================
+
+    loadRaceSnapshots() {
+        const saved = localStorage.getItem('raceSnapshots');
+        if (saved) {
+            try {
+                this.raceSnapshots = JSON.parse(saved);
+            } catch (e) {
+                console.error('快照載入失敗', e);
+                this.raceSnapshots = {};
+            }
+        }
+    }
+
+    saveRaceSnapshots() {
+        localStorage.setItem('raceSnapshots', JSON.stringify(this.raceSnapshots));
+    }
+
+    serializeHorse(horse) {
+        const data = {
+            id: horse.id,
+            name: horse.name,
+            gateNumber: horse.gateNumber,
+            runningStyle: horse.runningStyle,
+            todayCondition: horse.todayCondition
+        };
+
+        if (typeof horse.form !== 'undefined') data.form = horse.form;
+        if (typeof horse.competitiveFactor === 'number') data.competitiveFactor = horse.competitiveFactor;
+        if (horse.lastFiveTrend) data.lastFiveTrend = horse.lastFiveTrend;
+        if (horse.jockey) data.jockey = horse.jockey;
+        if (horse.weight) data.weight = horse.weight;
+        if (horse.age) data.age = horse.age;
+
+        return data;
+    }
+
+    saveRaceSnapshot(trackId, raceNumber, horses, raceSeed) {
+        if (!horses || !Array.isArray(horses) || horses.length === 0) return;
+
+        const resolvedSeed = raceSeed || horses.raceSeed || null;
+        const key = `${trackId}_${raceNumber}`;
+        if (this.raceSnapshots[key]) return;
+
+        if (resolvedSeed) {
+            const seedKey = `${trackId}_${raceNumber}`;
+            if (!this.raceSeeds[seedKey]) {
+                this.raceSeeds[seedKey] = resolvedSeed;
+                this.saveRaceSeeds();
+            }
+        }
+
+        this.raceSnapshots[key] = {
+            raceSeed: resolvedSeed,
+            horses: horses.map(h => this.serializeHorse(h))
+        };
+        this.saveRaceSnapshots();
     }
 
     // ====================================
@@ -252,6 +351,80 @@ class RaceScheduler {
     }
 
     // ====================================
+    // Race Data Access
+    // ====================================
+
+    cloneSnapshotHorses(horses) {
+        try {
+            return JSON.parse(JSON.stringify(horses));
+        } catch (e) {
+            console.warn('⚠️ 快照深拷貝失敗，回傳原始資料');
+            return horses;
+        }
+    }
+
+    getHorsesForRace(trackId, raceNumber) {
+        const trackSchedule = this.schedule.find(s => s.trackId === trackId);
+        if (!trackSchedule) return null;
+
+        if (raceNumber === trackSchedule.raceNumber && trackSchedule.horses && Array.isArray(trackSchedule.horses)) {
+            const raceSeed = trackSchedule.raceSeed;
+            if (raceSeed && !trackSchedule.horses.raceSeed) {
+                trackSchedule.horses.raceSeed = raceSeed;
+                this.saveSchedule();
+            }
+            this.saveRaceSnapshot(trackId, raceNumber, trackSchedule.horses, raceSeed);
+            return trackSchedule.horses;
+        }
+
+        const snapshotKey = `${trackId}_${raceNumber}`;
+        const snapshot = this.raceSnapshots[snapshotKey];
+        if (snapshot && Array.isArray(snapshot.horses) && snapshot.horses.length > 0) {
+            const horses = this.cloneSnapshotHorses(snapshot.horses);
+            horses.raceSeed = snapshot.raceSeed || null;
+            return horses;
+        }
+
+        if (typeof generateHorses !== 'function') {
+            console.error('generateHorses 不可用，無法生成馬匹');
+            return null;
+        }
+
+        const raceSeed = this.generateRaceSeed(trackId, raceNumber);
+        const horses = generateHorses();
+        if (!horses || horses.length === 0) return null;
+
+        const gates = [1, 2, 3, 4, 5, 6, 7, 8];
+        const shuffleSeed = this.hashString(raceSeed + '_gates');
+        for (let i = gates.length - 1; i > 0; i--) {
+            const j = Math.floor((Math.sin(shuffleSeed + i) * 10000) % (i + 1));
+            [gates[i], gates[Math.abs(j)]] = [gates[Math.abs(j)], gates[i]];
+        }
+
+        horses.forEach((horse, index) => {
+            horse.gateNumber = gates[index];
+            const seedValue = this.hashString(raceSeed + horse.id);
+            horse.todayCondition = horse.generateTodayCondition(seedValue);
+        });
+
+        horses.raceSeed = raceSeed;
+        this.saveRaceSnapshot(trackId, raceNumber, horses, raceSeed);
+        return horses;
+    }
+
+    ensureRaceResults(trackId, raceNumber) {
+        const existing = this.getRaceResults(trackId, raceNumber);
+        if (existing && Array.isArray(existing) && existing.length > 0) return existing;
+
+        const results = this.generatePastRaceResults(trackId, raceNumber);
+        if (results && Array.isArray(results) && results.length > 0) {
+            this.saveRaceResultsForRace(trackId, raceNumber, results);
+            return results;
+        }
+        return null;
+    }
+
+    // ====================================
     // **修正版：getTrackHistory**
     // ====================================
 
@@ -277,22 +450,15 @@ class RaceScheduler {
             if (needsGeneration) {
                 console.log(`🔧 自動生成歷史記錄：${trackId} 第 ${lookBackRaceNum} 場`);
 
-                // **確保生成函數可用**
-                const canGenerate = this.checkGenerationCapability();
-
+                const canGenerate = this.checkGenerationCapability(trackId, lookBackRaceNum);
                 if (canGenerate) {
                     try {
-                        results = this.generatePastRaceResults(trackId, lookBackRaceNum);
-
-                        // **驗證生成結果**
-                        if (results && Array.isArray(results) && results.length > 0) {
-                            this.raceHistory[key] = results;
-                            this.saveRaceHistory();
-                            console.log(`✅ 成功生成 ${trackId} 第 ${lookBackRaceNum} 場，共 ${results.length} 筆結果`);
-                        } else {
+                        results = this.ensureRaceResults(trackId, lookBackRaceNum);
+                        if (!results || !Array.isArray(results) || results.length === 0) {
                             console.error(`❌ 生成結果無效:`, results);
                             continue;
                         }
+                        console.log(`✅ 成功生成 ${trackId} 第 ${lookBackRaceNum} 場，共 ${results.length} 筆結果`);
                     } catch (error) {
                         console.error(`❌ 生成歷史記錄失敗:`, error);
                         continue;
@@ -318,9 +484,15 @@ class RaceScheduler {
     // ====================================
     // **新增：檢查生成能力**
     // ====================================
-    checkGenerationCapability() {
-        const hasGenerateHorses = typeof generateHorses === 'function';
+    checkGenerationCapability(trackId = null, raceNumber = null) {
+        let hasGenerateHorses = typeof generateHorses === 'function';
         const hasBackgroundSimulator = typeof BackgroundSimulator !== 'undefined';
+
+        if (!hasGenerateHorses && trackId && raceNumber) {
+            const key = `${trackId}_${raceNumber}`;
+            const snapshot = this.raceSnapshots[key];
+            hasGenerateHorses = !!(snapshot && Array.isArray(snapshot.horses) && snapshot.horses.length > 0);
+        }
 
         console.log('📋 檢查生成能力:');
         console.log('  - generateHorses:', hasGenerateHorses);
@@ -337,35 +509,18 @@ class RaceScheduler {
         console.log(`🎲 開始生成 ${trackId} 第 ${raceNumber} 場的結果...`);
 
         try {
-            // 1. Get seed
-            const raceSeed = this.generateRaceSeed(trackId, raceNumber);
-            console.log(`  種子碼: ${raceSeed}`);
-
-            // 2. Generate horses
-            if (typeof generateHorses !== 'function') {
-                throw new Error('generateHorses 函數未定義');
+            // 1. Get horses (snapshot or generated)
+            const horses = this.getHorsesForRace(trackId, raceNumber);
+            if (!horses || horses.length === 0) {
+                throw new Error('無法取得馬匹資料');
             }
-            const horses = generateHorses();
+
+            const raceSeed = horses.raceSeed || this.generateRaceSeed(trackId, raceNumber);
+            if (!horses.raceSeed) horses.raceSeed = raceSeed;
+            console.log(`  種子碼: ${raceSeed}`);
             console.log(`  生成馬匹: ${horses.length} 匹`);
 
-            if (!horses || horses.length === 0) {
-                throw new Error('generateHorses 返回空陣列');
-            }
-
-            // 3. Assign gates and conditions
-            const gates = [1, 2, 3, 4, 5, 6, 7, 8];
-            const shuffleSeed = this.hashString(raceSeed + '_gates');
-            for (let i = gates.length - 1; i > 0; i--) {
-                const j = Math.floor((Math.sin(shuffleSeed + i) * 10000) % (i + 1));
-                [gates[i], gates[Math.abs(j)]] = [gates[Math.abs(j)], gates[i]];
-            }
-            horses.forEach((horse, index) => {
-                horse.gateNumber = gates[index];
-                const seedValue = this.hashString(raceSeed + horse.id);
-                horse.todayCondition = horse.generateTodayCondition(seedValue);
-            });
-
-            // 4. 執行物理模擬
+            // 2. 執行物理模擬
             const track = this.getTrackData(trackId);
 
             if (!track) {
@@ -497,10 +652,10 @@ class RaceScheduler {
         const trackSchedule = this.schedule.find(s => s.trackId === trackId);
         if (!trackSchedule) return null;
 
+        const raceSeed = trackSchedule.raceSeed;
+
         if (!trackSchedule.horses) {
             const horses = generateHorses();
-
-            const raceSeed = trackSchedule.raceSeed;
 
             const gates = [1, 2, 3, 4, 5, 6, 7, 8];
             const shuffleSeed = this.hashString(raceSeed + '_gates');
@@ -519,6 +674,13 @@ class RaceScheduler {
 
             trackSchedule.horses = horses;
             this.saveSchedule();
+            this.saveRaceSnapshot(trackId, trackSchedule.raceNumber, horses, raceSeed);
+        } else {
+            if (raceSeed && !trackSchedule.horses.raceSeed) {
+                trackSchedule.horses.raceSeed = raceSeed;
+                this.saveSchedule();
+            }
+            this.saveRaceSnapshot(trackId, trackSchedule.raceNumber, trackSchedule.horses, raceSeed);
         }
 
         return trackSchedule.horses;

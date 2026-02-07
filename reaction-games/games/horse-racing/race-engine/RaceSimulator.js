@@ -29,6 +29,10 @@ class RaceSimulator {
                 boolean: (p = 0.5) => Math.random() < p
             }; // fallback 到 Math.random
 
+        if (this.jockeyAI && typeof this.jockeyAI.setRandom === 'function') {
+            this.jockeyAI.setRandom(this.random);
+        }
+
         this.isRunning = false;
         this.raceTime = 0;
         this.finishOrder = [];
@@ -95,7 +99,8 @@ class RaceSimulator {
             const maxPreferredD = Math.max(minPreferredD, trackWidth - 0.6);
             horse.preferredD = Math.max(minPreferredD, Math.min(preferredD, maxPreferredD));
 
-            horse.mass = 440 + Math.random() * 60;
+            // Fix: Use seeded random for mass to ensure determinism
+            horse.mass = 440 + this.random.next() * 60;
 
             horse.finished = false;
             horse.finishTime = null;
@@ -406,6 +411,10 @@ class RaceSimulator {
             stamina: horse.stamina || 1.0,
             hasStarted: horse.hasStarted
         };
+    }
+
+    get isFinished() {
+        return this.finishOrder.length === this.horses.length;
     }
 }
 

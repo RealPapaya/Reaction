@@ -9,6 +9,22 @@ class JockeyAI {
         this.ANXIETY_DECAY_RATE = settings.anxietyDecayRate || 0.02;
         this.ESCAPE_THRESHOLD = settings.escapeThreshold || 0.5;
         this.ESCAPE_PROBABILITY = settings.escapeProbability || 0.3;
+        this.random = settings.random || {
+            next: () => Math.random(),
+            boolean: (p = 0.5) => Math.random() < p
+        };
+    }
+
+    setRandom(random) {
+        if (!random) return;
+        if (typeof random.next === 'function') {
+            this.random = random;
+        } else if (typeof random === 'function') {
+            this.random = {
+                next: random,
+                boolean: (p = 0.5) => random() < p
+            };
+        }
     }
 
     // ====================================
@@ -174,8 +190,11 @@ class JockeyAI {
         }
 
         // 焦慮值超過閾值，嘗試脫困
-        if (horse.anxiety > this.ESCAPE_THRESHOLD &&
-            Math.random() < this.ESCAPE_PROBABILITY) {
+        const shouldEscape = this.random.boolean
+            ? this.random.boolean(this.ESCAPE_PROBABILITY)
+            : this.random.next() < this.ESCAPE_PROBABILITY;
+
+        if (horse.anxiety > this.ESCAPE_THRESHOLD && shouldEscape) {
             return this.attemptEscape(horse, situation);
         }
 

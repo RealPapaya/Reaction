@@ -53,12 +53,14 @@ class RedemptionMachine {
             let results = raceScheduler.getRaceResults(ticket.trackId, ticket.raceNumber);
 
             if (!results) {
-                // 如果沒有儲存的結果（比賽還沒跑完或沒人觀看），用舊方法生成
-                console.warn('⚠️ 找不到儲存的結果，使用種子生成（可能與視覺比賽不符）');
-                const horses = raceScheduler.getOrGenerateHorses(ticket.trackId);
-                results = raceResultGenerator.generateResults(horses, ticket.raceSeed);
+                console.warn('⚠️ 找不到儲存的結果，嘗試自動生成');
+                results = raceScheduler.ensureRaceResults(ticket.trackId, ticket.raceNumber);
             } else {
                 console.log('✅ 使用儲存的比賽結果');
+            }
+
+            if (!results || !Array.isArray(results) || results.length === 0) {
+                throw new Error('無法取得比賽結果');
             }
 
             const winner = results[0];
