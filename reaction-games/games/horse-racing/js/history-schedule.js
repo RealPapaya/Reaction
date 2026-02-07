@@ -5,23 +5,33 @@
 // 擴展 HorseRacingGame 類別
 HorseRacingGame.prototype.showTrackHistory = function (trackId) {
     const track = raceScheduler.getTrackData(trackId);
-    const history = raceScheduler.getTrackHistory(trackId, 10);
 
-    // 🔍 DEBUG: 查看 history 數據
-    console.log('=== showTrackHistory DEBUG ===');
-    console.log('trackId:', trackId);
-    console.log('history length:', history.length);
-    console.log('history:', history);
+    // 先顯示載入提示
+    const historyContainer = document.getElementById('history-records-container');
+    historyContainer.innerHTML = '<p class="loading-message">⏳ 載入中，首次生成歷史記錄需要數秒...</p>';
 
     document.getElementById('history-modal-title').textContent = `${track.flagEmoji} ${track.name} - 歷史紀錄`;
 
-    const historyContainer = document.getElementById('history-records-container');
+    const modal = document.getElementById('history-modal');
+    modal.style.display = 'flex';
+    modal.classList.add('show');
 
-    if (history.length === 0) {
-        console.log('⚠️ history is empty');
-        historyContainer.innerHTML = '<p class="no-history">暫無歷史紀錄</p>';
-    } else {
-        const tableHTML = `
+
+    // 使用 setTimeout 讓 UI 有時間更新
+    setTimeout(() => {
+        const history = raceScheduler.getTrackHistory(trackId, 10);
+
+        // 🔍 DEBUG: 查看 history 數據
+        console.log('=== showTrackHistory DEBUG ===');
+        console.log('trackId:', trackId);
+        console.log('history length:', history.length);
+        console.log('history:', history);
+
+        if (history.length === 0) {
+            console.log('⚠️ history is empty');
+            historyContainer.innerHTML = '<p class="no-history">暫無歷史紀錄</p>';
+        } else {
+            const tableHTML = `
             <div class="racing-table-container">
                 <table class="racing-table">
                     <thead>
@@ -35,16 +45,16 @@ HorseRacingGame.prototype.showTrackHistory = function (trackId) {
                     </thead>
                     <tbody>
                         ${history.map((record, index) => {
-            const date = new Date(record.timestamp);
-            const dateStr = date.toLocaleString('zh-TW', {
-                month: '2-digit', day: '2-digit',
-                hour: '2-digit', minute: '2-digit'
-            });
+                const date = new Date(record.timestamp);
+                const dateStr = date.toLocaleString('zh-TW', {
+                    month: '2-digit', day: '2-digit',
+                    hour: '2-digit', minute: '2-digit'
+                });
 
-            // 更寬鬆的檢查，並提供調試信息
-            if (!record.results || !Array.isArray(record.results) || record.results.length === 0) {
-                console.warn('⚠️ 歷史紀錄缺少 results:', record);
-                return `
+                // 更寬鬆的檢查，並提供調試信息
+                if (!record.results || !Array.isArray(record.results) || record.results.length === 0) {
+                    console.warn('⚠️ 歷史紀錄缺少 results:', record);
+                    return `
                                     <tr class="history-row error">
                                         <td>${dateStr}</td>
                                         <td>第 ${record.raceNumber} 場</td>
@@ -57,17 +67,17 @@ HorseRacingGame.prototype.showTrackHistory = function (trackId) {
                                         </td>
                                     </tr>
                                 `;
-            }
+                }
 
-            const winner = record.results[0];
-            const detailId = `detail-${trackId}-${record.raceNumber}`;
+                const winner = record.results[0];
+                const detailId = `detail-${trackId}-${record.raceNumber}`;
 
-            // 使用安全的屬性訪問
-            const horseName = winner?.horse?.name || '未知';
-            const horseId = winner?.horse?.id || '?';
-            const finishTime = winner?.finishTime || 0;
+                // 使用安全的屬性訪問
+                const horseName = winner?.horse?.name || '未知';
+                const horseId = winner?.horse?.id || '?';
+                const finishTime = winner?.finishTime || 0;
 
-            return `
+                return `
                                 <tr class="history-row" onclick="toggleDetail('${detailId}', this)" style="cursor:pointer;">
                                     <td>${dateStr}</td>
                                     <td>第 ${record.raceNumber} 場</td>
@@ -103,9 +113,9 @@ HorseRacingGame.prototype.showTrackHistory = function (trackId) {
                                                 </thead>
                                                 <tbody>
                                                     ${record.results.map((r, i) => {
-                const gap = i === 0 ? '-' : `+${(r.finishTime - winner.finishTime).toFixed(2)}s`;
-                const medal = i < 3 ? ['🥇', '🥈', '🥉'][i] : (i + 1) + '.';
-                return `
+                    const gap = i === 0 ? '-' : `+${(r.finishTime - winner.finishTime).toFixed(2)}s`;
+                    const medal = i < 3 ? ['🥇', '🥈', '🥉'][i] : (i + 1) + '.';
+                    return `
                                                             <tr>
                                                                 <td>${medal}</td>
                                                                 <td>#${r?.horse?.id || '?'}</td>
@@ -114,22 +124,21 @@ HorseRacingGame.prototype.showTrackHistory = function (trackId) {
                                                                 <td>${gap}</td>
                                                             </tr>
                                                         `;
-            }).join('')}
+                }).join('')}
                                                 </tbody>
                                             </table>
                                         </div>
                                     </td>
                                 </tr>
                             `;
-        }).join('')}
+            }).join('')}
                     </tbody>
                 </table>
             </div>
         `;
-        historyContainer.innerHTML = tableHTML;
-    }
-
-    document.getElementById('history-modal').classList.add('show');
+            historyContainer.innerHTML = tableHTML;
+        }
+    }, 50);
 };
 
 // 全局切換詳情函數
@@ -253,3 +262,52 @@ window.startScheduleTimer = function () {
     update();
     window.scheduleTimer = setInterval(update, 1000);
 };
+
+// 添加模態框關閉事件監聽器
+document.addEventListener('DOMContentLoaded', () => {
+    // 歷史記錄模態框關閉
+    const historyModal = document.getElementById('history-modal');
+    const historyCloseBtn = historyModal?.querySelector('.close-modal');
+    if (historyCloseBtn) {
+        historyCloseBtn.addEventListener('click', () => {
+            historyModal.style.display = 'none';
+            historyModal.classList.remove('show');
+        });
+    }
+
+    // 點擊背景關閉
+    if (historyModal) {
+        historyModal.addEventListener('click', (e) => {
+            if (e.target === historyModal) {
+                historyModal.style.display = 'none';
+                historyModal.classList.remove('show');
+            }
+        });
+    }
+
+    // 賽程模態框關閉
+    const scheduleModal = document.getElementById('schedule-modal');
+    const scheduleCloseBtn = scheduleModal?.querySelector('.close-modal');
+    if (scheduleCloseBtn) {
+        scheduleCloseBtn.addEventListener('click', () => {
+            scheduleModal.style.display = 'none';
+            scheduleModal.classList.remove('show');
+            if (window.scheduleTimer) {
+                clearInterval(window.scheduleTimer);
+            }
+        });
+    }
+
+    // 點擊背景關閉
+    if (scheduleModal) {
+        scheduleModal.addEventListener('click', (e) => {
+            if (e.target === scheduleModal) {
+                scheduleModal.style.display = 'none';
+                scheduleModal.classList.remove('show');
+                if (window.scheduleTimer) {
+                    clearInterval(window.scheduleTimer);
+                }
+            }
+        });
+    }
+});

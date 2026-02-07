@@ -335,58 +335,94 @@ class RaceScheduler {
     generatePastRaceResults(trackId, raceNumber) {
         console.log(`🎲 開始生成 ${trackId} 第 ${raceNumber} 場的結果...`);
 
-        // 1. Get seed
-        const raceSeed = this.generateRaceSeed(trackId, raceNumber);
-        console.log(`  種子碼: ${raceSeed}`);
+        try {
+            // 1. Get seed
+            const raceSeed = this.generateRaceSeed(trackId, raceNumber);
+            console.log(`  種子碼: ${raceSeed}`);
 
-        // 2. Generate horses
-        if (typeof generateHorses !== 'function') {
-            throw new Error('generateHorses 函數未定義');
+            // 2. Generate horses
+            if (typeof generateHorses !== 'function') {
+                throw new Error('generateHorses 函數未定義');
+            }
+            const horses = generateHorses();
+            console.log(`  生成馬匹: ${horses.length} 匹`);
+
+            if (!horses || horses.length === 0) {
+                throw new Error('generateHorses 返回空陣列');
+            }
+
+            // 3. Assign gates and conditions
+            const gates = [1, 2, 3, 4, 5, 6, 7, 8];
+            const shuffleSeed = this.hashString(raceSeed + '_gates');
+            for (let i = gates.length - 1; i > 0; i--) {
+                const j = Math.floor((Math.sin(shuffleSeed + i) * 10000) % (i + 1));
+                [gates[i], gates[Math.abs(j)]] = [gates[Math.abs(j)], gates[i]];
+            }
+            horses.forEach((horse, index) => {
+                horse.gateNumber = gates[index];
+                const seedValue = this.hashString(raceSeed + horse.id);
+                horse.todayCondition = horse.generateTodayCondition(seedValue);
+            });
+
+            // 4. 執行物理模擬
+            const track = this.getTrackData(trackId);
+
+            if (!track) {
+                throw new Error(`找不到賽道資料: ${trackId}`);
+            }
+
+            if (typeof BackgroundSimulator === 'undefined') {
+                throw new Error('BackgroundSimulator 未定義');
+            }
+
+            console.log(`  使用 BackgroundSimulator 模擬...`);
+            const bgSim = new BackgroundSimulator(horses, track, raceSeed);
+            const simData = bgSim.runFullSimulation();
+
+            console.log(`  模擬完成, simData:`, simData);
+
+            // 5. 驗證模擬結果
+            if (!simData) {
+                throw new Error('BackgroundSimulator 返回 null/undefined');
+            }
+
+            if (!simData.results) {
+                throw new Error('simData 缺少 results 屬性');
+            }
+
+            if (!Array.isArray(simData.results)) {
+                throw new Error(`simData.results 不是陣列，類型: ${typeof simData.results}`);
+            }
+
+            if (simData.results.length === 0) {
+                throw new Error('simData.results 是空陣列 - 可能是模擬失敗或超時');
+            }
+
+            console.log(`  ✅ 模擬結果驗證通過: ${simData.results.length} 個結果`);
+
+            // 6. 不儲存重播數據（歷史記錄只需要結果，trajectory 太大會超過 localStorage 限制）
+            // this.saveReplayData(trackId, raceNumber, simData);
+            console.log(`  ℹ️ 歷史記錄不儲存 replayData (節省空間)`);
+
+            // 7. Format results
+            const formattedResults = simData.results.map(r => ({
+                position: r.position,
+                horse: {
+                    id: r.horse.id,
+                    name: r.horse.name
+                },
+                finishTime: r.finishTime
+            }));
+
+            console.log(`✅ 生成完成，結果:`, formattedResults);
+            return formattedResults;
+
+        } catch (error) {
+            console.error(`❌ generatePastRaceResults 錯誤:`, error);
+            console.error(`   錯誤堆疊:`, error.stack);
+            // 拋出錯誤讓上層捕獲
+            throw error;
         }
-        const horses = generateHorses();
-        console.log(`  生成馬匹: ${horses.length} 匹`);
-
-        // 3. Assign gates and conditions
-        const gates = [1, 2, 3, 4, 5, 6, 7, 8];
-        const shuffleSeed = this.hashString(raceSeed + '_gates');
-        for (let i = gates.length - 1; i > 0; i--) {
-            const j = Math.floor((Math.sin(shuffleSeed + i) * 10000) % (i + 1));
-            [gates[i], gates[Math.abs(j)]] = [gates[Math.abs(j)], gates[i]];
-        }
-        horses.forEach((horse, index) => {
-            horse.gateNumber = gates[index];
-            const seedValue = this.hashString(raceSeed + horse.id);
-            horse.todayCondition = horse.generateTodayCondition(seedValue);
-        });
-
-        // 4. 執行物理模擬
-        const track = this.getTrackData(trackId);
-
-        if (typeof BackgroundSimulator === 'undefined') {
-            throw new Error('BackgroundSimulator 未定義');
-        }
-
-        console.log(`  使用 BackgroundSimulator 模擬...`);
-        const bgSim = new BackgroundSimulator(horses, track, raceSeed);
-        const simData = bgSim.runFullSimulation();
-
-        console.log(`  模擬完成:`, simData.results.length, '個結果');
-
-        // 5. 存儲重播數據
-        this.saveReplayData(trackId, raceNumber, simData);
-
-        // 6. Format results
-        const formattedResults = simData.results.map(r => ({
-            position: r.position,
-            horse: {
-                id: r.horse.id,
-                name: r.horse.name
-            },
-            finishTime: r.finishTime
-        }));
-
-        console.log(`✅ 生成完成，結果:`, formattedResults);
-        return formattedResults;
     }
 
     getTrackSchedule(trackId, futureRaces = 5) {

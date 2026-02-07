@@ -23,6 +23,15 @@
     font-size: 1.1rem;
 }
 
+.loading-message {
+    text-align: center;
+    color: var(--primary-color);
+    padding: 40px 20px;
+    font-size: 1.1rem;
+    animation: pulse 2s infinite;
+}
+
+
 /* ====================================
    Racing Table Styles (New)
    ==================================== */

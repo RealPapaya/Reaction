@@ -39,18 +39,37 @@ class BackgroundSimulator {
             trackWidth: 17.5
         });
 
+        console.log('  🏁 模擬器初始化完成:');
+        console.log('    - 賽道距離:', this.simulator.raceDistance);
+        console.log('    - 馬匹數量:', this.simulator.horses.length);
+        console.log('    - 路徑長度:', pathLength);
+
         // 5. 啟動比賽
         this.simulator.startRace();
+        console.log('  🚀 比賽已啟動, isRunning:', this.simulator.isRunning);
 
-        // 6. 執行物理模擬循環
+        // 6. 執行物理模擬循環 - 使用固定時間步長
+        const FIXED_TIMESTEP = 1 / 60; // 60 FPS
         const trajectory = [];
         let frameCount = 0;
         const SAMPLE_INTERVAL = 0.5; // 每0.5秒記錄一次（減少存儲）
         let nextSampleTime = 0;
 
-        while (this.simulator.isRunning && frameCount < 10000) {
-            this.simulator.update();
+        console.log('  📍 模擬循環開始前狀態:');
+        console.log('    - isRunning:', this.simulator.isRunning);
+        console.log('    - raceTime:', this.simulator.raceTime);
+        console.log('    - 馬匹初始 s:', this.simulator.horses.map(h => h.s));
+        console.log('    - 馬匹速度:', this.simulator.horses.map(h => h.speed.toFixed(2)));
+
+        while (this.simulator.isRunning && frameCount < 20000) {
+            // **關鍵修復：傳遞固定的 deltaTime 給 update()**
+            this.simulator.updateWithFixedDelta(FIXED_TIMESTEP);
             frameCount++;
+
+            // 前 10 幀輸出詳細狀態
+            if (frameCount <= 10) {
+                console.log(`    [Frame ${frameCount}] raceTime: ${this.simulator.raceTime.toFixed(3)}s, 馬匹 s:`, this.simulator.horses.map(h => h.s.toFixed(2)));
+            }
 
             // 定期記錄軌跡
             if (this.simulator.raceTime >= nextSampleTime) {
@@ -58,14 +77,38 @@ class BackgroundSimulator {
                 nextSampleTime += SAMPLE_INTERVAL;
             }
 
-            // 防止無限循環
+            // 每 1000 幀輸出進度
+            if (frameCount % 1000 === 0) {
+                const maxS = Math.max(...this.simulator.horses.map(h => h.s));
+                console.log(`    [Frame ${frameCount}] 最大進度: ${maxS.toFixed(1)}/${this.simulator.raceDistance.toFixed(1)}, 完賽: ${this.simulator.finishOrder.length}/${this.simulator.horses.length}, 時間: ${this.simulator.raceTime.toFixed(1)}s`);
+            }
+
+            // 防止無限循環 - 所有馬匹完賽就停止
             if (this.simulator.finishOrder.length === this.simulator.horses.length) {
+                console.log('  ✅ 所有馬匹已完賽');
                 break;
             }
         }
 
+        // 循環結束原因分析
+        if (frameCount >= 20000) {
+            console.warn('  ⚠️ 模擬超時 (20000 幀)');
+            console.warn('    - 完賽數量:', this.simulator.finishOrder.length, '/', this.simulator.horses.length);
+            const maxS = Math.max(...this.simulator.horses.map(h => h.s));
+            console.warn('    - 最大進度:', maxS.toFixed(1), '/', this.simulator.raceDistance.toFixed(1));
+        } else if (!this.simulator.isRunning) {
+            console.log('  ✅ 模擬器已停止');
+        }
+
+        // 🔍 DEBUG: 檢查完賽狀態
+        console.log('  📊 模擬後狀態:');
+        console.log('    - finishOrder.length:', this.simulator.finishOrder.length);
+        console.log('    - horses.length:', this.simulator.horses.length);
+        console.log('    - finishOrder:', this.simulator.finishOrder.map(h => ({ id: h.id, name: h.name, time: h.finishTime })));
+
         // 7. 收集結果
         const results = this.simulator.getResults();
+        console.log('  📋 getResults() 返回:', results.length, '個結果');
         const duration = this.simulator.raceTime;
 
         const elapsed = ((performance.now() - startTime) / 1000).toFixed(2);

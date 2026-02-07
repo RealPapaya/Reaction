@@ -110,6 +110,72 @@ class RaceSimulator {
         this.isRunning = false;
     }
 
+    /**
+     * 使用固定時間步長更新（用於後台模擬）
+     */
+    updateWithFixedDelta(deltaTime) {
+        if (!this.isRunning) return;
+
+        this.raceTime += deltaTime;
+        const raceProgress = this.calculateRaceProgress();
+
+        for (const horse of this.horses) {
+            if (horse.finished) continue;
+
+            if (!horse.hasStarted) {
+                if (this.raceTime >= horse.startDelay) {
+                    horse.hasStarted = true;
+                } else {
+                    continue;
+                }
+            }
+
+            // 1. AI 決策
+            const decision = this.jockeyAI.makeDecision(
+                horse,
+                this.horses,
+                this.frenet,
+                raceProgress
+            );
+
+            // 2. 計算轉向力
+            const lateralForce = this.steering.compute(
+                horse,
+                this.horses,
+                this.frenet.getTrackWidth()
+            );
+
+            // 3. 物理更新
+            this.physics.update(horse, this.frenet, deltaTime, lateralForce);
+
+            // 4. 應用戰術速度
+            this.physics.applyStrategySpeed(horse, raceProgress);
+
+            // 5. 檢查 Slingshot 機會
+            this.physics.checkSlingshotOpportunity(horse, this.frenet, this.horses);
+
+            // 6. 記錄軌跡
+            horse.positionHistory.push({ s: horse.s, d: horse.d, time: this.raceTime });
+            if (horse.positionHistory.length > 100) {
+                horse.positionHistory.shift();
+            }
+
+            // 7. 檢查是否完賽
+            if (horse.s >= this.raceDistance) {
+                horse.finished = true;
+                horse.finishTime = this.raceTime;
+                this.finishOrder.push(horse);
+            }
+        }
+
+        // 碰撞解決
+        this.resolveCollisions();
+
+        if (this.finishOrder.length === this.horses.length) {
+            this.isRunning = false;
+        }
+    }
+
     update() {
         if (!this.isRunning) return;
 

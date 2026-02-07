@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <title>歷史記錄系統測試</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #1a1a2e;
+            color: #eee;
+        }
+
+        #log {
+            background: #0f0f23;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 600px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            margin: 10px 5px;
+            cursor: pointer;
+            background: #16213e;
+            color: #4ecca3;
+            border: 2px solid #4ecca3;
+            border-radius: 6px;
+            transition: all 0.3s;
+        }
+
+        button:hover {
+            background: #4ecca3;
+            color: #16213e;
+        }
+
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 6px;
+        }
+
+        .success {
+            background: #4ecca3;
+            color: #16213e;
+        }
+
+        .error {
+            background: #e94560;
+            color: white;
+        }
+
+        .info {
+            background: #0f3460;
+            color: #eee;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>🏇 歷史記錄系統測試</h1>
+
+    <div>
+        <button onclick="testHistoryGeneration()">🎲 測試歷史記錄生成</button>
+        <button onclick="clearLog()">🧹 清除日誌</button>
+        <button onclick="clearStorage()">🗑️ 清空 LocalStorage</button>
+    </div>
+
+    <div id="status" class="status info">準備測試...</div>
+    <div id="log"></div>
+
+    <!-- 引入賽道配置 -->
+    <script src="../race-engine/RACETRACKS.js"></script>
+
+    <!-- 引入賽馬生成器 -->
+    <script src="../race-engine/Horse.js"></script>
+    <script src="../race-engine/HorseGenerator.js"></script>
+
+    <!-- 引入物理引擎 -->
+    <script src="../race-engine/FrenetCoordinate.js"></script>
+    <script src="../race-engine/PhysicsEngine.js"></script>
+    <script src="../race-engine/SteeringBehavior.js"></script>
+    <script src="../race-engine/JockeyAI.js"></script>
+    <script src="../race-engine/RaceSimulator.js"></script>
+    <script src="../race-engine/BackgroundSimulator.js"></script>
+
+    <!-- 引入排程器 -->
+    <script src="../js/race-scheduler.js"></script>
+
+    <script>
+        const logDiv = document.getElementById('log');
+        const statusDiv = document.getElementById('status');
+
+        // 劫持 console.log 來顯示在頁面上
+        const originalLog = console.log;
+        const originalWarn = console.warn;
+        const originalError = console.error;
+
+        function addToLog(message, type = 'log') {
+            const timestamp = new Date().toLocaleTimeString('zh-TW');
+            const color = type === 'error' ? '#e94560' : type === 'warn' ? '#f9ca24' : '#4ecca3';
+            logDiv.innerHTML += `<div style="color: ${color}">[${timestamp}] ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        console.log = function (...args) {
+            originalLog.apply(console, args);
+            addToLog(args.join(' '), 'log');
+        };
+
+        console.warn = function (...args) {
+            originalWarn.apply(console, args);
+            addToLog('⚠️ ' + args.join(' '), 'warn');
+        };
+
+        console.error = function (...args) {
+            originalError.apply(console, args);
+            addToLog('❌ ' + args.join(' '), 'error');
+        };
+
+        function clearLog() {
+            logDiv.innerHTML = '';
+        }
+
+        function clearStorage() {
+            localStorage.clear();
+            statusDiv.className = 'status info';
+            statusDiv.textContent = '✅ LocalStorage 已清空';
+            console.log('LocalStorage 已清空');
+        }
+
+        async function testHistoryGeneration() {
+            try {
+                statusDiv.className = 'status info';
+                statusDiv.textContent = '🔄 正在測試歷史記錄生成...';
+                console.log('='.repeat(60));
+                console.log('開始測試歷史記錄生成');
+                console.log('='.repeat(60));
+
+                // 測試單場比賽生成
+                const trackId = 'tokyo';
+                const raceNumber = 1;
+
+                console.log(`\n📋 測試生成 ${trackId} 第 ${raceNumber} 場`);
+
+                const results = raceScheduler.generatePastRaceResults(trackId, raceNumber);
+
+                console.log(`\n✅ 測試完成！`);
+                console.log(`生成結果數量: ${results.length}`);
+                console.log('結果詳情:', JSON.stringify(results, null, 2));
+
+                if (results && results.length > 0) {
+                    statusDiv.className = 'status success';
+                    statusDiv.textContent = `✅ 測試成功！生成了 ${results.length} 個結果`;
+
+                    // 測試歷史記錄讀取
+                    console.log(`\n📖 測試讀取歷史記錄...`);
+                    const history = raceScheduler.getTrackHistory(trackId, 5);
+                    console.log(`讀取到 ${history.length} 條歷史記錄`);
+                    console.log('歷史記錄:', JSON.stringify(history, null, 2));
+                } else {
+                    throw new Error('生成結果為空');
+                }
+
+            } catch (error) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = `❌ 測試失敗: ${error.message}`;
+                console.error('測試失敗:', error);
+                console.error('錯誤堆疊:', error.stack);
+            }
+        }
+
+        // 頁面載入後的初始化
+        window.addEventListener('load', () => {
+            console.log('✅ 頁面載入完成');
+            console.log('RaceScheduler 已初始化:', typeof raceScheduler);
+            console.log('BackgroundSimulator 可用:', typeof BackgroundSimulator);
+            console.log('generateHorses 可用:', typeof generateHorses);
+        });
+    </script>
+</body>
+
+</html>
