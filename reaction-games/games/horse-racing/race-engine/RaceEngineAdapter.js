@@ -888,5 +888,51 @@ class RaceEngineAdapter {
         });
     }
 
+    /**
+     * 🆕 獲取重播數據（從 simulator 的 positionHistory 重建）
+     */
+    getReplayData() {
+        if (!this.simulator || !this.simulator.horses) return null;
+
+        // 找出最長的歷史記錄長度
+        const maxHistory = Math.max(
+            ...this.simulator.horses.map(h => h.positionHistory?.length || 0)
+        );
+
+        if (maxHistory === 0) {
+            console.warn('⚠️ 沒有足夠的位置歷史記錄');
+            return null;
+        }
+
+        // 重建軌跡（每個時間點的所有馬匹狀態）
+        const trajectory = [];
+        for (let i = 0; i < maxHistory; i++) {
+            const frame = {
+                time: i * 0.1, // 假設每0.1秒記錄一次
+                horses: this.simulator.horses.map(h => {
+                    const pos = h.positionHistory[i] || h.positionHistory[h.positionHistory.length - 1];
+                    return {
+                        id: h.id,
+                        s: pos?.s || 0,
+                        d: pos?.d || 0,
+                        speed: h.speed || 0,
+                        finished: h.finished || false
+                    };
+                })
+            };
+            trajectory.push(frame);
+        }
+
+        // 獲取結果
+        const results = this.getResults();
+
+        return {
+            trajectory,
+            results,
+            duration: this.simulator.raceTime,
+            timestamp: Date.now()
+        };
+    }
+
     isFinished() { return !this.isRunning; }
 }

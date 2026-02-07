@@ -816,7 +816,18 @@ class HorseRacingGame {
         this.raceFinishCheckInterval = setInterval(() => {
             if (this.raceEngine && this.raceEngine.isFinished()) {
                 const results = this.raceEngine.getResults();
+
+                // 存儲比賽結果
                 raceScheduler.saveRaceResults(trackId, results);
+
+                // 🆕 存儲重播數據
+                const replayData = this.raceEngine.getReplayData();
+                if (replayData) {
+                    const status = raceScheduler.getTrackStatus(trackId);
+                    raceScheduler.saveReplayData(trackId, status.raceNumber, replayData);
+                    console.log('📼 重播數據已存儲');
+                }
+
                 clearInterval(this.raceFinishCheckInterval);
                 this.raceFinishCheckInterval = null;
                 console.log('✅ 比賽結束，結果已儲存');
@@ -1146,6 +1157,77 @@ class HorseRacingGame {
         const mins = Math.floor(seconds / 60);
         const secs = seconds % 60;
         return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')} `;
+    }
+
+    // ====================================
+    // 🆕 Replay System
+    // ====================================
+
+    showReplayModal(trackId, raceNumber) {
+        console.log(`📼 嘗試顯示重播: ${trackId} 第 ${raceNumber} 場`);
+
+        const replayData = raceScheduler.getReplayData(trackId, raceNumber);
+
+        if (!replayData || !replayData.trajectory || replayData.trajectory.length === 0) {
+            alert('此場比賽沒有重播數據');
+            return;
+        }
+
+        const track = raceScheduler.getTrackData(trackId);
+        document.getElementById('replay-modal-title').textContent =
+            `🎬 ${track.flagEmoji} ${track.name} - 第 ${raceNumber} 場重播`;
+
+        const canvas = document.getElementById('replay-canvas');
+
+        if (this.replayViewer) {
+            this.replayViewer.destroy();
+        }
+
+        this.replayViewer = new RaceReplayViewer(canvas, replayData, track);
+
+        this.replayViewer.onTimeUpdate = (currentTime, totalTime) => {
+            const currentMin = Math.floor(currentTime / 60);
+            const currentSec = Math.floor(currentTime % 60);
+            const totalMin = Math.floor(totalTime / 60);
+            const totalSec = Math.floor(totalTime % 60);
+            const timeText = `${currentMin.toString().padStart(2, '0')}:${currentSec.toString().padStart(2, '0')} / ${totalMin.toString().padStart(2, '0')}:${totalSec.toString().padStart(2, '0')}`;
+            document.getElementById('replay-time').textContent = timeText;
+            const progress = (currentTime / totalTime) * 100;
+            document.getElementById('replay-seek-bar').value = progress;
+        };
+
+        this.setupReplayControls();
+        document.getElementById('replay-modal').classList.add('show');
+        this.replayViewer.render();
+    }
+
+    setupReplayControls() {
+        document.getElementById('replay-play-btn').onclick = () => {
+            if (this.replayViewer) this.replayViewer.play();
+        };
+
+        document.getElementById('replay-pause-btn').onclick = () => {
+            if (this.replayViewer) this.replayViewer.pause();
+        };
+
+        document.getElementById('replay-restart-btn').onclick = () => {
+            if (this.replayViewer) this.replayViewer.stop();
+        };
+
+        document.getElementById('replay-speed').onchange = (e) => {
+            if (this.replayViewer) {
+                this.replayViewer.setSpeed(parseFloat(e.target.value));
+            }
+        };
+
+        const seekBar = document.getElementById('replay-seek-bar');
+        seekBar.oninput = (e) => {
+            if (this.replayViewer) {
+                const totalDuration = this.replayViewer.getTotalDuration();
+                const targetTime = (e.target.value / 100) * totalDuration;
+                this.replayViewer.seekTo(targetTime);
+            }
+        };
     }
 }
 

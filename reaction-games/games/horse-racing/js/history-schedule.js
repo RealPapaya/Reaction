@@ -45,6 +45,13 @@ HorseRacingGame.prototype.showTrackHistory = function (trackId) {
                     <div class="${headerClass}" onclick="this.classList.toggle('expanded'); this.nextElementSibling.classList.toggle('show');">
                         <h4>第 ${record.raceNumber} 場</h4>
                         <span class="history-record-time">${dateStr}</span>
+                        <button class="btn btn-small replay-btn" 
+                            data-track-id="${trackId}" 
+                            data-race-number="${record.raceNumber}"
+                            onclick="event.stopPropagation(); game.showReplayModal('${trackId}', ${record.raceNumber});"
+                            style="margin-left: 10px;">
+                            🎬 重播
+                        </button>
                     </div>
                     <div class="${resultsClass}">
                         ${resultsHTML}

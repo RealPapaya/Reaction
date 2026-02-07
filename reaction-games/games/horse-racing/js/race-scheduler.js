@@ -18,6 +18,9 @@ class RaceScheduler {
         this.raceHistory = {}; // 🆕 儲存歷史比賽結果 {trackId_raceNumber: results}
         this.loadRaceHistory();
 
+        this.replayData = {}; // 🆕 儲存重播軌跡數據
+        this.loadReplayData();
+
         this.schedule = null;
         this.loadOrInitializeSchedule();
     }
@@ -222,6 +225,51 @@ class RaceScheduler {
     }
 
     // ====================================
+    // Replay Data Management (🆕)
+    // ====================================
+
+    loadReplayData() {
+        const saved = localStorage.getItem('raceReplays');
+        if (saved) {
+            try {
+                this.replayData = JSON.parse(saved);
+                console.log(`📼 已載入 ${Object.keys(this.replayData).length} 場重播數據`);
+            } catch (e) {
+                console.error('重播數據載入失敗', e);
+                this.replayData = {};
+            }
+        } else {
+            this.replayData = {};
+        }
+    }
+
+    saveReplayData(trackId, raceNumber, replayData) {
+        const key = `${trackId}_${raceNumber}`;
+        this.replayData[key] = replayData;
+
+        // 🚀 只保留最近10場重播（節省空間）
+        const allKeys = Object.keys(this.replayData);
+        if (allKeys.length > 10) {
+            // 按時間戳排序，移除最舊的
+            const sorted = allKeys.sort((a, b) => {
+                const timeA = this.replayData[a]?.timestamp || 0;
+                const timeB = this.replayData[b]?.timestamp || 0;
+                return timeA - timeB;
+            });
+            const toRemove = sorted.slice(0, allKeys.length - 10);
+            toRemove.forEach(k => delete this.replayData[k]);
+        }
+
+        localStorage.setItem('raceReplays', JSON.stringify(this.replayData));
+        console.log(`📼 已儲存重播數據: ${key}`);
+    }
+
+    getReplayData(trackId, raceNumber) {
+        const key = `${trackId}_${raceNumber}`;
+        return this.replayData[key] || null;
+    }
+
+    // ====================================
     // Track History & Schedule
     // ====================================
 
@@ -285,17 +333,38 @@ class RaceScheduler {
             horse.todayCondition = horse.generateTodayCondition(seedValue);
         });
 
-        // 4. Generate results
-        const rawResults = raceResultGenerator.generateResults(horses, raceSeed);
+        // 4. 🆕 執行完整物理模擬（替代原本的算法生成）
+        const track = this.getTrackData(trackId);
 
-        // 5. Format results
-        return rawResults.map(r => ({
+        // 確保 BackgroundSimulator 可用
+        if (typeof BackgroundSimulator === 'undefined') {
+            console.error('❌ BackgroundSimulator 未載入，降級使用舊算法');
+            // 降級方案：使用舊的 RaceResultGenerator
+            const rawResults = raceResultGenerator.generateResults(horses, raceSeed);
+            return rawResults.map(r => ({
+                position: r.position,
+                horse: {
+                    id: r.horse.id,
+                    name: r.horse.name
+                },
+                finishTime: parseFloat(r.time)
+            }));
+        }
+
+        const bgSim = new BackgroundSimulator(horses, track, raceSeed);
+        const simData = bgSim.runFullSimulation();
+
+        // 5. 存儲重播數據
+        this.saveReplayData(trackId, raceNumber, simData);
+
+        // 6. Format results (finishTime 現在來自物理模擬)
+        return simData.results.map(r => ({
             position: r.position,
             horse: {
                 id: r.horse.id,
                 name: r.horse.name
             },
-            finishTime: parseFloat(r.time)
+            finishTime: r.finishTime  // ✅ 真實物理模擬時間 (~110秒)
         }));
     }
 

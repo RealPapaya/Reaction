@@ -364,6 +364,7 @@
         </div>
     </div>
 
+
     <!-- 🆕 Schedule Modal -->
     <div id="schedule-modal" class="modal">
         <div class="modal-content card">
@@ -374,6 +375,43 @@
             <div class="modal-body">
                 <div id="schedule-records-container" class="records-container">
                     <!-- 動態生成 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🆕 Replay Modal -->
+    <div id="replay-modal" class="modal">
+        <div class="modal-content card" style="max-width: 1100px; width: 95%;">
+            <div class="modal-header">
+                <h2 id="replay-modal-title">🎬 比賽重播</h2>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <canvas id="replay-canvas" width="1000" height="600"
+                    style="width: 100%; border: 2px solid #444; border-radius: 8px;"></canvas>
+
+                <div class="replay-controls" style="margin-top: 20px;">
+                    <div class="replay-buttons" style="display: flex; gap: 10px; margin-bottom: 15px;">
+                        <button id="replay-play-btn" class="btn btn-primary">▶ 播放</button>
+                        <button id="replay-pause-btn" class="btn btn-secondary">⏸ 暫停</button>
+                        <button id="replay-restart-btn" class="btn btn-secondary">🔄 重新開始</button>
+
+                        <select id="replay-speed" class="btn" style="margin-left: auto;">
+                            <option value="0.25">0.25x</option>
+                            <option value="0.5">0.5x</option>
+                            <option value="1" selected>1x</option>
+                            <option value="2">2x</option>
+                            <option value="4">4x</option>
+                        </select>
+                    </div>
+
+                    <div class="replay-progress" style="position: relative;">
+                        <input type="range" id="replay-seek-bar" min="0" max="100" value="0"
+                            style="width: 100%; cursor: pointer;">
+                        <div id="replay-time" style="text-align: center; margin-top: 5px; font-weight: bold;">00:00 /
+                            01:50</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -392,10 +430,12 @@
     <script src="race-engine/core/SteeringBehaviors.js"></script>
     <script src="race-engine/ai/JockeyAI.js"></script>
     <script src="race-engine/RaceSimulator.js"></script>
+    <script src="race-engine/BackgroundSimulator.js"></script>
     <script src="race-engine/RaceEngineAdapter.js"></script>
 
     <!-- 舊引擎（保留作為備份）-->
     <script src="js/race-engine.js"></script>
+    <script src="js/replay-viewer.js"></script>
     <script src="js/game.js"></script>
     <script src="js/history-schedule.js"></script>
 </body>
