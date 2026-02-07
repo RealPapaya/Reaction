@@ -39,7 +39,7 @@ HorseRacingGame.prototype.showTrackHistory = function (trackId) {
                             <th>時間</th>
                             <th>場次</th>
                             <th>獲勝馬匹</th>
-                            <th class="hide-mobile">成績</th>
+                            <th class="hide-mobile">最快成績</th>
                             <th>操作</th>
                         </tr>
                     </thead>
@@ -151,20 +151,28 @@ window.toggleDetail = function (detailId, rowElement) {
 };
 
 HorseRacingGame.prototype.showTrackSchedule = function (trackId) {
-    const track = raceScheduler.getTrackData(trackId);
-    const schedule = raceScheduler.getTrackSchedule(trackId, 8);
+    console.log(`📅 showTrackSchedule called for track: ${trackId}`);
+    try {
+        const track = raceScheduler.getTrackData(trackId);
+        console.log('Track data:', track);
+        const schedule = raceScheduler.getTrackSchedule(trackId, 8);
+        console.log('Schedule data:', schedule);
 
-    document.getElementById('schedule-modal-title').textContent = `${track.flagEmoji} ${track.name} - 賽程表`;
+        if (!schedule || schedule.length === 0) {
+            console.warn('⚠️ No schedule data returned');
+        }
 
-    const scheduleContainer = document.getElementById('schedule-records-container');
+        document.getElementById('schedule-modal-title').textContent = `${track.flagEmoji} ${track.name} - 賽程表`;
 
-    // 清除舊計時器
-    if (window.scheduleTimer) {
-        clearInterval(window.scheduleTimer);
-        window.scheduleTimer = null;
-    }
+        const scheduleContainer = document.getElementById('schedule-records-container');
 
-    const tableHTML = `
+        // 清除舊計時器
+        if (window.scheduleTimer) {
+            clearInterval(window.scheduleTimer);
+            window.scheduleTimer = null;
+        }
+
+        const tableHTML = `
         <div class="racing-table-container">
             <table class="racing-table">
                 <thead>
@@ -178,35 +186,35 @@ HorseRacingGame.prototype.showTrackSchedule = function (trackId) {
                 </thead>
                 <tbody>
                     ${schedule.map(item => {
-        const date = new Date(item.raceStartTime);
-        const dateStr = date.toLocaleString('zh-TW', {
-            month: '2-digit', day: '2-digit'
-        });
-        const timeStr = date.toLocaleString('zh-TW', {
-            hour: '2-digit', minute: '2-digit'
-        });
+            const date = new Date(item.raceStartTime);
+            const dateStr = date.toLocaleString('zh-TW', {
+                month: '2-digit', day: '2-digit'
+            });
+            const timeStr = date.toLocaleString('zh-TW', {
+                hour: '2-digit', minute: '2-digit'
+            });
 
-        const now = Date.now();
-        const timeUntil = item.raceStartTime - now;
-        const minutesUntil = Math.floor(timeUntil / 60000);
+            const now = Date.now();
+            const timeUntil = item.raceStartTime - now;
+            const minutesUntil = Math.floor(timeUntil / 60000);
 
-        let statusBadge = '';
-        let countdownText = '';
-        let rowClass = '';
+            let statusBadge = '';
+            let countdownText = '';
+            let rowClass = '';
 
-        if (item.isCurrent) {
-            statusBadge = '<span class="schedule-status betting">🟢 投注中</span>';
-            countdownText = `<span class="dynamic-countdown" data-end="${item.raceStartTime}" style="color: #e91e63; font-weight: bold;">計算中...</span>`;
-            rowClass = 'current-race-row';
-        } else if (minutesUntil > 0) {
-            statusBadge = '<span class="schedule-status upcoming">🟡 準備中</span>';
-            countdownText = `還有 ${minutesUntil} 分鐘`;
-        } else {
-            statusBadge = '<span class="schedule-status finished">🔴 已結束</span>';
-            countdownText = '-';
-        }
+            if (item.isCurrent) {
+                statusBadge = '<span class="schedule-status betting">🟢 投注中</span>';
+                countdownText = `<span class="dynamic-countdown" data-end="${item.raceStartTime}" style="color: #e91e63; font-weight: bold;">計算中...</span>`;
+                rowClass = 'current-race-row';
+            } else if (minutesUntil > 0) {
+                statusBadge = '<span class="schedule-status upcoming">🟡 準備中</span>';
+                countdownText = `還有 ${minutesUntil} 分鐘`;
+            } else {
+                statusBadge = '<span class="schedule-status finished">🔴 已結束</span>';
+                countdownText = '-';
+            }
 
-        return `
+            return `
                             <tr class="${rowClass}">
                                 <td>${dateStr}</td>
                                 <td>${timeStr}</td>
@@ -215,23 +223,27 @@ HorseRacingGame.prototype.showTrackSchedule = function (trackId) {
                                 <td>${countdownText}</td>
                             </tr>
                         `;
-    }).join('')}
+        }).join('')}
                 </tbody>
             </table>
         </div>
     `;
 
-    scheduleContainer.innerHTML = tableHTML;
+        scheduleContainer.innerHTML = tableHTML;
 
-    document.getElementById('schedule-modal').classList.add('show');
+        document.getElementById('schedule-modal').classList.add('show');
 
-    // 啟動倒數計時器
-    if (typeof startScheduleTimer === 'function') {
-        startScheduleTimer();
-    } else {
-        setTimeout(() => {
-            if (typeof startScheduleTimer === 'function') startScheduleTimer();
-        }, 100);
+        // 啟動倒數計時器
+        if (typeof startScheduleTimer === 'function') {
+            startScheduleTimer();
+        } else {
+            setTimeout(() => {
+                if (typeof startScheduleTimer === 'function') startScheduleTimer();
+            }, 100);
+        }
+    } catch (error) {
+        console.error('❌ Error in showTrackSchedule:', error);
+        alert('無法載入賽程表: ' + error.message);
     }
 };
 

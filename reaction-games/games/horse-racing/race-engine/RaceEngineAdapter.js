@@ -4,12 +4,13 @@
 // ====================================
 
 class RaceEngineAdapter {
-    constructor(canvas, horses, trackData) {
+    constructor(canvas, horses, trackData, raceSeed = null) {
         this.canvas = canvas;
         this.ctx = canvas ? canvas.getContext('2d') : null;
         this.simulator = null;
         this.trackPath = null;
         this.gameHorses = null;
+        this.raceSeed = raceSeed;  // ← 儲存種子碼
         this.isRunning = false;
         this.isPreparing = false; // 🎯 準備階段標記
         this.countdownText = "";  // 🎯 倒數文字
@@ -127,7 +128,8 @@ class RaceEngineAdapter {
         console.log(`🏁 Race Distance Setup: PathLen=${pathLength.toFixed(1)}, FinishS=${finishS}, RaceDist=${raceDistance.toFixed(1)}`);
 
         this.simulator = new RaceSimulator(rawPath, simulatorHorses, {
-            raceDistance: raceDistance
+            raceDistance: raceDistance,
+            raceSeed: this.raceSeed  // ← 傳遞種子碼（如果有的話）
         });
         this.trackPath = rawPath;
     }

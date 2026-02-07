@@ -18,6 +18,17 @@ class RaceSimulator {
         // Custom race distance support
         this.raceDistance = options.raceDistance || this.frenet.pathLength;
 
+        // 確定性隨機數生成器
+        this.raceSeed = options.raceSeed || null;
+        this.random = this.raceSeed
+            ? new SeededRandom(this.raceSeed)
+            : {
+                next: () => Math.random(),
+                range: (min, max) => min + Math.random() * (max - min),
+                int: (min, max) => Math.floor(min + Math.random() * (max - min + 1)),
+                boolean: (p = 0.5) => Math.random() < p
+            }; // fallback 到 Math.random
+
         this.isRunning = false;
         this.raceTime = 0;
         this.finishOrder = [];
@@ -39,10 +50,11 @@ class RaceSimulator {
             horse.d = laneSpacing * (laneIndex + 0.5);
             horse.speed = 0;
 
-            const baseFactor = 5.2 + (horse.competitiveFactor * 0.1);
-            horse.baseSpeed = baseFactor * (0.97 + Math.random() * 0.06);
+            // 修正:真實賽馬速度應該是 15-18 m/s (54-65 km/h)
+            const baseFactor = 1 + (horse.competitiveFactor / 100 * 0.3);  // competitiveFactor 是 0-100
+            horse.baseSpeed = baseFactor * 15 * (0.97 + this.random.next() * 0.06);  // 基礎速度 15 m/s
 
-            horse.startDelay = Math.random() * 0.3;
+            horse.startDelay = this.random.next() * 0.3;
             horse.hasStarted = false;
 
             horse.anxiety = 0;
@@ -55,10 +67,10 @@ class RaceSimulator {
 
             horse.bodyRadius = 1.0;
 
-            const distributionRoll = Math.random();
+            const distributionRoll = this.random.next();
             const randomInRange = (min, max) => {
                 const hi = Math.max(min, max);
-                return min + Math.random() * (hi - min);
+                return this.random.range(min, hi);
             };
 
             let preferredD = 1.0;

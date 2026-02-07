@@ -4,10 +4,10 @@
 
 class RaceScheduler {
     constructor() {
-        this.raceInterval = 8.5 * 60 * 1000;
+        this.raceInterval = 8 * 60 * 1000;
         this.bettingDuration = 5 * 60 * 1000;
         this.preRaceDuration = 15 * 1000;
-        this.raceDuration = 2.5 * 60 * 1000;
+        this.raceDuration = 2 * 60 * 1000;
         this.postRaceDuration = 15 * 1000;
         this.closedDuration = 75 * 1000;
 

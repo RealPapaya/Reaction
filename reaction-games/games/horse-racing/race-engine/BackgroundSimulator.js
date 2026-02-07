@@ -33,10 +33,11 @@ class BackgroundSimulator {
         const finishS = 0 + straightLength / 2;
         const raceDistance = pathLength + finishS;
 
-        // 4. 初始化模擬器
+        // 4. 初始化模擬器（傳遞種子碼以確保確定性）
         this.simulator = new RaceSimulator(trackPath, simulatorHorses, {
             raceDistance: raceDistance,
-            trackWidth: 17.5
+            trackWidth: 17.5,
+            raceSeed: this.raceSeed  // ← 傳遞種子碼
         });
 
         console.log('  🏁 模擬器初始化完成:');

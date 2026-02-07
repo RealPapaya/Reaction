@@ -76,7 +76,8 @@ class PhysicsEngine {
     }
 
     applyStrategySpeed(horse, raceProgress) {
-        const baseSpeed = horse.baseSpeed || 16;
+        // 使用馬匹實際的 baseSpeed（已在 RaceSimulator 中設定為 15-18 m/s）
+        const baseSpeed = horse.baseSpeed;
 
         // 簡化策略
         let targetSpeed = baseSpeed;
